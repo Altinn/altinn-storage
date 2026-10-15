@@ -1917,8 +1917,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             null,
             UpdateElementsPayload(
                 Guid.Parse(toUpdate.Id),
-                expectedBlobVersion: supersededBlobVersion,
-                newBlobVersion: replacementBlobVersion
+                expectedCurrentBlobVersion: BlobVersionId.Decode(supersededBlobVersion),
+                newBlobVersion: BlobVersionId.Decode(replacementBlobVersion)
             ),
             null,
             null,
@@ -2253,55 +2253,43 @@ public class DataTests(DataElementFixture dataElementFixture)
             new Guid(existing.InstanceGuid),
             updateVersion
         );
+        DateTime lastChanged = _frozenTime.AddMinutes(1);
 
-        InstanceInternal instanceUpdates = new()
+        InstanceMutationCommit mutation = new()
         {
-            Id = _instance.Id,
-            InstanceOwner = _instance.InstanceOwner,
-            Org = _instance.Org,
-            AppId = _instance.AppId,
-            Process = _instance.Process,
-            LastChanged = DateTime.UnixEpoch,
-            DataValues = new Dictionary<string, string> { ["data-value"] = "stored" },
-            PresentationTexts = new Dictionary<string, string> { ["presentation"] = "shown" },
-        };
-        InstanceMutationCommit mutation = new(
-            [toCreate],
+            Stamp = new(lastChanged, "mixed-mutation"),
+            CreateDataElements = [new(toCreate, BlobVersionId.Decode(toCreate.BlobVersionId))],
+            UpdateDataElements =
             [
-                new InstanceMutationDataElementUpdate(
+                new DataElementUpdate(
                     Guid.Parse(existing.Id),
-                    new Dictionary<string, object>
+                    new InstanceMutationDataElementChanges()
                     {
-                        ["/blobStoragePath"] = updateBlobPath,
-                        ["/currentBlobVersion"] = updateVersion,
+                        BlobStoragePath = Change<string>.Set(updateBlobPath),
                     },
-                    existingVersion,
-                    IgnoreLock: false
+                    BlobVersionId.Decode(existingVersion),
+                    IgnoreLock: false,
+                    NewBlobVersion: BlobVersionId.Decode(updateVersion)
                 ),
             ],
-            [new InstanceMutationDataElementDelete(toDelete.FromApiModel(), IgnoreLock: false)],
-            instanceUpdates,
-            [nameof(InstanceInternal.PresentationTexts), nameof(InstanceInternal.DataValues)],
-            null,
-            null,
-            []
-        );
+            DeleteDataElements =
+            [
+                new DataElementDeletion(Guid.Parse(toDelete.Id), IgnoreLock: false),
+            ],
+            InstanceChanges = new InstanceMutationChanges()
+            {
+                DataValues = new Dictionary<string, string> { ["data-value"] = "stored" },
+                PresentationTexts = new Dictionary<string, string> { ["presentation"] = "shown" },
+            },
+        };
 
         // Act
-        DateTime applyStarted = new(
-            (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
-            DateTimeKind.Utc
-        );
         InstanceMutationApplyResult applyResult =
             await dataElementFixture.InstanceMutationRepo.Apply(
                 instanceGuid,
                 _instanceInternalId,
                 mutation
             );
-        DateTime applyCompleted = new(
-            (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
-            DateTimeKind.Utc
-        );
         InstanceInternal updatedInternal = await dataElementFixture.InstanceRepo.GetOne(
             instanceGuid,
             true,
@@ -2315,7 +2303,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         // Assert
         Assert.False(applyResult.Replayed);
         Assert.NotNull(applyResult.Instance);
-        Assert.InRange((DateTime)applyResult.Instance.LastChanged, applyStarted, applyCompleted);
+        Assert.Equal(lastChanged, applyResult.Instance.LastChanged);
+        Assert.Equal("mixed-mutation", applyResult.Instance.LastChangedBy);
         Assert.Equal(updatedInternal.Versions, applyResult.Instance.Versions);
         Assert.Equal(updatedInternal.Data.Count, applyResult.Instance.Data.Count);
         Assert.Contains(updatedInternal.Data, d => d.Id == toCreate.Id);
@@ -2328,6 +2317,568 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
+    public async Task AggregateMutation_DataElementChanges_PreserveOmittedAndApplyNullFalseAndEmptyValues()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        element.ContentType = "preserved-content-type";
+        element.Filename = "cleared.txt";
+        element.Tags = ["cleared-tag"];
+        element.Metadata = _originalEntries;
+        element.UserDefinedMetadata = _replacementEntries;
+        element.Size = 123;
+        element.Locked = true;
+        element.IsRead = true;
+        (element, string currentVersion) = await CreateVersionedDataElement(element);
+        int previousInstanceVersion = await ReadInstanceVersion(_instance.Id);
+        int previousProcessStateVersion = await ReadProcessStateVersion(_instance.Id);
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(_frozenTime.AddMinutes(1), "metadata-mutation"),
+            UpdateDataElements =
+            [
+                new(
+                    Guid.Parse(element.Id),
+                    new()
+                    {
+                        Filename = Change<string>.Set(null),
+                        Metadata = Change<IReadOnlyList<KeyValueEntry>>.Set(null),
+                        Tags = Change<IReadOnlyList<string>>.Set([]),
+                        Locked = false,
+                        IsRead = false,
+                        Size = 0,
+                    },
+                    BlobVersionId.Decode(currentVersion),
+                    IgnoreLock: true
+                ),
+            ],
+            ExpectedInstanceVersion = previousInstanceVersion,
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            _instance.Id,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        DataElementInternal updatedElement = Assert.Single(result.Instance.Data);
+        Assert.Equal("preserved-content-type", updatedElement.ContentType);
+        Assert.Equal(
+            _replacementEntries.Select(entry => entry.Key),
+            updatedElement.UserDefinedMetadata.Select(entry => entry.Key)
+        );
+        Assert.Null(updatedElement.Filename);
+        Assert.Null(updatedElement.Metadata);
+        Assert.Empty(updatedElement.Tags);
+        Assert.False(updatedElement.Locked);
+        Assert.False(updatedElement.IsRead);
+        Assert.Equal(0, updatedElement.Size);
+        Assert.Equal(currentVersion, updatedElement.BlobVersionId);
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion, result.Instance.Versions.ProcessStateVersion);
+    }
+
+    [Fact]
+    public async Task AggregateMutation_DataElementReplacements_PreserveNestedNullValues()
+    {
+        // Arrange
+        DataElement element = TestDataUtil.GetDataElement(_dataElement1);
+        (element, string currentVersion) = await CreateVersionedDataElement(element);
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(_frozenTime, "replacement"),
+            UpdateDataElements =
+            [
+                new(
+                    Guid.Parse(element.Id),
+                    new()
+                    {
+                        Metadata = Change<IReadOnlyList<KeyValueEntry>>.Set([
+                            new() { Key = "nullable", Value = null },
+                        ]),
+                        DeleteStatus = Change<DeleteStatus>.Set(
+                            new() { IsHardDeleted = false, HardDeleted = null }
+                        ),
+                        References = Change<IReadOnlyList<Reference>>.Set([
+                            new()
+                            {
+                                Value = "related",
+                                Relation = null,
+                                ValueType = null,
+                            },
+                        ]),
+                    },
+                    BlobVersionId.Decode(currentVersion)
+                ),
+            ],
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            _instance.Id,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        DataElementInternal updated = Assert.Single(result.Instance.Data);
+        Assert.Null(Assert.Single(updated.Metadata).Value);
+        Assert.False(updated.DeleteStatus.IsHardDeleted);
+        Assert.Null(updated.DeleteStatus.HardDeleted);
+        Assert.Null(Assert.Single(updated.References).Relation);
+        Assert.Null(Assert.Single(updated.References).ValueType);
+        JsonObject stored = JsonNode
+            .Parse(
+                await PostgresUtil.RunQuery<string>(
+                    $"select element::text from storage.dataelements where instanceguid = '{_instance.Id}' and alternateid = '{element.Id}'"
+                )
+            )
+            .AsObject();
+        Assert.True(stored["Metadata"][0].AsObject().ContainsKey("Value"));
+        Assert.Null(stored["Metadata"][0]["Value"]);
+        Assert.True(stored["DeleteStatus"].AsObject().ContainsKey("HardDeleted"));
+        Assert.Null(stored["DeleteStatus"]["HardDeleted"]);
+        Assert.True(stored["References"][0].AsObject().ContainsKey("Relation"));
+        Assert.Null(stored["References"][0]["Relation"]);
+        Assert.True(stored["References"][0].AsObject().ContainsKey("ValueType"));
+        Assert.Null(stored["References"][0]["ValueType"]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_EmptyInstanceChanges_BumpsVersionWhileOmittedChangesDoNot(
+        bool specifyInstanceChanges
+    )
+    {
+        // Arrange
+        StorageVersions previousVersions = _instance.Versions;
+        string previousJson = await ReadStoredInstanceJson(_instance.Id);
+        DateTime lastChanged = _frozenTime.AddMinutes(1);
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(lastChanged, "empty-mutation"),
+            InstanceChanges = specifyInstanceChanges ? new() : null,
+            ExpectedInstanceVersion = previousVersions.InstanceVersion,
+            ExpectedProcessStateVersion = previousVersions.ProcessStateVersion,
+            InstanceEvents =
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
+                    EventType = InstanceEventType.Saved.ToString(),
+                    ProcessInfo = _instance.Process,
+                    Created = lastChanged,
+                },
+            ],
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            _instance.Id,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal(
+            previousVersions.InstanceVersion + (specifyInstanceChanges ? 1 : 0),
+            result.Instance.Versions.InstanceVersion
+        );
+        Assert.Equal(
+            previousVersions.ProcessStateVersion,
+            result.Instance.Versions.ProcessStateVersion
+        );
+        Assert.Equal(
+            JsonSerializer.Serialize(_instance.Process),
+            JsonSerializer.Serialize(result.Instance.Process)
+        );
+        if (specifyInstanceChanges)
+        {
+            Assert.Equal(lastChanged, result.Instance.LastChanged);
+            Assert.Equal("empty-mutation", result.Instance.LastChangedBy);
+        }
+        else
+        {
+            Assert.Equal(previousJson, await ReadStoredInstanceJson(_instance.Id));
+        }
+
+        string storedEvent = await PostgresUtil.RunQuery<string>(
+            $"select event::text from storage.instanceevents where instance = '{_instance.Id}'"
+        );
+        using JsonDocument eventJson = JsonDocument.Parse(storedEvent);
+        Assert.Equal(
+            $"{_instance.InstanceOwner.PartyId}/{_instance.Id}",
+            eventJson.RootElement.GetProperty("InstanceId").GetString()
+        );
+        Assert.Equal(
+            _instance.Process.CurrentTask.ElementId,
+            eventJson
+                .RootElement.GetProperty("ProcessInfo")
+                .GetProperty("CurrentTask")
+                .GetProperty("ElementId")
+                .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task AggregateMutation_InstanceCollections_MergesRemovesKeysAndPreservesExistingConfirmations()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        DateTime confirmedOn = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        await PostgresUtil.RunSql(
+            $$"""
+            update storage.instances
+            set instance = instance || '{
+                "DataValues": { "preserved": "data", "removed": "old", "overwritten": "old" },
+                "PresentationTexts": { "preserved": "text", "removed": "old", "overwritten": "old" },
+                "CompleteConfirmations": [{ "StakeholderId": "existing", "ConfirmedOn": "{{confirmedOn:O}}" }]
+            }'::jsonb
+            where alternateid = '{{instanceGuid}}'
+            """
+        );
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        DateTime lastChanged = _frozenTime.AddMinutes(1);
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(lastChanged, "collection-mutation"),
+            InstanceChanges = new()
+            {
+                DataValues = new Dictionary<string, string>
+                {
+                    ["removed"] = null,
+                    ["overwritten"] = "new-data",
+                    ["added"] = "added-data",
+                },
+                PresentationTexts = new Dictionary<string, string>
+                {
+                    ["removed"] = null,
+                    ["overwritten"] = "new-text",
+                    ["added"] = "added-text",
+                },
+                CompleteConfirmations =
+                [
+                    new() { StakeholderId = "existing", ConfirmedOn = lastChanged },
+                    new() { StakeholderId = _instance.Org, ConfirmedOn = lastChanged },
+                ],
+            },
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal("data", result.Instance.DataValues["preserved"]);
+        Assert.Equal("new-data", result.Instance.DataValues["overwritten"]);
+        Assert.Equal("added-data", result.Instance.DataValues["added"]);
+        Assert.False(result.Instance.DataValues.ContainsKey("removed"));
+        Assert.Equal("text", result.Instance.PresentationTexts["preserved"]);
+        Assert.Equal("new-text", result.Instance.PresentationTexts["overwritten"]);
+        Assert.Equal("added-text", result.Instance.PresentationTexts["added"]);
+        Assert.False(result.Instance.PresentationTexts.ContainsKey("removed"));
+        Assert.Equal(2, result.Instance.CompleteConfirmations.Count);
+        Assert.Equal(
+            confirmedOn,
+            Assert
+                .Single(
+                    result.Instance.CompleteConfirmations,
+                    confirmation => confirmation.StakeholderId == "existing"
+                )
+                .ConfirmedOn
+        );
+        Assert.Equal(
+            lastChanged,
+            Assert
+                .Single(
+                    result.Instance.CompleteConfirmations,
+                    confirmation => confirmation.StakeholderId == _instance.Org
+                )
+                .ConfirmedOn
+        );
+        Assert.True(await ReadInstanceConfirmed(instanceGuid));
+        Assert.Equal(previousInstanceVersion + 1, result.Instance.Versions.InstanceVersion);
+        Assert.Equal(previousProcessStateVersion, result.Instance.Versions.ProcessStateVersion);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("null", false)]
+    [InlineData("{}", true)]
+    public async Task ApplyInstanceMutationV2Sql_NullAndEmptyInstanceChanges_HaveDistinctVersionSemantics(
+        string instanceChanges,
+        bool bumpsVersion
+    )
+    {
+        // Arrange
+        StorageVersions previousVersions = _instance.Versions;
+        string previousJson = await ReadStoredInstanceJson(_instance.Id);
+        DateTime lastChanged = _frozenTime.AddMinutes(1);
+
+        // Act
+        List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
+            _instance.Id,
+            _instanceInternalId,
+            previousVersions.InstanceVersion,
+            previousVersions.ProcessStateVersion,
+            null,
+            null,
+            null,
+            null,
+            instanceChanges,
+            null,
+            null,
+            lastChanged
+        );
+
+        // Assert
+        AssertAppliedRows(
+            rows,
+            previousVersions.InstanceVersion + (bumpsVersion ? 1 : 0),
+            previousVersions.ProcessStateVersion
+        );
+        if (bumpsVersion)
+        {
+            Assert.Equal(lastChanged, await ReadInstanceLastChangedColumn(_instance.Id));
+        }
+        else
+        {
+            Assert.Equal(previousJson, await ReadStoredInstanceJson(_instance.Id));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_InstanceChanges_MergeIntoMissingAndNullCollectionRoots(
+        bool useJsonNull
+    )
+    {
+        // Arrange
+        string roots = useJsonNull
+            ? "instance || '{\"DataValues\":null,\"PresentationTexts\":null,\"CompleteConfirmations\":null,\"Status\":null}'::jsonb"
+            : "instance - 'DataValues' - 'PresentationTexts' - 'CompleteConfirmations' - 'Status'";
+        await PostgresUtil.RunSql(
+            $"update storage.instances set instance = {roots}, confirmed = false where alternateid = '{_instance.Id}'"
+        );
+        DateTime secondConfirmation = _frozenTime.AddMinutes(1);
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(secondConfirmation, "null-roots"),
+            InstanceChanges = new()
+            {
+                DataValues = new Dictionary<string, string>
+                {
+                    ["added"] = "data",
+                    ["removed"] = null,
+                },
+                PresentationTexts = new Dictionary<string, string>
+                {
+                    ["added"] = "text",
+                    ["removed"] = null,
+                },
+                CompleteConfirmations =
+                [
+                    new() { StakeholderId = "new-stakeholder", ConfirmedOn = _frozenTime },
+                    new() { StakeholderId = "new-stakeholder", ConfirmedOn = secondConfirmation },
+                ],
+                Status = new()
+                {
+                    IsArchived = false,
+                    Archived = Change<DateTime?>.Set(null),
+                    Substatus = new() { Label = "replacement", Description = null },
+                },
+            },
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            _instance.Id,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal("data", Assert.Single(result.Instance.DataValues).Value);
+        Assert.Equal("text", Assert.Single(result.Instance.PresentationTexts).Value);
+        Assert.Equal(
+            [_frozenTime, secondConfirmation],
+            result.Instance.CompleteConfirmations.Select(confirmation => confirmation.ConfirmedOn)
+        );
+        Assert.All(
+            result.Instance.CompleteConfirmations,
+            confirmation => Assert.Equal("new-stakeholder", confirmation.StakeholderId)
+        );
+        Assert.False(result.Instance.Status.IsArchived);
+        Assert.Null(result.Instance.Status.Archived);
+        Assert.Equal("replacement", result.Instance.Status.Substatus.Label);
+        Assert.Null(result.Instance.Status.Substatus.Description);
+        Assert.False(await ReadInstanceConfirmed(_instance.Id));
+    }
+
+    [Theory]
+    [InlineData(true, null, false, true)]
+    [InlineData(false, null, false, false)]
+    [InlineData(false, null, true, true)]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, true, false, true)]
+    public async Task AggregateMutation_Confirmed_UsesExplicitOverrideOrIncomingStoredOrgConfirmation(
+        bool currentConfirmed,
+        bool? explicitConfirmed,
+        bool addOwnerConfirmation,
+        bool expectedConfirmed
+    )
+    {
+        // Arrange
+        await PostgresUtil.RunSql(
+            $$"""
+            update storage.instances
+            set confirmed = {{currentConfirmed.ToString().ToLowerInvariant()}},
+                instance = instance || '{"Org":"divergent-json-org","CompleteConfirmations":[]}'::jsonb
+            where alternateid = '{{_instance.Id}}'
+            """
+        );
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(_frozenTime, "confirmed"),
+            InstanceChanges = new()
+            {
+                Confirmed = explicitConfirmed,
+                CompleteConfirmations = addOwnerConfirmation
+                    ? [new() { StakeholderId = _instance.Org, ConfirmedOn = _frozenTime }]
+                    : [],
+            },
+        };
+
+        // Act
+        InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
+            _instance.Id,
+            _instanceInternalId,
+            mutation
+        );
+
+        // Assert
+        Assert.Equal(expectedConfirmed, await ReadInstanceConfirmed(_instance.Id));
+        Assert.Equal("divergent-json-org", result.Instance.Org);
+        Assert.False(await InstanceJsonContainsKey(_instance.Id, "Confirmed"));
+        Assert.Equal(
+            _instance.Versions.InstanceVersion + 1,
+            result.Instance.Versions.InstanceVersion
+        );
+        Assert.Equal(
+            _instance.Versions.ProcessStateVersion,
+            result.Instance.Versions.ProcessStateVersion
+        );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_Outbox_UsesNativeInstanceMetadataWhenJsonMetadataDiffers(
+        bool clearJsonCreated
+    )
+    {
+        // Arrange
+        DateTime nativeCreated = await PostgresUtil.RunQuery<DateTime>(
+            $"select created from storage.instances where alternateid = '{_instance.Id}'"
+        );
+        await PostgresUtil.RunSql(
+            $$"""
+            delete from storage.outbox where instanceid = '{{_instance.Id}}';
+            update storage.instances
+            set instance = instance || '{
+                "Created":{{(clearJsonCreated ? "null" : "\"2001-01-01T00:00:00Z\"")}},
+                "AppId":"divergent-json-app",
+                "InstanceOwner":{"PartyId":"999999"}
+            }'::jsonb
+            where alternateid = '{{_instance.Id}}'
+            """
+        );
+        PgInstanceMutationRepository repository = new(
+            dataElementFixture.DataSource,
+            new OutboxInsertRowFactory(
+                Options.Create(new WolverineSettings { EnableSending = true })
+            )
+        );
+        Guid eventId = Guid.NewGuid();
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(_frozenTime, "outbox"),
+            InstanceEvents =
+            [
+                new()
+                {
+                    Id = eventId,
+                    InstanceId = _instance.ToApiModel().Id,
+                    EventType = InstanceEventType.Saved.ToString(),
+                    Created = _frozenTime,
+                },
+            ],
+        };
+
+        // Act
+        await repository.Apply(_instance.Id, _instanceInternalId, mutation);
+
+        // Assert
+        await using NpgsqlCommand command = dataElementFixture.DataSource.CreateCommand(
+            "select appid, partyid, instancecreated, ismigration from storage.outbox where instanceid = $1"
+        );
+        command.Parameters.AddWithValue(NpgsqlDbType.Uuid, _instance.Id);
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(_instance.AppId, reader.GetString(0));
+        Assert.Equal(long.Parse(_instance.InstanceOwner.PartyId), reader.GetInt64(1));
+        Assert.Equal(nativeCreated, reader.GetDateTime(2));
+        Assert.False(reader.GetBoolean(3));
+        Assert.Equal(_instance.Versions.InstanceVersion, await ReadInstanceVersion(_instance.Id));
+        Assert.Equal(
+            eventId.ToString(),
+            await PostgresUtil.RunQuery<string>(
+                $"select event ->> 'Id' from storage.instanceevents where instance = '{_instance.Id}'"
+            )
+        );
+    }
+
+    [Fact]
+    public async Task ApplyInstanceMutationV2Sql_OnlySupportedInstanceFieldsEnterStoredDocument()
+    {
+        // Act
+        await ApplyInstanceMutationSql(
+            _instance.Id,
+            _instanceInternalId,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            """{"CreatedBy":null,"DueBefore":null,"Confirmed":false,"Org":"ignored","UnknownControl":"ignored"}""",
+            null,
+            null
+        );
+
+        // Assert
+        JsonObject stored = JsonNode.Parse(await ReadStoredInstanceJson(_instance.Id)).AsObject();
+        Assert.True(stored.ContainsKey("CreatedBy"));
+        Assert.Null(stored["CreatedBy"]);
+        Assert.True(stored.ContainsKey("DueBefore"));
+        Assert.Null(stored["DueBefore"]);
+        Assert.Equal(_instance.Org, stored["Org"].GetValue<string>());
+        Assert.False(stored.ContainsKey("Confirmed"));
+        Assert.False(stored.ContainsKey("UnknownControl"));
+    }
+
+    [Fact]
     public async Task AggregateMutation_DeleteDataElementAndEvent_CommitsDeletedEvent()
     {
         // Arrange
@@ -2335,30 +2886,25 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement toDelete = TestDataUtil.GetDataElement(_dataElement2);
         (toDelete, _) = await CreateVersionedDataElement(toDelete);
 
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [new InstanceMutationDataElementDelete(toDelete.FromApiModel(), IgnoreLock: false)],
-            new InstanceInternal
-            {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-            },
-            [],
-            null,
-            null,
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            DeleteDataElements =
+            [
+                new DataElementDeletion(Guid.Parse(toDelete.Id), IgnoreLock: false),
+            ],
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Deleted.ToString(),
                     DataId = toDelete.Id,
                     Created = DateTime.UtcNow,
                 },
-            ]
-        );
+            ],
+        };
 
         // Act
         await dataElementFixture.InstanceMutationRepo.Apply(
@@ -2394,29 +2940,20 @@ public class DataTests(DataElementFixture dataElementFixture)
                 Options.Create(new WolverineSettings { EnableSending = true })
             )
         );
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-            },
-            [],
-            null,
-            null,
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Saved.ToString(),
                     Created = DateTime.UtcNow,
                 },
-            ]
-        );
+            ],
+        };
 
         // Act
         await repository.Apply(instanceGuid, _instanceInternalId, mutation);
@@ -2449,29 +2986,20 @@ public class DataTests(DataElementFixture dataElementFixture)
                 )
             )
         );
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-            },
-            [],
-            null,
-            null,
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Saved.ToString(),
                     Created = DateTime.UtcNow,
                 },
-            ]
-        );
+            ],
+        };
 
         await PostgresUtil.FreezeTime(frozenAt);
         try
@@ -2536,7 +3064,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
-    public async Task AggregateMutation_DeleteInstanceRetryOnHardDeletedInstance_ReplayAdmissionAndApplySucceed()
+    public async Task AggregateMutation_DeleteInstanceRetryOnHardDeletedInstance_GetReplayResultAndApplySucceed()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -2564,8 +3092,8 @@ public class DataTests(DataElementFixture dataElementFixture)
                 _instanceInternalId,
                 firstMutation
             );
-        InstanceMutationApplyResult replayAdmission =
-            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+        InstanceMutationApplyResult replayResult =
+            await dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 firstResult.Instance.Versions.InstanceVersion,
@@ -2586,9 +3114,9 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         Assert.False(firstResult.Replayed);
-        Assert.True(replayAdmission.Replayed);
-        Assert.Equal(firstResult.Instance.Versions, replayAdmission.Instance.Versions);
-        Assert.True(replayAdmission.Instance.Status.IsHardDeleted);
+        Assert.True(replayResult.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, replayResult.Instance.Versions);
+        Assert.True(replayResult.Instance.Status.IsHardDeleted);
         Assert.True(retryResult.Replayed);
         Assert.Equal(firstResult.Instance.Versions, retryResult.Instance.Versions);
         Assert.True(updatedInternal.Status.IsHardDeleted);
@@ -2641,8 +3169,8 @@ public class DataTests(DataElementFixture dataElementFixture)
                 _instanceInternalId,
                 mutation
             );
-        InstanceMutationApplyResult replayAdmission =
-            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+        InstanceMutationApplyResult earlyReplayResult =
+            await dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 firstResult.Instance.Versions.InstanceVersion,
@@ -2666,10 +3194,10 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Assert
         Assert.False(firstResult.Replayed);
-        Assert.True(replayAdmission.Replayed);
-        Assert.Equal(firstResult.Instance.Versions, replayAdmission.Instance.Versions);
-        Assert.True(replayAdmission.Instance.Status.IsHardDeleted);
-        Assert.Equal(ProcessStatus.Idle, replayAdmission.Instance.Process.Status);
+        Assert.True(earlyReplayResult.Replayed);
+        Assert.Equal(firstResult.Instance.Versions, earlyReplayResult.Instance.Versions);
+        Assert.True(earlyReplayResult.Instance.Status.IsHardDeleted);
+        Assert.Equal(ProcessStatus.Idle, earlyReplayResult.Instance.Process.Status);
         Assert.True(replayResult.Replayed);
         Assert.Equal(firstResult.Instance.Versions, replayResult.Instance.Versions);
         Assert.Equal(previousInstanceVersion + 1, firstResult.Instance.Versions.InstanceVersion);
@@ -2831,31 +3359,30 @@ public class DataTests(DataElementFixture dataElementFixture)
         string staleExpectedVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
         string updateVersion = await CreateBlobVersionId(instanceGuid, existing.Id);
 
-        InstanceMutationCommit mutation = new(
-            [toCreate],
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            CreateDataElements = [new(toCreate, BlobVersionId.Decode(toCreate.BlobVersionId))],
+            UpdateDataElements =
             [
-                new InstanceMutationDataElementUpdate(
+                new DataElementUpdate(
                     Guid.Parse(existing.Id),
-                    new Dictionary<string, object>
+                    new InstanceMutationDataElementChanges()
                     {
-                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
-                            _instance.AppId,
-                            new Guid(existing.InstanceGuid),
-                            updateVersion
+                        BlobStoragePath = Change<string>.Set(
+                            DataElementHelper.GetVersionedBlobPath(
+                                _instance.AppId,
+                                new Guid(existing.InstanceGuid),
+                                updateVersion
+                            )
                         ),
-                        ["/currentBlobVersion"] = updateVersion,
                     },
-                    staleExpectedVersion,
-                    IgnoreLock: false
+                    BlobVersionId.Decode(staleExpectedVersion),
+                    IgnoreLock: false,
+                    NewBlobVersion: BlobVersionId.Decode(updateVersion)
                 ),
             ],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            null,
-            null,
-            []
-        );
+        };
 
         // Act
         await Assert.ThrowsAsync<DataElementBlobVersionMismatchException>(() =>
@@ -2892,23 +3419,22 @@ public class DataTests(DataElementFixture dataElementFixture)
         (hardDeletedElement, string currentVersion) = await CreateVersionedDataElement(
             hardDeletedElement
         );
-        InstanceMutationCommit mutation = new(
-            [],
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            UpdateDataElements =
             [
-                new InstanceMutationDataElementUpdate(
+                new DataElementUpdate(
                     Guid.Parse(hardDeletedElement.Id),
-                    new Dictionary<string, object> { ["/tags"] = new List<string> { "new" } },
-                    currentVersion,
+                    new InstanceMutationDataElementChanges()
+                    {
+                        Tags = Change<IReadOnlyList<string>>.Set(new List<string> { "new" }),
+                    },
+                    BlobVersionId.Decode(currentVersion),
                     IgnoreLock: ignoreLock
                 ),
             ],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            null,
-            null,
-            []
-        );
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -2933,16 +3459,12 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElementInternal toCreate = await PrepareAggregateCreateDataElement(instanceGuid);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         await SetInstanceHardDeleted(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [toCreate],
-            [],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            currentInstanceVersion,
-            null,
-            []
-        );
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            CreateDataElements = [new(toCreate, BlobVersionId.Decode(toCreate.BlobVersionId))],
+            ExpectedInstanceVersion = currentInstanceVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -2993,7 +3515,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 firstMutation
             );
         InstanceMutationApplyResult earlyReplayResult =
-            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+            await dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 firstResult.Instance.Versions.InstanceVersion,
@@ -3002,7 +3524,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             );
         InstanceVersionMismatchException wrongPreviousVersionException =
             await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
-                dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                dataElementFixture.InstanceMutationRepo.GetReplayResult(
                     instanceGuid,
                     previousInstanceVersion + 1,
                     firstResult.Instance.Versions.InstanceVersion,
@@ -3077,7 +3599,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 firstMutation
             );
         InstanceMutationApplyResult earlyReplayResult =
-            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+            await dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 firstResult.Instance.Versions.InstanceVersion,
@@ -3092,7 +3614,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             );
         InstanceVersionMismatchException noRecordException =
             await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
-                dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                dataElementFixture.InstanceMutationRepo.GetReplayResult(
                     instanceGuid,
                     previousInstanceVersion,
                     firstResult.Instance.Versions.InstanceVersion,
@@ -3145,21 +3667,16 @@ public class DataTests(DataElementFixture dataElementFixture)
                 ('{idempotencyKey}', '{Guid.NewGuid()}', {previousInstanceVersion}, {previousInstanceVersion}, ARRAY[]::text[]);
             """
         );
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            previousInstanceVersion,
-            null,
-            [],
-            idempotencyKey
-        );
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            ExpectedInstanceVersion = previousInstanceVersion,
+            IdempotencyKey = idempotencyKey,
+        };
 
         // Act
         RepositoryException replayException = await Assert.ThrowsAsync<RepositoryException>(() =>
-            dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+            dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 previousInstanceVersion,
@@ -3250,34 +3767,21 @@ public class DataTests(DataElementFixture dataElementFixture)
             EndEvent = "EndEvent_1",
             CurrentTask = new ProcessElementInfo { ElementId = "Task_Archive" },
         };
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(lastChanged, "aggregate-process-end"),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-                LastChanged = lastChanged,
-                LastChangedBy = "aggregate-process-end",
                 Process = processState,
-                Status = new InstanceStatus { IsArchived = true, Archived = processEnded },
+                Status = new InstanceMutationStatusChanges()
+                {
+                    IsArchived = true,
+                    Archived = Change<DateTime?>.Set(processEnded),
+                },
             },
-            [
-                nameof(InstanceInternal.Process),
-                nameof(InstanceInternal.LastChanged),
-                nameof(InstanceInternal.LastChangedBy),
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsArchived),
-                nameof(InstanceStatus.Archived),
-            ],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            []
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3303,6 +3807,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.True(updatedInstanceInternal.Status.IsArchived);
         Assert.Equal(processEnded, updatedInstanceInternal.Status.Archived);
         Assert.Equal("aggregate-process-end", updatedInstanceInternal.LastChangedBy);
+        Assert.Equal(lastChanged, updatedInstanceInternal.LastChanged);
         Assert.Equal("Task_Archive", await ReadInstanceTaskId(instanceGuid));
     }
 
@@ -3321,21 +3826,16 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         Guid idempotencyKey = Guid.NewGuid();
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState { Status = ProcessStatus.Processing },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            null,
-            [],
-            IdempotencyKey: idempotencyKey
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            IdempotencyKey = idempotencyKey,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3363,16 +3863,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, currentStatus);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            null,
-            null,
-            []
-        );
+        InstanceMutationCommit mutation = new() { Stamp = new(DateTime.UtcNow, null) };
 
         // Act
         ProcessStatusConflictException exception =
@@ -3408,20 +3899,16 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 DataValues = new Dictionary<string, string> { ["fenced-write"] = "applied" },
             },
-            [nameof(InstanceInternal.DataValues)],
-            currentInstanceVersion,
-            currentProcessStateVersion,
-            []
-        );
+            ExpectedInstanceVersion = currentInstanceVersion,
+            ExpectedProcessStateVersion = currentProcessStateVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3445,23 +3932,18 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 DataValues = new Dictionary<string, string>
                 {
                     ["instance-version-fenced-write"] = "applied",
                 },
             },
-            [nameof(InstanceInternal.DataValues)],
-            currentInstanceVersion,
-            null,
-            []
-        );
+            ExpectedInstanceVersion = currentInstanceVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3487,20 +3969,16 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 DataValues = new Dictionary<string, string> { ["stale-fenced-write"] = "blocked" },
             },
-            [nameof(InstanceInternal.DataValues)],
-            currentInstanceVersion,
-            currentProcessStateVersion - 1,
-            []
-        );
+            ExpectedInstanceVersion = currentInstanceVersion,
+            ExpectedProcessStateVersion = currentProcessStateVersion - 1,
+        };
 
         ProcessStateVersionMismatchException exception =
             await Assert.ThrowsAsync<ProcessStateVersionMismatchException>(() =>
@@ -3528,16 +4006,12 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int currentInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            currentInstanceVersion - 1,
-            currentProcessStateVersion,
-            []
-        );
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            ExpectedInstanceVersion = currentInstanceVersion - 1,
+            ExpectedProcessStateVersion = currentProcessStateVersion,
+        };
 
         // Act
         InstanceVersionMismatchException exception =
@@ -3563,24 +4037,20 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState
                 {
                     Status = ProcessStatus.Processing,
                     CurrentTask = new ProcessElementInfo { ElementId = "Task_Keep" },
                 },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            []
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3605,24 +4075,20 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState
                 {
                     Status = ProcessStatus.Idle,
                     CurrentTask = new ProcessElementInfo { ElementId = "Task_Clear" },
                 },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            []
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -3646,23 +4112,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         await SetStoredProcessStatus(instanceGuid, ProcessStatus.Processing);
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState
                 {
                     CurrentTask = new ProcessElementInfo { ElementId = "Task_Missing_Status" },
                 },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            []
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+        };
 
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
             instanceGuid,
@@ -3685,21 +4147,17 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         Guid acquireKey = Guid.NewGuid();
-        InstanceMutationCommit acquireMutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit acquireMutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState { Status = ProcessStatus.Processing },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            [],
-            IdempotencyKey: acquireKey
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+            IdempotencyKey = acquireKey,
+        };
 
         // Act
         InstanceMutationApplyResult firstResult =
@@ -3714,25 +4172,21 @@ public class DataTests(DataElementFixture dataElementFixture)
                 _instanceInternalId,
                 acquireMutation
             );
-        InstanceMutationCommit laterMutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit laterMutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState
                 {
                     Status = ProcessStatus.Processing,
                     CurrentTask = new ProcessElementInfo { ElementId = "Task_Later" },
                 },
             },
-            [nameof(InstanceInternal.Process)],
-            firstResult.Instance.Versions.InstanceVersion,
-            firstResult.Instance.Versions.ProcessStateVersion,
-            [],
-            IdempotencyKey: Guid.NewGuid()
-        );
+            ExpectedInstanceVersion = firstResult.Instance.Versions.InstanceVersion,
+            ExpectedProcessStateVersion = firstResult.Instance.Versions.ProcessStateVersion,
+            IdempotencyKey = Guid.NewGuid(),
+        };
         InstanceMutationApplyResult laterResult =
             await dataElementFixture.InstanceMutationRepo.Apply(
                 instanceGuid,
@@ -3778,21 +4232,17 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         Guid firstIdempotencyKey = Guid.NewGuid();
         Guid secondIdempotencyKey = Guid.NewGuid();
-        InstanceMutationCommit firstMutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        InstanceMutationCommit firstMutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
                 Process = new ProcessState { Status = ProcessStatus.Processing },
             },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            [],
-            IdempotencyKey: firstIdempotencyKey
-        );
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+            IdempotencyKey = firstIdempotencyKey,
+        };
         InstanceMutationCommit secondMutation = firstMutation with
         {
             IdempotencyKey = secondIdempotencyKey,
@@ -3942,7 +4392,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
         // Act/assert
         await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
-            dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+            dataElementFixture.InstanceMutationRepo.GetReplayResult(
                 instanceGuid,
                 previousInstanceVersion,
                 laterMutationResult.Instance.Versions.InstanceVersion,
@@ -3974,40 +4424,42 @@ public class DataTests(DataElementFixture dataElementFixture)
         {
             CurrentTask = new ProcessElementInfo { ElementId = "Task_2" },
         };
-        InstanceMutationCommit mutation = new(
-            [],
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            UpdateDataElements =
             [
-                new InstanceMutationDataElementUpdate(
+                new DataElementUpdate(
                     Guid.Parse(existing.Id),
-                    new Dictionary<string, object>
+                    new InstanceMutationDataElementChanges()
                     {
-                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
-                            _instance.AppId,
-                            new Guid(existing.InstanceGuid),
-                            updateVersion
+                        BlobStoragePath = Change<string>.Set(
+                            DataElementHelper.GetVersionedBlobPath(
+                                _instance.AppId,
+                                new Guid(existing.InstanceGuid),
+                                updateVersion
+                            )
                         ),
-                        ["/currentBlobVersion"] = updateVersion,
                     },
-                    currentVersion,
-                    IgnoreLock: false
+                    BlobVersionId.Decode(currentVersion),
+                    IgnoreLock: false,
+                    NewBlobVersion: BlobVersionId.Decode(updateVersion)
                 ),
             ],
-            [],
-            new InstanceInternal
-            {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-                Process = processState,
-            },
-            [nameof(InstanceInternal.Process)],
-            previousInstanceVersion,
-            previousProcessStateVersion,
-            [new InstanceEvent { EventType = InstanceEventType.process_StartTask.ToString() }],
-            idempotencyKey
-        );
+            InstanceChanges = new InstanceMutationChanges() { Process = processState },
+            ExpectedInstanceVersion = previousInstanceVersion,
+            ExpectedProcessStateVersion = previousProcessStateVersion,
+            InstanceEvents =
+            [
+                new InstanceEvent
+                {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
+                    EventType = InstanceEventType.process_StartTask.ToString(),
+                },
+            ],
+            IdempotencyKey = idempotencyKey,
+        };
 
         // Act
         InstanceMutationApplyResult result = await dataElementFixture.InstanceMutationRepo.Apply(
@@ -4062,28 +4514,26 @@ public class DataTests(DataElementFixture dataElementFixture)
         string updateElements = UpdateElementsPayload([
             new UpdateElementPayload(
                 Guid.Parse(toUpdate.Id),
-                ElementChanges: new JsonObject { ["SqlMixedElementMarker"] = "updated" }
+                Changes: new JsonObject { ["SqlMixedElementMarker"] = "updated" }
             ),
         ]);
         string deleteElements = DeleteElementsPayload([toDelete]);
-        string instanceUpdates = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                topLevelSimpleProps: new JsonObject { ["SqlMixedInstanceMarker"] = "instance" },
-                process: new JsonObject
-                {
-                    ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_Mixed" },
-                },
-                taskId: "Task_Mixed",
-                confirmed: true
-            )
-        );
+        string instanceUpdates = new JsonObject
+        {
+            ["CreatedBy"] = "instance",
+            ["Process"] = new JsonObject
+            {
+                ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_Mixed" },
+            },
+            ["Confirmed"] = true,
+        }.ToJsonString();
         string events = EventsPayload(
             instanceGuid,
             InstanceEventType.Saved,
             _instance.Id.ToString(),
             _instance.InstanceOwner.PartyId
         );
-        string outbox = OutboxPayload(_instance.ToApiModel(), 300, InstanceEventType.Saved);
+        string outbox = OutboxPayload(300, InstanceEventType.Saved);
 
         // Act
         List<ApplyMutationSqlRow> firstRows = await ApplyInstanceMutationSql(
@@ -4185,10 +4635,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             "updated",
             await ReadDataElementJsonText(instanceGuid, toUpdate.Id, "SqlMixedElementMarker")
         );
-        Assert.Equal(
-            "instance",
-            await ReadInstanceJsonText(instanceGuid, "SqlMixedInstanceMarker")
-        );
+        Assert.Equal("instance", await ReadInstanceJsonText(instanceGuid, "CreatedBy"));
         Assert.Equal(producedInstanceVersion, updatedInstance.Versions.InstanceVersion);
         Assert.Equal(producedProcessStateVersion, updatedInstance.Versions.ProcessStateVersion);
         Assert.Equal(instanceLastChanged, updatedInstance.LastChanged);
@@ -4556,16 +5003,16 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(firstUpdate.Id),
-                    ElementChanges: new JsonObject { ["SqlElementMarker"] = "first" }
+                    Changes: new JsonObject { ["SqlElementMarker"] = "first" }
                 ),
                 new UpdateElementPayload(
                     Guid.Parse(secondUpdate.Id),
-                    ElementChanges: new JsonObject { ["SqlElementMarker"] = "second" },
-                    NewBlobVersion: secondNewBlobVersion
+                    Changes: new JsonObject { ["SqlElementMarker"] = "second" },
+                    NewBlobVersion: BlobVersionId.Decode(secondNewBlobVersion)
                 ),
                 new UpdateElementPayload(
                     Guid.Parse(thirdUpdate.Id),
-                    ElementChanges: new JsonObject { ["SqlElementMarker"] = "third" }
+                    Changes: new JsonObject { ["SqlElementMarker"] = "third" }
                 ),
             ]),
             null,
@@ -4652,7 +5099,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     dataElementId,
-                    ElementChanges: new JsonObject { ["Locked"] = true }
+                    Changes: new JsonObject { ["Locked"] = true }
                 ),
             ]),
             null,
@@ -4710,7 +5157,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     dataElementId,
-                    ElementChanges: new JsonObject
+                    Changes: new JsonObject
                     {
                         ["DeleteStatus"] = new JsonObject
                         {
@@ -4769,7 +5216,10 @@ public class DataTests(DataElementFixture dataElementFixture)
             null,
             null,
             UpdateElementsPayload([
-                new UpdateElementPayload(dataElementId, NewBlobVersion: newBlobVersion),
+                new UpdateElementPayload(
+                    dataElementId,
+                    NewBlobVersion: BlobVersionId.Decode(newBlobVersion)
+                ),
             ]),
             null,
             null,
@@ -4812,8 +5262,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(element.Id),
-                    ElementChanges: new JsonObject { ["IsRead"] = false },
-                    IsReadChangedToFalse: true
+                    Changes: new JsonObject { ["IsRead"] = false }
                 ),
             ]),
             null,
@@ -4856,12 +5305,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(firstUpdate.Id),
-                    ElementChanges: new JsonObject { ["IsRead"] = false },
-                    IsReadChangedToFalse: true
+                    Changes: new JsonObject { ["IsRead"] = false }
                 ),
                 new UpdateElementPayload(
                     Guid.Parse(secondUpdate.Id),
-                    ElementChanges: new JsonObject { ["IsRead"] = true }
+                    Changes: new JsonObject { ["IsRead"] = true }
                 ),
             ]),
             null,
@@ -4915,12 +5363,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(elementB.Id),
-                    ElementChanges: new JsonObject { ["IsRead"] = true }
+                    Changes: new JsonObject { ["IsRead"] = true }
                 ),
                 new UpdateElementPayload(
                     Guid.Parse(elementA.Id),
-                    ElementChanges: new JsonObject { ["IsRead"] = false },
-                    IsReadChangedToFalse: true
+                    Changes: new JsonObject { ["IsRead"] = false }
                 ),
             ]),
             null,
@@ -4979,45 +5426,45 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
-        string instanceUpdates = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                topLevelSimpleProps: new JsonObject
+        string instanceUpdates = new JsonObject
+        {
+            ["CreatedBy"] = "scalar-fields",
+            ["Created"] = lastChanged,
+            ["DueBefore"] = lastChanged.AddDays(1),
+            ["VisibleAfter"] = lastChanged.AddDays(2),
+            ["DataValues"] = new JsonObject
+            {
+                ["sql-overwritten-data"] = "new",
+                ["sql-added-data"] = "added",
+            },
+            ["PresentationTexts"] = new JsonObject
+            {
+                ["sql-overwritten-presentation"] = "new",
+                ["sql-added-presentation"] = "added",
+            },
+            ["CompleteConfirmations"] = new JsonArray
+            {
+                new JsonObject
                 {
-                    ["SqlTopData"] = "data-top",
-                    ["SqlTopPresentation"] = "presentation-top",
-                    ["SqlTopComplete"] = "complete-top",
-                    ["SqlTopStatus"] = "status-top",
-                    ["SqlTopSubstatus"] = "substatus-top",
-                    ["SqlTopProcess"] = "process-top",
+                    ["StakeholderId"] = _instance.Org,
+                    ["ConfirmedOn"] = lastChanged.ToUniversalTime(),
                 },
-                dataValues: new JsonObject
+            },
+            ["Status"] = new JsonObject
+            {
+                ["IsArchived"] = true,
+                ["Substatus"] = new JsonObject
                 {
-                    ["sql-overwritten-data"] = "new",
-                    ["sql-added-data"] = "added",
+                    ["Label"] = "substatus-label",
+                    ["Description"] = null,
                 },
-                presentationTexts: new JsonObject
-                {
-                    ["sql-overwritten-presentation"] = "new",
-                    ["sql-added-presentation"] = "added",
-                },
-                completeConfirmations: new JsonArray
-                {
-                    new JsonObject
-                    {
-                        ["StakeholderId"] = _instance.Org,
-                        ["ConfirmedOn"] = lastChanged.ToUniversalTime(),
-                    },
-                },
-                status: new JsonObject { ["IsArchived"] = true },
-                substatus: new JsonObject { ["Label"] = "substatus-label", ["Description"] = null },
-                process: new JsonObject
-                {
-                    ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_9" },
-                },
-                taskId: "Task_9",
-                confirmed: true
-            )
-        );
+            },
+            ["Process"] = new JsonObject
+            {
+                ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_9" },
+            },
+            ["Confirmed"] = true,
+        }.ToJsonString();
 
         // Act
         List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
@@ -5064,19 +5511,14 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("Task_9", updatedInstance.Process.CurrentTask.ElementId);
         Assert.Equal("Task_9", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
-        Assert.Equal("data-top", await ReadInstanceJsonText(instanceGuid, "SqlTopData"));
-        Assert.Equal(
-            "presentation-top",
-            await ReadInstanceJsonText(instanceGuid, "SqlTopPresentation")
-        );
-        Assert.Equal("complete-top", await ReadInstanceJsonText(instanceGuid, "SqlTopComplete"));
-        Assert.Equal("status-top", await ReadInstanceJsonText(instanceGuid, "SqlTopStatus"));
-        Assert.Equal("substatus-top", await ReadInstanceJsonText(instanceGuid, "SqlTopSubstatus"));
-        Assert.Equal("process-top", await ReadInstanceJsonText(instanceGuid, "SqlTopProcess"));
+        Assert.Equal("scalar-fields", updatedInstance.CreatedBy);
+        Assert.Equal(lastChanged, updatedInstance.Created);
+        Assert.Equal(lastChanged.AddDays(1), updatedInstance.DueBefore);
+        Assert.Equal(lastChanged.AddDays(2), updatedInstance.VisibleAfter);
     }
 
     [Fact]
-    public async Task ApplyInstanceMutationSql_FlatInstanceUpdate_ComplexRootsInTopLevelDoNotOverrideDedicatedBranches()
+    public async Task ApplyInstanceMutationSql_FlatInstanceUpdate_UnsupportedControlsDoNotOverrideBranches()
     {
         // Arrange
         Guid instanceGuid = _instance.Id;
@@ -5120,65 +5562,64 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 9, 10, DateTimeKind.Utc);
         DateTime archived = new(2026, 4, 5, 6, 10, 11, DateTimeKind.Utc);
-        string instanceUpdates = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                topLevelSimpleProps: new JsonObject
+        string instanceUpdates = new JsonObject
+        {
+            ["CreatedBy"] = "simple-root-survives",
+            ["UnknownControl"] = new JsonObject
+            {
+                ["DataValues"] = new JsonObject
                 {
-                    ["SqlSimpleGuardMarker"] = "simple-root-survives",
-                    ["DataValues"] = new JsonObject
-                    {
-                        ["guard-conflict-data"] = "top-level-data-must-not-win",
-                        ["guard-top-only-data"] = "must-not-leak",
-                    },
-                    ["PresentationTexts"] = new JsonObject
-                    {
-                        ["guard-conflict-presentation"] = "top-level-presentation-must-not-win",
-                        ["guard-top-only-presentation"] = "must-not-leak",
-                    },
-                    ["CompleteConfirmations"] = new JsonArray
-                    {
-                        new JsonObject
-                        {
-                            ["StakeholderId"] = "guard-top-only-confirmation",
-                            ["ConfirmedOn"] = lastChanged.ToUniversalTime(),
-                        },
-                    },
-                    ["Status"] = new JsonObject { ["IsArchived"] = false },
-                    ["Process"] = new JsonObject
-                    {
-                        ["CurrentTask"] = new JsonObject
-                        {
-                            ["ElementId"] = "Task_TopLevel_Must_Not_Win",
-                        },
-                    },
+                    ["guard-conflict-data"] = "top-level-data-must-not-win",
+                    ["guard-top-only-data"] = "must-not-leak",
                 },
-                dataValues: new JsonObject
+                ["PresentationTexts"] = new JsonObject
                 {
-                    ["guard-conflict-data"] = "dedicated-data-wins",
-                    ["guard-dedicated-data"] = "dedicated-data-present",
+                    ["guard-conflict-presentation"] = "top-level-presentation-must-not-win",
+                    ["guard-top-only-presentation"] = "must-not-leak",
                 },
-                presentationTexts: new JsonObject
-                {
-                    ["guard-conflict-presentation"] = "dedicated-presentation-wins",
-                    ["guard-dedicated-presentation"] = "dedicated-presentation-present",
-                },
-                completeConfirmations: new JsonArray
+                ["CompleteConfirmations"] = new JsonArray
                 {
                     new JsonObject
                     {
-                        ["StakeholderId"] = "guard-dedicated-confirmation",
+                        ["StakeholderId"] = "guard-top-only-confirmation",
                         ["ConfirmedOn"] = lastChanged.ToUniversalTime(),
                     },
                 },
-                status: new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
-                process: new JsonObject
+                ["Status"] = new JsonObject { ["IsArchived"] = false },
+                ["Process"] = new JsonObject
                 {
-                    ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_Dedicated" },
+                    ["CurrentTask"] = new JsonObject
+                    {
+                        ["ElementId"] = "Task_TopLevel_Must_Not_Win",
+                    },
                 },
-                taskId: "Task_Dedicated",
-                confirmed: true
-            )
-        );
+            },
+            ["TaskId"] = "Task_Injected_Must_Not_Win",
+            ["DataValues"] = new JsonObject
+            {
+                ["guard-conflict-data"] = "dedicated-data-wins",
+                ["guard-dedicated-data"] = "dedicated-data-present",
+            },
+            ["PresentationTexts"] = new JsonObject
+            {
+                ["guard-conflict-presentation"] = "dedicated-presentation-wins",
+                ["guard-dedicated-presentation"] = "dedicated-presentation-present",
+            },
+            ["CompleteConfirmations"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["StakeholderId"] = "guard-dedicated-confirmation",
+                    ["ConfirmedOn"] = lastChanged.ToUniversalTime(),
+                },
+            },
+            ["Status"] = new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
+            ["Process"] = new JsonObject
+            {
+                ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_Dedicated" },
+            },
+            ["Confirmed"] = true,
+        }.ToJsonString();
 
         // Act
         List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
@@ -5240,10 +5681,9 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("Task_Dedicated", updatedInstance.Process.CurrentTask.ElementId);
         Assert.Equal("Task_Dedicated", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
-        Assert.Equal(
-            "simple-root-survives",
-            await ReadInstanceJsonText(instanceGuid, "SqlSimpleGuardMarker")
-        );
+        Assert.Equal("simple-root-survives", await ReadInstanceJsonText(instanceGuid, "CreatedBy"));
+        Assert.False(await InstanceJsonContainsKey(instanceGuid, "UnknownControl"));
+        Assert.False(await InstanceJsonContainsKey(instanceGuid, "TaskId"));
     }
 
     [Fact]
@@ -5256,22 +5696,17 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         DateTime lastChanged = new(2026, 4, 5, 6, 7, 8, DateTimeKind.Utc);
         DateTime archived = new(2026, 4, 5, 6, 8, 9, DateTimeKind.Utc);
-        string instanceUpdates = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                topLevelSimpleProps: new JsonObject
-                {
-                    ["SqlTopProcessStatus"] = "process-status-top",
-                },
-                status: new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
-                process: new JsonObject
-                {
-                    ["Status"] = "processing",
-                    ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_10" },
-                },
-                taskId: "Task_10",
-                confirmed: true
-            )
-        );
+        string instanceUpdates = new JsonObject
+        {
+            ["CreatedBy"] = "process-status-top",
+            ["Status"] = new JsonObject { ["IsArchived"] = true, ["Archived"] = archived },
+            ["Process"] = new JsonObject
+            {
+                ["Status"] = "processing",
+                ["CurrentTask"] = new JsonObject { ["ElementId"] = "Task_10" },
+            },
+            ["Confirmed"] = true,
+        }.ToJsonString();
 
         // Act
         List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
@@ -5308,10 +5743,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(ReadStatus.Read, updatedInstance.Status.ReadStatus);
         Assert.Equal("Task_10", await ReadInstanceTaskId(instanceGuid));
         Assert.True(await ReadInstanceConfirmed(instanceGuid));
-        Assert.Equal(
-            "process-status-top",
-            await ReadInstanceJsonText(instanceGuid, "SqlTopProcessStatus")
-        );
+        Assert.Equal("process-status-top", await ReadInstanceJsonText(instanceGuid, "CreatedBy"));
     }
 
     [Fact]
@@ -5335,14 +5767,13 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         string seedJson = CreateParitySeedJson();
-        string confirmationPayload = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                completeConfirmations: ParseJsonNode(
-                    """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
-                ),
-                confirmed: true
-            )
-        );
+        string confirmationPayload = new JsonObject
+        {
+            ["CompleteConfirmations"] = ParseJsonNode(
+                """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
+            ),
+            ["Confirmed"] = true,
+        }.ToJsonString();
 
         // Act
         string mergedInstance = await MergeInstanceUpdateSql(seedJson, confirmationPayload);
@@ -5360,14 +5791,13 @@ public class DataTests(DataElementFixture dataElementFixture)
         ParityInstance instance = await CreateParityInstance();
         int previousInstanceVersion = await ReadInstanceVersion(instance.InstanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instance.InstanceGuid);
-        string confirmationPayload = InstanceUpdatePayload(
-            InstanceUpdatePayloadItem(
-                completeConfirmations: ParseJsonNode(
-                    """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
-                ),
-                confirmed: true
-            )
-        );
+        string confirmationPayload = new JsonObject
+        {
+            ["CompleteConfirmations"] = ParseJsonNode(
+                """[{"StakeholderId":"existing","ConfirmedOn":"2026-08-10T00:00:00Z"}]"""
+            ),
+            ["Confirmed"] = true,
+        }.ToJsonString();
 
         // Act
         List<ApplyMutationSqlRow> rows = await ApplyInstanceMutationSql(
@@ -5411,22 +5841,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             string seedJson = CreateParitySeedJson();
             string mergedInstance = await MergeInstanceUpdateSql(
                 seedJson,
-                InstanceUpdatePayload(
-                    InstanceUpdatePayloadItem(
-                        topLevelSimpleProps: CreateParityTopLevelSimpleProps(
-                            lastChanged,
-                            parityCase.Name
-                        ),
-                        dataValues: ParseJsonNode(parityCase.DataValues),
-                        completeConfirmations: ParseJsonNode(parityCase.CompleteConfirmations),
-                        presentationTexts: ParseJsonNode(parityCase.PresentationTexts),
-                        status: ParseJsonNode(parityCase.Status),
-                        substatus: ParseJsonNode(parityCase.Substatus),
-                        process: ParseJsonNode(parityCase.Process),
-                        taskId: parityCase.TaskId,
-                        confirmed: parityCase.Confirmed
-                    )
-                )
+                CreateParityChanges(parityCase).ToJsonString()
             );
             int updateExpectedInstanceVersion = await ReadInstanceVersion(instanceGuid);
             int updateExpectedProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
@@ -5451,7 +5866,10 @@ public class DataTests(DataElementFixture dataElementFixture)
             }
 
             // Assert
-            Assert.Equal(updateRow.InstanceJson, mergedInstance);
+            JsonObject expected = JsonNode.Parse(updateRow.InstanceJson).AsObject();
+            expected.Remove("LastChanged");
+            expected.Remove("LastChangedBy");
+            Assert.Equal(await JsonbText(expected.ToJsonString()), mergedInstance);
         }
     }
 
@@ -5514,21 +5932,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 null,
                 null,
                 null,
-                InstanceUpdatePayload(
-                    InstanceUpdatePayloadItem(
-                        topLevelSimpleProps: CreateParityMutationTopLevelSimpleProps(
-                            parityCase.Name
-                        ),
-                        dataValues: ParseJsonNode(parityCase.DataValues),
-                        completeConfirmations: ParseJsonNode(parityCase.CompleteConfirmations),
-                        presentationTexts: ParseJsonNode(parityCase.PresentationTexts),
-                        status: ParseJsonNode(parityCase.Status),
-                        substatus: ParseJsonNode(parityCase.Substatus),
-                        process: ParseJsonNode(parityCase.Process),
-                        taskId: parityCase.TaskId,
-                        confirmed: parityCase.Confirmed
-                    )
-                ),
+                CreateParityChanges(parityCase).ToJsonString(),
                 null,
                 null,
                 lastChanged: lastChanged,
@@ -5642,8 +6046,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
         int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
         Guid idempotencyKey = Guid.NewGuid();
-        string firstOutbox = OutboxPayload(_instance.ToApiModel(), 600, InstanceEventType.Saved);
-        string retryOutbox = OutboxPayload(_instance.ToApiModel(), 0, InstanceEventType.Deleted);
+        string firstOutbox = OutboxPayload(600, InstanceEventType.Saved);
+        string retryOutbox = OutboxPayload(0, InstanceEventType.Deleted);
 
         // Act
         List<ApplyMutationSqlRow> firstRows = await ApplyInstanceMutationSql(
@@ -5733,11 +6137,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(firstUpdate.Id),
-                    NewBlobVersion: firstMissingBlobVersion
+                    NewBlobVersion: BlobVersionId.Decode(firstMissingBlobVersion)
                 ),
                 new UpdateElementPayload(
                     Guid.Parse(secondUpdate.Id),
-                    NewBlobVersion: secondNewBlobVersion
+                    NewBlobVersion: BlobVersionId.Decode(secondNewBlobVersion)
                 ),
             ]),
             null,
@@ -5788,9 +6192,9 @@ public class DataTests(DataElementFixture dataElementFixture)
                 UpdateElementsPayload([
                     new UpdateElementPayload(
                         Guid.Parse(toUpdate.Id),
-                        ElementChanges: new JsonObject { ["SqlUpdateBeforeMissing"] = "blocked" },
-                        NewBlobVersion: newVersion,
-                        ExpectedBlobVersion: currentVersion
+                        Changes: new JsonObject { ["SqlUpdateBeforeMissing"] = "blocked" },
+                        NewBlobVersion: BlobVersionId.Decode(newVersion),
+                        ExpectedCurrentBlobVersion: BlobVersionId.Decode(currentVersion)
                     ),
                     new UpdateElementPayload(missingDataElementId),
                 ]),
@@ -5845,7 +6249,7 @@ public class DataTests(DataElementFixture dataElementFixture)
                 CreateElementsPayload([toCreate]),
                 UpdateElementsPayload(
                     Guid.Parse(existing.Id),
-                    expectedBlobVersion: staleExpectedVersion
+                    expectedCurrentBlobVersion: BlobVersionId.Decode(staleExpectedVersion)
                 ),
                 null,
                 null,
@@ -6198,7 +6602,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(lockedDelete.Id),
-                    ElementChanges: new JsonObject { ["Locked"] = false },
+                    Changes: new JsonObject { ["Locked"] = false },
                     IgnoreLock: true
                 ),
             ]),
@@ -6479,7 +6883,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(lockedElement.Id),
-                    ElementChanges: new JsonObject { ["Locked"] = false },
+                    Changes: new JsonObject { ["Locked"] = false },
                     IgnoreLock: true
                 ),
             ]),
@@ -6512,8 +6916,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         {
             new JsonObject
             {
-                ["elementId"] = lockedElement.Id,
-                ["elementChanges"] = new JsonObject { ["ContentType"] = "application/xml" },
+                ["DataElementId"] = lockedElement.Id,
+                ["Changes"] = new JsonObject { ["ContentType"] = "application/xml" },
             },
         }.ToJsonString();
 
@@ -6593,12 +6997,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         {
             new JsonObject
             {
-                ["elementId"] = null,
-                ["elementChanges"] = new JsonObject { ["SqlNullElementMarker"] = "ignored" },
-                ["isReadChangedToFalse"] = false,
-                ["newBlobVersion"] = null,
-                ["expectedBlobVersion"] = null,
-                ["ignoreLock"] = false,
+                ["DataElementId"] = null,
+                ["Changes"] = new JsonObject { ["SqlNullElementMarker"] = "ignored" },
+                ["NewBlobVersion"] = null,
+                ["ExpectedCurrentBlobVersion"] = null,
+                ["IgnoreLock"] = false,
             },
         }.ToJsonString();
 
@@ -6670,8 +7073,8 @@ public class DataTests(DataElementFixture dataElementFixture)
                 updateElements = UpdateElementsPayload([
                     new UpdateElementPayload(
                         Guid.Parse(toUpdate.Id),
-                        ElementChanges: new JsonObject { ["ContentType"] = "application/xml" },
-                        ExpectedBlobVersion: currentBlobVersion
+                        Changes: new JsonObject { ["ContentType"] = "application/xml" },
+                        ExpectedCurrentBlobVersion: BlobVersionId.Decode(currentBlobVersion)
                     ),
                 ]);
                 assertMutationApplied = async () =>
@@ -6734,16 +7137,15 @@ public class DataTests(DataElementFixture dataElementFixture)
                 };
                 break;
             case HardDeletedInstanceMutationPayloadKind.InstanceUpdate:
-                instanceUpdate = InstanceUpdatePayload(
-                    InstanceUpdatePayloadItem(
-                        dataValues: new JsonObject { ["hardDeletedUpdate"] = "applied" },
-                        process: new JsonObject
-                        {
-                            ["Ended"] = DateTime.UtcNow,
-                            ["EndEvent"] = "EndEvent_1",
-                        }
-                    )
-                );
+                instanceUpdate = new JsonObject
+                {
+                    ["DataValues"] = new JsonObject { ["hardDeletedUpdate"] = "applied" },
+                    ["Process"] = new JsonObject
+                    {
+                        ["Ended"] = DateTime.UtcNow,
+                        ["EndEvent"] = "EndEvent_1",
+                    },
+                }.ToJsonString();
                 assertMutationApplied = async () =>
                     Assert.True(
                         await InstanceDataValuesContainsKey(instanceGuid, "hardDeletedUpdate")
@@ -6814,8 +7216,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             UpdateElementsPayload([
                 new UpdateElementPayload(
                     Guid.Parse(hardDeletedElement.Id),
-                    ElementChanges: new JsonObject { ["SqlHardDeletedMarker"] = "updated" },
-                    ExpectedBlobVersion: currentBlobVersion
+                    Changes: new JsonObject { ["SqlHardDeletedMarker"] = "updated" },
+                    ExpectedCurrentBlobVersion: BlobVersionId.Decode(currentBlobVersion)
                 ),
             ]),
             null,
@@ -7045,7 +7447,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     private async Task<string> MergeInstanceUpdateSql(string instance, string instanceUpdate)
     {
         await using NpgsqlCommand cmd = dataElementFixture.DataSource.CreateCommand(
-            "select storage.mergeinstanceupdate($1, $2)::text"
+            "select storage.mergeinstanceupdate_v2($1, $2)::text"
         );
         cmd.Parameters.AddWithValue(NpgsqlDbType.Jsonb, instance);
         PgInstanceMutationRepository.AddNullableParameter(
@@ -7138,9 +7540,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             }
             """;
 
-    // No case confirms a stakeholder the seed already carries: mergeinstanceupdate skips those and
-    // updateinstance_v4 appends them, the one place the two deliberately differ. That difference has
-    // its own tests; see MergeInstanceUpdateSql_ConfirmedStakeholderConfirmsAgain_IsNotAppended.
+    // Confirmation deduplication is covered separately: mergeinstanceupdate_v2 skips stakeholders
+    // already in the seed, while updateinstance_v4 appends their incoming confirmations.
     private static InstanceUpdateParityCase[] CreateInstanceUpdateParityCases() =>
         [
             new(
@@ -7243,11 +7644,10 @@ public class DataTests(DataElementFixture dataElementFixture)
             array.Add(
                 new JsonObject
                 {
-                    ["elementId"] = dataElement.Id,
-                    ["element"] = JsonSerializer.SerializeToNode(dataElement),
-                    ["blobVersion"] = PgInstanceMutationRepository.ToDecodedBlobVersion(
-                        dataElement.BlobVersionId
-                    ),
+                    ["Element"] = JsonSerializer.SerializeToNode(dataElement),
+                    ["BlobVersion"] = dataElement.BlobVersionId is null
+                        ? null
+                        : BlobVersionId.Decode(dataElement.BlobVersionId).ToString(),
                 }
             );
         }
@@ -7269,11 +7669,10 @@ public class DataTests(DataElementFixture dataElementFixture)
             array.Add(
                 new JsonObject
                 {
-                    ["elementId"] = dataElement.Id,
-                    ["element"] = element,
-                    ["blobVersion"] = PgInstanceMutationRepository.ToDecodedBlobVersion(
-                        dataElement.BlobVersionId
-                    ),
+                    ["Element"] = element,
+                    ["BlobVersion"] = dataElement.BlobVersionId is null
+                        ? null
+                        : BlobVersionId.Decode(dataElement.BlobVersionId).ToString(),
                 }
             );
         }
@@ -7283,14 +7682,14 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private static string UpdateElementsPayload(
         Guid dataElementId,
-        string expectedBlobVersion = null,
-        string newBlobVersion = null,
+        Guid? expectedCurrentBlobVersion = null,
+        Guid? newBlobVersion = null,
         bool ignoreLock = false
     ) =>
         UpdateElementsPayload([
             new UpdateElementPayload(
                 dataElementId,
-                ExpectedBlobVersion: expectedBlobVersion,
+                ExpectedCurrentBlobVersion: expectedCurrentBlobVersion,
                 NewBlobVersion: newBlobVersion,
                 IgnoreLock: ignoreLock
             ),
@@ -7304,16 +7703,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             array.Add(
                 new JsonObject
                 {
-                    ["elementId"] = update.DataElementId.ToString(),
-                    ["elementChanges"] = update.ElementChanges ?? new JsonObject(),
-                    ["isReadChangedToFalse"] = update.IsReadChangedToFalse,
-                    ["newBlobVersion"] = PgInstanceMutationRepository.ToDecodedBlobVersion(
-                        update.NewBlobVersion
-                    ),
-                    ["expectedBlobVersion"] = PgInstanceMutationRepository.ToDecodedBlobVersion(
-                        update.ExpectedBlobVersion
-                    ),
-                    ["ignoreLock"] = update.IgnoreLock,
+                    ["DataElementId"] = update.DataElementId.ToString(),
+                    ["Changes"] = update.Changes ?? new JsonObject(),
+                    ["NewBlobVersion"] = update.NewBlobVersion?.ToString(),
+                    ["ExpectedCurrentBlobVersion"] = update.ExpectedCurrentBlobVersion?.ToString(),
+                    ["IgnoreLock"] = update.IgnoreLock,
                 }
             );
         }
@@ -7340,8 +7734,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             array.Add(
                 new JsonObject
                 {
-                    ["elementId"] = delete.DataElementId,
-                    ["ignoreLock"] = delete.IgnoreLock,
+                    ["DataElementId"] = delete.DataElementId,
+                    ["IgnoreLock"] = delete.IgnoreLock,
                 }
             );
         }
@@ -7351,32 +7745,6 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private sealed record DeleteElementPayload(string DataElementId, bool IgnoreLock = false);
 
-    private static string InstanceUpdatePayload(JsonObject update) => update.ToJsonString();
-
-    private static JsonObject InstanceUpdatePayloadItem(
-        JsonObject topLevelSimpleProps = null,
-        JsonNode dataValues = null,
-        JsonNode completeConfirmations = null,
-        JsonNode presentationTexts = null,
-        JsonNode status = null,
-        JsonNode substatus = null,
-        JsonNode process = null,
-        string taskId = null,
-        bool? confirmed = null
-    ) =>
-        new()
-        {
-            ["toplevelsimpleprops"] = topLevelSimpleProps ?? new JsonObject(),
-            ["datavalues"] = dataValues,
-            ["completeconfirmations"] = completeConfirmations,
-            ["presentationtexts"] = presentationTexts,
-            ["status"] = status,
-            ["substatus"] = substatus,
-            ["process"] = process,
-            ["taskid"] = taskId,
-            ["confirmed"] = confirmed.HasValue ? JsonValue.Create(confirmed.Value) : null,
-        };
-
     private static JsonObject CreateParityTopLevelSimpleProps(
         DateTime lastChanged,
         string caseName
@@ -7385,11 +7753,29 @@ public class DataTests(DataElementFixture dataElementFixture)
         {
             ["LastChanged"] = lastChanged.ToUniversalTime(),
             ["LastChangedBy"] = $"parity-{caseName}",
-            ["SqlParityCase"] = caseName,
+            ["CreatedBy"] = caseName,
         };
 
-    private static JsonObject CreateParityMutationTopLevelSimpleProps(string caseName) =>
-        new() { ["SqlParityCase"] = caseName };
+    private static JsonObject CreateParityChanges(InstanceUpdateParityCase parityCase)
+    {
+        JsonObject status = ParseJsonNode(parityCase.Status)?.AsObject();
+        if (parityCase.Substatus is not null)
+        {
+            status ??= new JsonObject();
+            status["Substatus"] = ParseJsonNode(parityCase.Substatus);
+        }
+
+        return new JsonObject
+        {
+            ["CreatedBy"] = parityCase.Name,
+            ["DataValues"] = ParseJsonNode(parityCase.DataValues),
+            ["PresentationTexts"] = ParseJsonNode(parityCase.PresentationTexts),
+            ["CompleteConfirmations"] = ParseJsonNode(parityCase.CompleteConfirmations),
+            ["Status"] = status,
+            ["Process"] = ParseJsonNode(parityCase.Process),
+            ["Confirmed"] = parityCase.Confirmed,
+        };
+    }
 
     private static JsonNode ParseJsonNode(string json) =>
         json is null ? null : JsonNode.Parse(json);
@@ -7419,19 +7805,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             }
         );
 
-    private static string OutboxPayload(
-        Instance instance,
-        int delaySeconds,
-        InstanceEventType eventType
-    ) =>
+    private static string OutboxPayload(int delaySeconds, InstanceEventType eventType) =>
         new JsonObject
         {
-            ["appid"] = instance.AppId,
-            ["partyid"] = long.Parse(instance.InstanceOwner.PartyId),
-            ["delaySeconds"] = delaySeconds,
-            ["instancecreated"] = (instance.Created ?? DateTime.UtcNow).ToUniversalTime(),
-            ["ismigration"] = false,
-            ["instanceeventtype"] = (int)eventType,
+            ["DelaySeconds"] = delaySeconds,
+            ["EventType"] = (int)eventType,
         }.ToJsonString();
 
     private static int? ReadNullableInt32(NpgsqlDataReader reader, string columnName)
@@ -7670,10 +8048,9 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private sealed record UpdateElementPayload(
         Guid DataElementId,
-        JsonObject ElementChanges = null,
-        bool IsReadChangedToFalse = false,
-        string NewBlobVersion = null,
-        string ExpectedBlobVersion = null,
+        JsonObject Changes = null,
+        Guid? NewBlobVersion = null,
+        Guid? ExpectedCurrentBlobVersion = null,
         bool IgnoreLock = false
     );
 
@@ -7721,32 +8098,31 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid idempotencyKey
     )
     {
-        return new InstanceMutationCommit(
-            [],
+        return new InstanceMutationCommit()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            UpdateDataElements =
             [
-                new InstanceMutationDataElementUpdate(
+                new DataElementUpdate(
                     Guid.Parse(existing.Id),
-                    new Dictionary<string, object>
+                    new InstanceMutationDataElementChanges()
                     {
-                        ["/blobStoragePath"] = DataElementHelper.GetVersionedBlobPath(
-                            _instance.AppId,
-                            new Guid(existing.InstanceGuid),
-                            updateVersion
+                        BlobStoragePath = Change<string>.Set(
+                            DataElementHelper.GetVersionedBlobPath(
+                                _instance.AppId,
+                                new Guid(existing.InstanceGuid),
+                                updateVersion
+                            )
                         ),
-                        ["/currentBlobVersion"] = updateVersion,
                     },
-                    expectedCurrentVersion,
-                    IgnoreLock: false
+                    BlobVersionId.Decode(expectedCurrentVersion),
+                    IgnoreLock: false,
+                    NewBlobVersion: BlobVersionId.Decode(updateVersion)
                 ),
             ],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            expectedInstanceVersion,
-            null,
-            [],
-            idempotencyKey
-        );
+            ExpectedInstanceVersion = expectedInstanceVersion,
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private InstanceMutationCommit CreateCreateMutation(
@@ -7755,17 +8131,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid idempotencyKey
     )
     {
-        return new InstanceMutationCommit(
-            createDataElements,
-            [],
-            [],
-            new InstanceInternal { Id = _instance.Id },
-            [],
-            expectedInstanceVersion,
-            null,
-            [],
-            idempotencyKey
-        );
+        return new InstanceMutationCommit()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            CreateDataElements =
+            [
+                .. createDataElements.Select(element => new DataElementCreation(
+                    element,
+                    BlobVersionId.Decode(element.BlobVersionId)
+                )),
+            ],
+            ExpectedInstanceVersion = expectedInstanceVersion,
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private InstanceMutationCommit CreateDeleteMutation(
@@ -7774,31 +8152,27 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid idempotencyKey
     )
     {
-        return new InstanceMutationCommit(
-            [],
-            [],
-            [new InstanceMutationDataElementDelete(toDelete.FromApiModel(), IgnoreLock: false)],
-            new InstanceInternal
-            {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-            },
-            [],
-            expectedInstanceVersion,
-            null,
+        return new InstanceMutationCommit()
+        {
+            Stamp = new(DateTime.UtcNow, null),
+            DeleteDataElements =
+            [
+                new DataElementDeletion(Guid.Parse(toDelete.Id), IgnoreLock: false),
+            ],
+            ExpectedInstanceVersion = expectedInstanceVersion,
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Deleted.ToString(),
                     DataId = toDelete.Id,
                     Created = DateTime.UtcNow,
                 },
             ],
-            idempotencyKey
-        );
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private InstanceMutationCommit CreateDeleteInstanceMutation(
@@ -7807,48 +8181,32 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid idempotencyKey
     )
     {
-        return new InstanceMutationCommit(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        return new InstanceMutationCommit()
+        {
+            Stamp = new(deletedAt, "1337"),
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
-                Status = new InstanceStatus
+                Status = new InstanceMutationStatusChanges()
                 {
                     IsHardDeleted = true,
                     IsSoftDeleted = true,
-                    HardDeleted = deletedAt,
-                    SoftDeleted = deletedAt,
+                    HardDeleted = Change<DateTime?>.Set(deletedAt),
+                    SoftDeleted = Change<DateTime?>.Set(deletedAt),
                 },
-                LastChanged = deletedAt,
-                LastChangedBy = "1337",
             },
-            [
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsSoftDeleted),
-                nameof(InstanceStatus.SoftDeleted),
-                nameof(InstanceStatus.IsHardDeleted),
-                nameof(InstanceStatus.HardDeleted),
-                nameof(InstanceInternal.LastChanged),
-                nameof(InstanceInternal.LastChangedBy),
-            ],
-            expectedInstanceVersion,
-            null,
+            ExpectedInstanceVersion = expectedInstanceVersion,
+            InstanceEvents =
             [
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Deleted.ToString(),
-                    InstanceId = _instance.Id.ToString(),
                     InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 },
             ],
-            idempotencyKey
-        );
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private InstanceMutationCommit CreateTerminalDeleteInstanceMutation(
@@ -7871,32 +8229,35 @@ public class DataTests(DataElementFixture dataElementFixture)
         [
             new()
             {
+                Id = Guid.NewGuid(),
+                InstanceId = _instance.ToApiModel().Id,
                 EventType = InstanceEventType.process_EndEvent.ToString(),
-                InstanceId = _instance.Id.ToString(),
                 InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 ProcessInfo = endedProcess,
                 Created = processEnded,
             },
             new()
             {
+                Id = Guid.NewGuid(),
+                InstanceId = _instance.ToApiModel().Id,
                 EventType = InstanceEventType.Deleted.ToString(),
-                InstanceId = _instance.Id.ToString(),
                 InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                 ProcessInfo = endedProcess,
                 Created = deletedAt,
             },
         ];
-        List<InstanceMutationDataElementDelete> deleteDataElements = [];
+        List<DataElementDeletion> deleteDataElements = [];
         if (dataElement is not null)
         {
             deleteDataElements.Add(
-                new InstanceMutationDataElementDelete(dataElement.FromApiModel(), IgnoreLock: false)
+                new DataElementDeletion(Guid.Parse(dataElement.Id), IgnoreLock: false)
             );
             events.Add(
                 new InstanceEvent
                 {
+                    Id = Guid.NewGuid(),
+                    InstanceId = _instance.ToApiModel().Id,
                     EventType = InstanceEventType.Deleted.ToString(),
-                    InstanceId = _instance.Id.ToString(),
                     InstanceOwnerPartyId = _instance.InstanceOwner.PartyId,
                     DataId = dataElement.Id,
                     ProcessInfo = endedProcess,
@@ -7905,47 +8266,28 @@ public class DataTests(DataElementFixture dataElementFixture)
             );
         }
 
-        return new InstanceMutationCommit(
-            [],
-            [],
-            deleteDataElements,
-            new InstanceInternal
+        return new InstanceMutationCommit()
+        {
+            Stamp = new(deletedAt, "1337"),
+            DeleteDataElements = deleteDataElements,
+            InstanceChanges = new InstanceMutationChanges()
             {
-                Id = _instance.Id,
-                AppId = _instance.AppId,
-                Org = _instance.Org,
-                InstanceOwner = _instance.InstanceOwner,
-                Created = _instance.Created,
                 Process = endedProcess,
-                Status = new InstanceStatus
+                Status = new InstanceMutationStatusChanges()
                 {
                     IsArchived = true,
-                    Archived = processEnded,
+                    Archived = Change<DateTime?>.Set(processEnded),
                     IsHardDeleted = true,
                     IsSoftDeleted = true,
-                    HardDeleted = deletedAt,
-                    SoftDeleted = deletedAt,
+                    HardDeleted = Change<DateTime?>.Set(deletedAt),
+                    SoftDeleted = Change<DateTime?>.Set(deletedAt),
                 },
-                LastChanged = deletedAt,
-                LastChangedBy = "1337",
             },
-            [
-                nameof(InstanceInternal.Process),
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsArchived),
-                nameof(InstanceStatus.Archived),
-                nameof(InstanceStatus.IsSoftDeleted),
-                nameof(InstanceStatus.SoftDeleted),
-                nameof(InstanceStatus.IsHardDeleted),
-                nameof(InstanceStatus.HardDeleted),
-            ],
-            expectedInstanceVersion,
-            expectedProcessStateVersion,
-            events,
-            idempotencyKey,
-            deletedAt,
-            "1337"
-        );
+            ExpectedInstanceVersion = expectedInstanceVersion,
+            ExpectedProcessStateVersion = expectedProcessStateVersion,
+            InstanceEvents = events,
+            IdempotencyKey = idempotencyKey,
+        };
     }
 
     private static Task<DateTime> ReadInstanceLastChangedColumn(Guid instanceGuid)
@@ -8155,7 +8497,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private async Task WaitForBlockedAggregateMutations(int expectedCount)
     {
-        await WaitForBlockedDatabaseCalls("storage.applyinstancemutation", expectedCount);
+        await WaitForBlockedDatabaseCalls("storage.applyinstancemutation_v2", expectedCount);
     }
 
     private async Task WaitForBlockedDatabaseCalls(string queryFragment, int expectedCount)

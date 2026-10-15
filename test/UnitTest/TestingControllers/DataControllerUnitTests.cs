@@ -143,7 +143,7 @@ public class DataControllerUnitTests
         Assert.True(applyOrder < cleanupOrder);
         Assert.Contains(
             capturedMutation.DeleteDataElements,
-            delete => delete.DataElement == fixture.DataElementInternal && delete.IgnoreLock
+            delete => delete.DataElementId == fixture.DataElementInternal.Id && delete.IgnoreLock
         );
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
@@ -435,11 +435,12 @@ public class DataControllerUnitTests
         Assert.Equal(["apply-snapshot"], response.Tags);
         Assert.NotNull(capturedMutation);
         Assert.NotNull(fixture.DataElementInternal.LastChanged);
-        Assert.Equal(fixture.DataElementInternal.LastChanged, capturedMutation.LastChanged);
-        Assert.Equal(fixture.DataElementInternal.LastChangedBy, capturedMutation.LastChangedBy);
-        InstanceMutationDataElementUpdate update = Assert.Single(
-            capturedMutation.UpdateDataElements
+        Assert.Equal(fixture.DataElementInternal.LastChanged, capturedMutation.Stamp.LastChanged);
+        Assert.Equal(
+            fixture.DataElementInternal.LastChangedBy,
+            capturedMutation.Stamp.LastChangedBy
         );
+        DataElementUpdate update = Assert.Single(capturedMutation.UpdateDataElements);
         Assert.True(update.IgnoreLock);
         Assert.Equal("9", fixture.HttpContext.Response.Headers[StorageHeaders.InstanceVersion]);
         Assert.Equal("7", fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion]);
@@ -2760,9 +2761,7 @@ public class DataControllerUnitTests
                 ) =>
                 {
                     InstanceInternal snapshot = CreateInstanceInternal(mutatedInstanceGuid, true);
-                    foreach (
-                        InstanceMutationDataElementUpdate update in mutation.UpdateDataElements
-                    )
+                    foreach (DataElementUpdate update in mutation.UpdateDataElements)
                     {
                         if (
                             snapshot.Data.All(dataElement => dataElement.Id != update.DataElementId)
