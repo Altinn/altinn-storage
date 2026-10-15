@@ -26,16 +26,6 @@ public class GeneralSettings
     public string RuntimeCookieName { get; set; }
 
     /// <summary>
-    /// Gets or sets the URI for the SBL Bridge Authorization API.
-    /// </summary>
-    public Uri BridgeApiAuthorizationEndpoint { get; set; }
-
-    /// <summary>
-    /// Gets or sets the URI for the SBL Bridge Authorization API.
-    /// </summary>
-    public Uri BridgeApiCorrespondenceEndpoint { get; set; }
-
-    /// <summary>
     /// Gets or sets the scopes for Instance Read.
     /// </summary>
     public List<string> InstanceReadScope { get; set; }
@@ -59,11 +49,6 @@ public class GeneralSettings
     /// Gets or sets the cache lifetime for application metadata document.
     /// </summary>
     public int AppMetadataCacheLifeTimeInSeconds { get; set; }
-
-    /// <summary>
-    /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
-    /// </summary>
-    public string MigrationIpWhiteList { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the ondemand API
@@ -100,11 +85,6 @@ public class GeneralSettings
     /// Gets or sets whether to use sign as an action when authorizing A2 search requests.
     /// </summary>
     public bool AuthorizeA2ListInstancesSign { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets whether to disable Altinn 2 endpoints.
-    /// </summary>
-    public bool DisableA2Endpoints { get; set; } = false;
 
     /// <summary>
     /// Gets or sets the url to organisations on CDN
