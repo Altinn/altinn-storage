@@ -32,6 +32,7 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
+using Altinn.Register.Contracts;
 using AltinnCore.Authentication.Constants;
 using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.Http;
@@ -539,6 +540,453 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Instance createdInstance = JsonConvert.DeserializeObject<Instance>(json);
         Assert.NotNull(createdInstance);
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
+    }
+
+    [Fact]
+    public async Task Post_OwnerFieldsOtherThanPartyId_AreReplacedWithOwnerFromRegister()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner
+            {
+                PartyId = "1337",
+                PartyUuid = Guid.NewGuid(),
+                PersonNumber = "01010112345",
+                OrganisationNumber = "123456789",
+                Username = "someone",
+                ExternalIdentifier = "urn:altinn:person:legacy-selfidentified:someone",
+            },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Instance createdInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("1337", createdInstance.InstanceOwner.PartyId);
+        Assert.Equal(
+            RegisterServiceMock.GetPartyUuid(1337),
+            createdInstance.InstanceOwner.PartyUuid
+        );
+        Assert.Equal(RegisterServiceMock.PersonNumber, createdInstance.InstanceOwner.PersonNumber);
+        Assert.Null(createdInstance.InstanceOwner.OrganisationNumber);
+        Assert.Null(createdInstance.InstanceOwner.Username);
+        Assert.Null(createdInstance.InstanceOwner.ExternalIdentifier);
+    }
+
+    [Fact]
+    public async Task Post_PartyNotFoundInRegister_ReturnsBadRequest()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Party)null);
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "Invalid instanceOwner.PartyId.",
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
+    [Fact]
+    public async Task Post_RegisterUnavailable_ReturnsInternalServerError()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Register unavailable"));
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("abc")]
+    [InlineData("-1337")]
+    [InlineData("99999999999")]
+    public async Task Post_NonNumericPartyId_ReturnsBadRequest(string partyId)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = partyId } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(
+            "Invalid instanceOwner.PartyId.",
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
+    [Fact]
+    public async Task Post_OwnerGivenByPersonNumber_CreatesInstanceForPartyFromRegister()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        registerService
+            .Setup(r =>
+                r.GetParty(
+                    PartyUrn.PersonId.Create(
+                        PersonIdentifier.Parse(RegisterServiceMock.PersonNumber)
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(RegisterServiceMock.CreatePerson(1337));
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = RegisterServiceMock.PersonNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Instance createdInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("1337", createdInstance.InstanceOwner.PartyId);
+        Assert.Equal(
+            RegisterServiceMock.GetPartyUuid(1337),
+            createdInstance.InstanceOwner.PartyUuid
+        );
+        Assert.Equal(RegisterServiceMock.PersonNumber, createdInstance.InstanceOwner.PersonNumber);
+        registerService.Verify(
+            r => r.GetParty(It.IsAny<PartyUrn>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(9999)]
+    public async Task Post_OwnerGivenByPersonNumberUnknownOrUnauthorized_ReturnsForbidden(
+        int? registerPartyId
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r => r.GetParty(It.IsAny<PartyUrn>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                registerPartyId is { } partyId ? RegisterServiceMock.CreatePerson(partyId) : null
+            );
+        Mock<IInstanceRepository> repository = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(
+            repositoryMock: repository,
+            registerService: registerService
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = RegisterServiceMock.PersonNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(
+        null,
+        "Cannot create an instance without an instanceOwner.PartyId, ExternalIdentifier, PersonNumber, OrganisationNumber or Username."
+    )]
+    [InlineData("12345678901", "Invalid instanceOwner.PersonNumber.")]
+    public async Task Post_OwnerWithoutValidIdentifier_ReturnsBadRequest(
+        string personNumber,
+        string expectedErrorMessage
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PersonNumber = personNumber },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedErrorMessage, await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Get_OwnerNotPopulatedFromRegister_ReturnsAndStoresOwnerFromRegister(
+        bool byGuid
+    )
+    {
+        // Arrange
+        InstanceInternal stored = CreateStoredInstance(new InstanceOwner { PartyId = "1337" });
+        Mock<IInstanceRepository> repository = new();
+        repository
+            .Setup(r => r.GetOne(stored.Id, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stored);
+        repository
+            .Setup(r =>
+                r.UpsertInstanceOwner(It.IsAny<InstanceOwner>(), It.IsAny<CancellationToken>())
+            )
+            .Returns(Task.CompletedTask);
+        HttpClient client = GetSyncAdapterClient(repository);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(InstanceUri(stored.Id, byGuid));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Instance instance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(RegisterServiceMock.GetPartyUuid(1337), instance.InstanceOwner.PartyUuid);
+        Assert.Equal(RegisterServiceMock.PersonNumber, instance.InstanceOwner.PersonNumber);
+        repository.Verify(
+            r =>
+                r.UpsertInstanceOwner(
+                    It.Is<InstanceOwner>(o =>
+                        o.PartyId == "1337"
+                        && o.PartyUuid == RegisterServiceMock.GetPartyUuid(1337)
+                        && o.PersonNumber == RegisterServiceMock.PersonNumber
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task Get_OwnerPopulatedFromRegister_DoesNotCallRegister()
+    {
+        // Arrange
+        InstanceOwner owner = new()
+        {
+            PartyId = "1337",
+            PartyUuid = Guid.NewGuid(),
+            PersonNumber = "02013299997",
+        };
+        InstanceInternal stored = CreateStoredInstance(owner);
+        Mock<IInstanceRepository> repository = new();
+        repository
+            .Setup(r => r.GetOne(stored.Id, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stored);
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        HttpClient client = GetSyncAdapterClient(repository, registerService);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(InstanceUri(stored.Id, false));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Instance instance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(owner.PartyUuid, instance.InstanceOwner.PartyUuid);
+        Assert.Equal("02013299997", instance.InstanceOwner.PersonNumber);
+        repository.Verify(
+            r => r.UpsertInstanceOwner(It.IsAny<InstanceOwner>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task Get_RegisterUnavailable_ReturnsStoredOwner()
+    {
+        // Arrange
+        InstanceOwner owner = new() { PartyId = "1337", PersonNumber = "02013299997" };
+        InstanceInternal stored = CreateStoredInstance(owner);
+        Mock<IInstanceRepository> repository = new();
+        repository
+            .Setup(r => r.GetOne(stored.Id, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(stored);
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r => r.GetParty(PartyUrn.PartyId.Create(1337), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("Register unavailable"));
+        HttpClient client = GetSyncAdapterClient(repository, registerService);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(InstanceUri(stored.Id, false));
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Instance instance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Null(instance.InstanceOwner.PartyUuid);
+        Assert.Equal("02013299997", instance.InstanceOwner.PersonNumber);
+        repository.Verify(
+            r => r.UpsertInstanceOwner(It.IsAny<InstanceOwner>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task GetMany_InstanceOwnerIdentifierIsPartyUrn_LooksUpPartyInRegister()
+    {
+        // Arrange
+        Guid partyUuid = Guid.NewGuid();
+        Mock<IRegisterService> registerService = new();
+        registerService
+            .Setup(r =>
+                r.LookupPartyId(
+                    It.Is<PartyUrn>(u => u.ToString() == $"urn:altinn:party:uuid:{partyUuid}"),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(1337);
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+        client.DefaultRequestHeaders.Add(
+            "X-Ai-InstanceOwnerIdentifier",
+            $"urn:altinn:party:uuid:{partyUuid}"
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(BasePath);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        registerService.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData("urn:altinn:party:uuid:not-a-uuid", "Invalid InstanceOwnerIdentifier.")]
+    [InlineData("Person:33312321321", "Invalid person number.")]
+    public async Task GetMany_InvalidInstanceOwnerIdentifier_ReturnsBadRequestWithoutCallingRegister(
+        string identifier,
+        string expectedErrorMessage
+    )
+    {
+        // Arrange
+        Mock<IRegisterService> registerService = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(registerService: registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", identifier);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(BasePath);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedErrorMessage, await response.Content.ReadAsStringAsync());
+    }
+
+    private static InstanceInternal CreateStoredInstance(InstanceOwner owner) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            InstanceOwner = owner,
+            AppId = "tdd/endring-av-navn",
+            Org = "tdd",
+            Data = [],
+            Versions = new StorageVersions(1, 1),
+        };
+
+    private static string InstanceUri(Guid instanceGuid, bool byGuid) =>
+        byGuid ? $"{BasePath}/{instanceGuid}" : $"{BasePath}/1337/{instanceGuid}";
+
+    private HttpClient GetSyncAdapterClient(
+        Mock<IInstanceRepository> repository,
+        Mock<IRegisterService> registerService = null
+    )
+    {
+        HttpClient client = GetTestClient(repository, registerService);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetOrgToken("foo", scope: "altinn:storage/instances.syncadapter")
+        );
+        return client;
     }
 
     [Theory]
@@ -1585,6 +2033,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             authorization.Object,
             Mock.Of<IInstanceEventService>(),
             Mock.Of<IRegisterService>(),
+            Mock.Of<IInstanceOwnerService>(),
             Mock.Of<IApplicationService>(),
             Options.Create(new Altinn.Platform.Storage.Configuration.GeneralSettings()),
             Mock.Of<IProcessAuthorizer>()
@@ -1671,14 +2120,19 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IRegisterService> registerService = new Mock<IRegisterService>();
         registerService
             .Setup(x =>
-                x.PartyLookup(It.Is<string>(p => p == "33312321321"), It.Is<string>(o => o == null))
+                x.LookupPartyId(
+                    It.Is<PartyUrn>(u =>
+                        u.ToString() == "urn:altinn:person:identifier-no:25871999336"
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync(partyId);
 
         HttpClient client = GetTestClient(null, registerService);
         string token = PrincipalUtil.GetToken(3, partyId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:33312321321");
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Person:25871999336");
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -1729,14 +2183,19 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IRegisterService> registerService = new Mock<IRegisterService>();
         registerService
             .Setup(x =>
-                x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "333123213"))
+                x.LookupPartyId(
+                    It.Is<PartyUrn>(u =>
+                        u.ToString() == "urn:altinn:organization:identifier-no:974760673"
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync(partyId);
 
         HttpClient client = GetTestClient(null, registerService);
         string token = PrincipalUtil.GetToken(3, partyId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:974760673");
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -1760,14 +2219,19 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IRegisterService> registerService = new Mock<IRegisterService>();
         registerService
             .Setup(x =>
-                x.PartyLookup(It.Is<string>(p => p == null), It.Is<string>(o => o == "333123213"))
+                x.LookupPartyId(
+                    It.Is<PartyUrn>(u =>
+                        u.ToString() == "urn:altinn:organization:identifier-no:974760673"
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
             )
-            .ReturnsAsync(partyId);
+            .ReturnsAsync((int?)null);
 
         HttpClient client = GetTestClient(null, registerService);
         string token = PrincipalUtil.GetToken(3, partyId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:974760673");
 
         // Act
         HttpResponseMessage response = await client.GetAsync(requestUri);
@@ -3171,6 +3635,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             Mock.Of<IAuthorization>(),
             Mock.Of<IInstanceEventService>(),
             Mock.Of<IRegisterService>(),
+            Mock.Of<IInstanceOwnerService>(),
             Mock.Of<IApplicationService>(),
             Options.Create(new GeneralSettings()),
             authorizer.Object
@@ -3318,6 +3783,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             Mock.Of<IAuthorization>(),
             instanceEventService.Object,
             Mock.Of<IRegisterService>(),
+            Mock.Of<IInstanceOwnerService>(),
             applicationService.Object,
             Options.Create(new GeneralSettings { Hostname = "https://storage.test" }),
             processAuthorizer.Object
@@ -3391,6 +3857,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             builder.ConfigureTestServices(services =>
             {
                 services.AddMockRepositories();
+                services.AddSingleton<IRegisterService, RegisterServiceMock>();
 
                 if (repositoryMock != null)
                 {

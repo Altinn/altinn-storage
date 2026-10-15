@@ -37,7 +37,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format â€
     - `Telemetry/` - OpenTelemetry enrichers and metrics
     - `Helpers/`, `Configuration/`, `Health/` - Cross-cutting concerns
 
-- **`src/Storage.Interface/`** - Shared DTOs/models (`Instance`, `DataElement`, etc.). Note: the API consumes these via the published **`Altinn.Platform.Storage.Interface` NuGet package** (pinned in the csproj), **not** a project reference â€” changes to `src/Storage.Interface` do not flow into the API until published. Confirm which one you need before editing.
+- **`src/Storage.Interface/`** - Shared DTOs/models (`Instance`, `DataElement`, etc.), published as the **`Altinn.Platform.Storage.Interface` NuGet package** for apps and other clients. The API uses a project reference, so changes here take effect in the API immediately, but reach clients only when a new package version is published.
 
 - **`src/DbTools/`** - Build-time console tool that generates the SQL functions/procedures migration script (see Coding guidelines).
 

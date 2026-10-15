@@ -17,7 +17,7 @@ BEGIN
                 END
             )
         WHERE _alternateid = alternateid
-        RETURNING instance, storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
+        RETURNING storage.withinstanceowner(instance, partyid), storage.instances.instance_version, storage.instances.process_state_version, 'ok'::TEXT;
 
     IF NOT FOUND
     THEN

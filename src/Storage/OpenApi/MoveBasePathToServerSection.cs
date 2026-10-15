@@ -1,13 +1,14 @@
 using System;
 using System.Linq;
 using Microsoft.OpenApi;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Altinn.Platform.Storage.OpenApi;
 
 /// <summary>
 /// This class is used to remove the storageBasePath prefix from the swagger documentation
 /// </summary>
-public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDocumentFilter
+public class MoveBasePathToServerSection : IDocumentFilter
 {
     private const string _prefix = "/storage/api/v1";
 
@@ -32,10 +33,7 @@ public class MoveBasePathToServerSection : Swashbuckle.AspNetCore.SwaggerGen.IDo
     }
 
     /// <inheritdoc/>
-    public void Apply(
-        OpenApiDocument swaggerDoc,
-        Swashbuckle.AspNetCore.SwaggerGen.DocumentFilterContext context
-    )
+    public void Apply(OpenApiDocument swaggerDoc, DocumentFilterContext context)
     {
         if (string.Equals(context.DocumentName, _documentName, StringComparison.Ordinal))
         {

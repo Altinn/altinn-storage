@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Newtonsoft.Json;
+using PartyUrn = Altinn.Register.Contracts.PartyUrn;
 using Substatus = Altinn.Platform.Storage.Interface.Models.Substatus;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -46,6 +48,7 @@ public class InstancesController : ControllerBase
     private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IRegisterService _registerService;
+    private readonly IInstanceOwnerService _instanceOwnerService;
     private readonly IApplicationService _applicationService;
     private readonly IProcessAuthorizer _processAuthorizer;
 
@@ -58,6 +61,7 @@ public class InstancesController : ControllerBase
     /// <param name="authorizationService">the authorization service.</param>
     /// <param name="instanceEventService">the instance event service.</param>
     /// <param name="registerService">the instance register service.</param>
+    /// <param name="instanceOwnerService">the instance owner service.</param>
     /// <param name="applicationService">the application service.</param>
     /// <param name="settings">the general settings.</param>
     /// <param name="processAuthorizer">the process authorizer.</param>
@@ -68,6 +72,7 @@ public class InstancesController : ControllerBase
         IAuthorization authorizationService,
         IInstanceEventService instanceEventService,
         IRegisterService registerService,
+        IInstanceOwnerService instanceOwnerService,
         IApplicationService applicationService,
         IOptions<GeneralSettings> settings,
         IProcessAuthorizer processAuthorizer
@@ -80,6 +85,7 @@ public class InstancesController : ControllerBase
         _authorizationService = authorizationService;
         _instanceEventService = instanceEventService;
         _registerService = registerService;
+        _instanceOwnerService = instanceOwnerService;
         _applicationService = applicationService;
         _generalSettings = settings.Value;
         _processAuthorizer = processAuthorizer;
@@ -118,7 +124,10 @@ public class InstancesController : ControllerBase
             return authResult;
         }
 
-        if (await ResolvePartyFromIdentifier(queryParameters) is { } identifierResult)
+        if (
+            await ResolvePartyFromIdentifier(queryParameters, cancellationToken) is
+            { } identifierResult
+        )
         {
             return identifierResult;
         }
@@ -270,6 +279,7 @@ public class InstancesController : ControllerBase
 
         if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
         {
+            await _instanceOwnerService.PopulateMissingInstanceOwner(instance, cancellationToken);
             Instance responseInstance = instance.ToApiModel();
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
@@ -281,6 +291,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
+        await _instanceOwnerService.PopulateMissingInstanceOwner(instance, cancellationToken);
         Instance mappedInstance = instance.ToApiModel();
         if (User.GetOrg() != instance.Org)
         {
@@ -322,6 +333,7 @@ public class InstancesController : ControllerBase
 
         if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
         {
+            await _instanceOwnerService.PopulateMissingInstanceOwner(instance, cancellationToken);
             Instance responseInstance = instance.ToApiModel();
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
@@ -333,6 +345,7 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
+        await _instanceOwnerService.PopulateMissingInstanceOwner(instance, cancellationToken);
         Instance mappedInstance = instance.ToApiModel();
         if (User.GetOrg() != instance.Org)
         {
@@ -365,12 +378,14 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
+        PartyUrn instanceOwnerIdentifier = InstanceOwnerMapper.ToPartyUrn(
+            instance.InstanceOwner,
+            out string instanceOwnerError
+        );
+        if (instanceOwnerIdentifier is null)
         {
-            return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
+            return BadRequest(instanceOwnerError);
         }
-
-        int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
 
         appId = ValidateAppId(appId);
 
@@ -384,6 +399,29 @@ public class InstancesController : ControllerBase
                 404 => NotFound(appInfoError.ErrorMessage),
                 _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
             };
+        }
+
+        // An owner given by another identifier than the party id must be resolved before authorization.
+        // An unknown party is forbidden like an unauthorized one, so the response doesn't reveal which
+        // person and organisation numbers exist.
+        InstanceOwner instanceOwner = null;
+        int instanceOwnerPartyId;
+        if (instanceOwnerIdentifier is PartyUrn.PartyId partyIdUrn)
+        {
+            instanceOwnerPartyId = (int)partyIdUrn.Value;
+        }
+        else
+        {
+            instanceOwner = await _instanceOwnerService.GetInstanceOwner(
+                instanceOwnerIdentifier,
+                cancellationToken
+            );
+            if (instanceOwner is null)
+            {
+                return Forbid();
+            }
+
+            instanceOwnerPartyId = int.Parse(instanceOwner.PartyId, CultureInfo.InvariantCulture);
         }
 
         // Checking that user is authorized to instantiate.
@@ -456,6 +494,15 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
+        instanceOwner ??= await _instanceOwnerService.GetInstanceOwner(
+            instanceOwnerIdentifier,
+            cancellationToken
+        );
+        if (instanceOwner is null)
+        {
+            return BadRequest("Invalid instanceOwner.PartyId.");
+        }
+
         InstanceInternal storedInstance = null;
         try
         {
@@ -464,6 +511,7 @@ public class InstancesController : ControllerBase
             Instance instanceToCreate = CreateInstanceFromTemplate(
                 appInfo,
                 instance,
+                instanceOwner,
                 creationTime,
                 User.GetUserOrOrgNo()
             );
@@ -1144,13 +1192,14 @@ public class InstancesController : ControllerBase
     private static Instance CreateInstanceFromTemplate(
         Application appInfo,
         Instance instanceTemplate,
+        InstanceOwner instanceOwner,
         DateTime creationTime,
         string performedBy
     )
     {
         Instance createdInstance = new Instance
         {
-            InstanceOwner = instanceTemplate.InstanceOwner,
+            InstanceOwner = instanceOwner,
             CreatedBy = performedBy,
             Created = creationTime,
             LastChangedBy = performedBy,
@@ -1372,7 +1421,8 @@ public class InstancesController : ControllerBase
     /// result when the party could not be found).
     /// </returns>
     private async Task<ActionResult> ResolvePartyFromIdentifier(
-        InstanceQueryParameters queryParameters
+        InstanceQueryParameters queryParameters,
+        CancellationToken cancellationToken
     )
     {
         if (string.IsNullOrEmpty(queryParameters.InstanceOwnerIdentifier))
@@ -1380,20 +1430,19 @@ public class InstancesController : ControllerBase
             return null;
         }
 
-        InstanceOwnerIdentifierParseResult parseResult =
-            queryParameters.ParseInstanceOwnerIdentifier();
+        PartyUrn identifier = queryParameters.ParseInstanceOwnerIdentifier(out string errorMessage);
 
-        if (!parseResult.IsValid)
+        if (identifier is null)
         {
-            return BadRequest(parseResult.ErrorMessage);
+            return BadRequest(errorMessage);
         }
 
-        queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
-            parseResult.Person,
-            parseResult.OrgNo
+        queryParameters.InstanceOwnerPartyId = await _registerService.LookupPartyId(
+            identifier,
+            cancellationToken
         );
 
-        if (queryParameters.InstanceOwnerPartyId < 0)
+        if (queryParameters.InstanceOwnerPartyId is null)
         {
             return Ok(new QueryResponse<Instance> { Instances = [] });
         }

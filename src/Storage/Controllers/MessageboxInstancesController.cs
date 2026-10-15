@@ -550,11 +550,24 @@ public class MessageBoxInstancesController : ControllerBase
         string dateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 
         InstanceQueryParameters queryParams = new() { IncludeDataElements = false };
-        if (queryModel.FromLastChanged != null || queryModel.ToLastChanged != null)
+        List<string> lastChanged = [];
+        if (queryModel.FromLastChanged != null)
         {
-            queryParams.LastChanged = new string[
-                (queryModel.FromLastChanged == null || queryModel.ToLastChanged == null) ? 1 : 2
-            ];
+            lastChanged.Add(
+                $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"
+            );
+        }
+
+        if (queryModel.ToLastChanged != null)
+        {
+            lastChanged.Add(
+                $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}"
+            );
+        }
+
+        if (lastChanged.Count > 0)
+        {
+            queryParams.LastChanged = [.. lastChanged];
         }
 
         if (queryModel.InstanceOwnerPartyIdList.Count == 1)
@@ -571,18 +584,6 @@ public class MessageBoxInstancesController : ControllerBase
         if (!string.IsNullOrEmpty(queryModel.AppId))
         {
             queryParams.AppId = queryModel.AppId;
-        }
-
-        if (queryModel.FromLastChanged != null)
-        {
-            queryParams.LastChanged[0] =
-                $"gte:{queryModel.FromLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
-        }
-
-        if (queryModel.ToLastChanged != null)
-        {
-            queryParams.LastChanged[queryModel.FromLastChanged != null ? 1 : 0] =
-                $"lte:{queryModel.ToLastChanged?.ToString(dateTimeFormat, CultureInfo.InvariantCulture)}";
         }
 
         if (queryModel.FromCreated != null)

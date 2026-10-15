@@ -96,6 +96,24 @@ public class CleanupController(
             );
         }
 
+        try
+        {
+            int deletedInstanceOwners = await instanceRepository.DeleteOrphanedInstanceOwners(
+                cancellationToken
+            );
+            _logger.LogInformation(
+                "CleanupController// CleanupInstances // {DeleteCount} instance owners without instances deleted",
+                deletedInstanceOwners
+            );
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(
+                ex,
+                "CleanupController// CleanupInstances // Deleting instance owners without instances failed"
+            );
+        }
+
         return Ok();
     }
 

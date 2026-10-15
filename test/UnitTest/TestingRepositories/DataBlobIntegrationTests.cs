@@ -38,7 +38,7 @@ public class DataBlobIntegrationTests
         _blobFixture = blobFixture;
 
         string sql =
-            "delete from storage.instanceevents; delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.dataelements;";
+            "delete from storage.instanceevents; delete from storage.dataelementblobversions; delete from storage.instances; delete from storage.parties; delete from storage.dataelements;";
         _ = PostgresUtil.RunSql(sql).Result;
         InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
         instance.Org = BlobRepositoryAzuriteFixture.Org;

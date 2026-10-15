@@ -23,7 +23,7 @@ public class InstanceLockTests(InstanceLockFixture fixture)
     {
         string sql = """
             delete from storage.instancelocks;
-            delete from storage.instances;
+            delete from storage.instances; delete from storage.parties;
             delete from storage.dataelements;
             """;
 

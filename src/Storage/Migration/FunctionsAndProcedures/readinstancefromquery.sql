@@ -67,7 +67,7 @@ BEGIN
     RETURN QUERY
     WITH filteredInstances AS
     (
-        SELECT i.id, i.instance, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
+        SELECT i.id, storage.withinstanceowner(i.instance, i.partyid) AS instance, i.lastchanged, i.instance_version, i.process_state_version FROM storage.instances i
         WHERE 1 = 1
             AND (_a3_reference IS NULL OR right(i.alternateid::text, 12) = lower(_a3_reference))
             AND (_confirmed IS NULL OR _confirmed = confirmed)

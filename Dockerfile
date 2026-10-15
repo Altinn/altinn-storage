@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-resolute@sha256:d8051d88928fb40f74c9aca6896a57851cdced277f4102e1c5aa6d4983e27bad AS build
 
 COPY src/Storage ./Storage
+COPY src/Storage.Interface ./Storage.Interface
 COPY src/DbTools ./DbTools
 COPY src/Storage/Migration ./Migration
 

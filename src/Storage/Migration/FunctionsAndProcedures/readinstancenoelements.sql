@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancenoelements_v2(_alternateid UUID)
 AS $BODY$
 BEGIN
 RETURN QUERY
-    SELECT i.id, i.instance, i.instance_version, i.process_state_version FROM storage.instances i
+    SELECT i.id, storage.withinstanceowner(i.instance, i.partyid), i.instance_version, i.process_state_version FROM storage.instances i
         WHERE i.alternateid = _alternateid;
 END;
 $BODY$;

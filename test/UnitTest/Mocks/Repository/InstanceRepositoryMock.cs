@@ -271,6 +271,19 @@ public class InstanceRepositoryMock : IInstanceRepository
         throw new NotImplementedException();
     }
 
+    public Task UpsertInstanceOwner(
+        InstanceOwner instanceOwner,
+        CancellationToken cancellationToken
+    )
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task<int> DeleteOrphanedInstanceOwners(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(0);
+    }
+
     private static string GetInstancePath(Guid instanceGuid)
     {
         return Path.Combine(GetInstancesPath(), instanceGuid.ToString() + ".json");

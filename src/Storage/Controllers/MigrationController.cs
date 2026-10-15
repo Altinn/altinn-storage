@@ -172,6 +172,13 @@ public class MigrationController : ControllerBase
                 await _a2Repository.CreateA2MigrationState(a2ArchiveReference);
             }
 
+            // The owner comes from Altinn 2, not from Register. insertinstance stores an owner that has a
+            // PartyUuid as the owner of every instance of the party, so the PartyUuid must not be passed on.
+            if (instance.InstanceOwner is not null)
+            {
+                instance.InstanceOwner.PartyUuid = null;
+            }
+
             storedInstance = await _instanceRepository.Create(
                 instance.FromApiModel(),
                 cancellationToken,

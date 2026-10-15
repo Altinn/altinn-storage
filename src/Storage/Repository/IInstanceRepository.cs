@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
@@ -151,4 +152,22 @@ public interface IInstanceRepository
     Task<List<BlobVersionReferencesInternal>> GetOrphanBlobVersionsForCleanup(
         CancellationToken cancellationToken
     );
+
+    /// <summary>
+    /// Stores an instance owner resolved from Register as the owner of every instance of its party.
+    /// </summary>
+    /// <remarks>
+    /// Instances read through this repository get their <see cref="InstanceInternal.InstanceOwner"/> from the
+    /// stored owner of their party, when one exists.
+    /// </remarks>
+    /// <param name="instanceOwner">The instance owner, which must have a <see cref="InstanceOwner.PartyUuid"/>.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    Task UpsertInstanceOwner(InstanceOwner instanceOwner, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes stored instance owners whose party no longer has any instances.
+    /// </summary>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The number of deleted instance owners.</returns>
+    Task<int> DeleteOrphanedInstanceOwners(CancellationToken cancellationToken);
 }
