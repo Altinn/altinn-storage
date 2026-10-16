@@ -330,9 +330,28 @@ public class DataRepositoryMockTests
             2
         );
 
-        await repository.Create(
-            CreateDataElement(instanceGuid, dataElementId, secondAllocatedVersion)
+        DataElementBlobVersion staged = await repository.ReadBlobVersion(
+            instanceGuid,
+            dataElementId,
+            firstAllocatedVersion
         );
+        Assert.Null(staged.DataType);
+        Assert.Equal(staged.Created, staged.DetachedAt);
+        DataElementInternal element = CreateDataElement(
+            instanceGuid,
+            dataElementId,
+            secondAllocatedVersion
+        );
+        element.DataType = "default";
+        await repository.Create(element);
+        DataElementBlobVersion attached = await repository.ReadBlobVersion(
+            instanceGuid,
+            dataElementId,
+            secondAllocatedVersion
+        );
+        Assert.Equal(element.DataType, attached.DataType);
+        Assert.Null(attached.DetachedAt);
+
         DataElementInternal updatedElement = await AttachBlobVersion(
             repository,
             instanceGuid,
@@ -340,6 +359,22 @@ public class DataRepositoryMockTests
             firstAllocatedVersion
         );
 
+        Assert.Equal(
+            staged with
+            {
+                DetachedAt = null,
+                DataType = element.DataType,
+            },
+            await repository.ReadBlobVersion(instanceGuid, dataElementId, firstAllocatedVersion)
+        );
+        DataElementBlobVersion superseded = await repository.ReadBlobVersion(
+            instanceGuid,
+            dataElementId,
+            secondAllocatedVersion
+        );
+        Assert.NotNull(superseded.DetachedAt);
+        Assert.Null(attached.DetachedAt);
+        Assert.Equal(attached with { DetachedAt = superseded.DetachedAt }, superseded);
         Assert.Equal(firstAllocatedVersion, updatedElement.BlobVersionId);
         Assert.Equal(
             firstAllocatedVersion,
