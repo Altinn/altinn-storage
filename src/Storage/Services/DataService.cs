@@ -405,7 +405,8 @@ public class DataService : IDataService
         }
     }
 
-    private async Task DeleteLegacyDataElementBlob(
+    /// <inheritdoc/>
+    public async Task DeleteLegacyDataElementBlob(
         InstanceInternal instance,
         DataElementInternal dataElementInternal,
         int? storageAccountNumber
