@@ -351,6 +351,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     );
 
     services.AddScoped<MetricsApiKeyFilter>();
+    services.AddScoped<CleanupApiKeyFilter>();
 
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
