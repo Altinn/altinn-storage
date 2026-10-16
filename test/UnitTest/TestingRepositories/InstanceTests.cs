@@ -2358,14 +2358,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
-        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
-        InstanceQueryParameters queryParams = new()
-        {
-            Size = 100,
-            DataValuesA2ArchRef = "123456",
-            MainVersionInclude = 2,
-        };
+        InstanceQueryParameters queryParams = new() { Size = 100, DataValuesA2ArchRef = "123456" };
 
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
@@ -2386,14 +2381,9 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
-        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
 
-        InstanceQueryParameters queryParams = new()
-        {
-            Size = 100,
-            DataValuesA2ArchRef = "654321",
-            MainVersionInclude = 2,
-        };
+        InstanceQueryParameters queryParams = new() { Size = 100, DataValuesA2ArchRef = "654321" };
 
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
@@ -2644,50 +2634,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         Assert.Equal(2, instances.Instances.Count);
-    }
-
-    /// <summary>
-    /// Test GetInstancesFromQuery with msgBoxInterval
-    /// </summary>
-    [Fact]
-    public async Task Instance_GetInstancesFromQuery_MatchFromMsgBoxInterval_Ok()
-    {
-        // Arrange
-        await PrepareDateSearch();
-
-        // Act
-        var instances1 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2021", "2021"),
-            CancellationToken.None
-        );
-        var instances2 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2022", "2022"),
-            CancellationToken.None
-        );
-        var instances3 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2023", "2023"),
-            CancellationToken.None
-        );
-        var instances4 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2024", "2024"),
-            CancellationToken.None
-        );
-        var instances5 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2019", "2019"),
-            CancellationToken.None
-        );
-        var instances6 = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
-            GetDateQueryParams("2021", "2024"),
-            CancellationToken.None
-        );
-
-        // Assert
-        Assert.Single(instances1.Instances);
-        Assert.Single(instances2.Instances);
-        Assert.Single(instances3.Instances);
-        Assert.Single(instances4.Instances);
-        Assert.Empty(instances5.Instances);
-        Assert.Equal(4, instances6.Instances.Count);
     }
 
     /// <summary>
@@ -3107,42 +3053,6 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
             await Task.Delay(10);
         }
-    }
-
-    private static InstanceQueryParameters GetDateQueryParams(string fromYear, string toYear)
-    {
-        return new InstanceQueryParameters
-        {
-            Size = 100,
-            MsgBoxInterval =
-            [
-                $"gt:{fromYear}-01-01T23:00:00.000Z",
-                $"lt:{toYear}-01-12T23:00:00.000Z",
-            ],
-        };
-    }
-
-    private async Task PrepareDateSearch()
-    {
-        InstanceInternal newInstance1 = TestData.Instance_1_1.Clone().FromApiModel();
-        InstanceInternal newInstance2 = TestData.Instance_1_2.Clone().FromApiModel();
-        InstanceInternal newInstance3 = TestData.Instance_1_3.Clone().FromApiModel();
-        InstanceInternal newInstance4 = TestData.Instance_2_1.Clone().FromApiModel();
-
-        newInstance1.Created = new DateTime(2021, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);
-        newInstance2.Created = new DateTime(2022, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);
-        newInstance3.LastChanged = new DateTime(2023, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);
-        newInstance4.LastChanged = new DateTime(2024, 1, 6, 0, 0, 0, 0, 0, DateTimeKind.Utc);
-
-        newInstance1.Status.IsArchived = false;
-        newInstance2.Status.IsArchived = false;
-        newInstance3.Status.IsArchived = true;
-        newInstance4.Status.IsArchived = true;
-
-        await _instanceFixture.InstanceRepo.Create(newInstance1, CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(newInstance2, CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(newInstance3, CancellationToken.None);
-        await _instanceFixture.InstanceRepo.Create(newInstance4, CancellationToken.None);
     }
 }
 

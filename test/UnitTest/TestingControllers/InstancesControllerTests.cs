@@ -28,7 +28,6 @@ using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
-using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
@@ -602,15 +601,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         InstanceInternal createdInstance = null;
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
-            .Setup(r =>
-                r.Create(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<CancellationToken>(),
-                    It.IsAny<int>()
-                )
-            )
+            .Setup(r => r.Create(It.IsAny<InstanceInternal>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(
-                (InstanceInternal toCreate, CancellationToken _, int _) =>
+                (InstanceInternal toCreate, CancellationToken _) =>
                 {
                     toCreate.Id = Guid.NewGuid();
                     toCreate.Versions = new StorageVersions(1, 1);
@@ -682,12 +675,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
-    /// Test case: Registering the party with the parties-with-instances client fails after
-    /// the instance is created, hitting the catch-all that deletes the instance again.
+    /// Test case: Dispatching the created event fails after the instance is created,
+    /// hitting the catch-all that deletes the instance again.
     /// Expected: 500 without success version headers, and the created instance is deleted.
     /// </summary>
     [Fact]
-    public async Task Post_SetHasAltinn3InstancesThrows_DeletesInstanceAndOmitsVersionHeaders()
+    public async Task Post_DispatchEventThrows_DeletesInstanceAndOmitsVersionHeaders()
     {
         // Arrange
         string appId = "tdd/endring-av-navn";
@@ -695,15 +688,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
-            .Setup(r =>
-                r.Create(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<CancellationToken>(),
-                    It.IsAny<int>()
-                )
-            )
+            .Setup(r => r.Create(It.IsAny<InstanceInternal>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(
-                (InstanceInternal toCreate, CancellationToken _, int _) =>
+                (InstanceInternal toCreate, CancellationToken _) =>
                 {
                     if (toCreate.Id == Guid.Empty)
                     {
@@ -718,14 +705,14 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             .Setup(r => r.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = new();
-        partiesWithInstancesClient
-            .Setup(c => c.SetHasAltinn3Instances(It.IsAny<int>()))
-            .ThrowsAsync(new InvalidOperationException("parties registration failed"));
+        Mock<IInstanceEventService> instanceEventService = new();
+        instanceEventService
+            .Setup(s => s.DispatchEvent(InstanceEventType.Created, It.IsAny<InstanceInternal>()))
+            .ThrowsAsync(new InvalidOperationException("event dispatch failed"));
 
         HttpClient client = GetTestClient(
             repositoryMock,
-            partiesWithInstancesClient: partiesWithInstancesClient
+            instanceEventService: instanceEventService
         );
         string token = PrincipalUtil.GetToken(3, 1337, 3);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -1580,7 +1567,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             .Returns(false);
         InstancesController controller = new(
             repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
             Mock.Of<ILogger<InstancesController>>(),
             authorization.Object,
             Mock.Of<IInstanceEventService>(),
@@ -3166,7 +3152,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         authorizer.Setup(auth => auth.AuthorizeDataValuesUpdate(instance)).ReturnsAsync(true);
         return new InstancesController(
             repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
             Mock.Of<IAuthorization>(),
             Mock.Of<IInstanceEventService>(),
@@ -3313,7 +3298,6 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         };
         InstancesController controller = new(
             repository.Object,
-            Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
             Mock.Of<IAuthorization>(),
             instanceEventService.Object,
@@ -3377,7 +3361,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IRegisterService> registerService = null,
         Mock<IApplicationService> applicationService = null,
         Mock<IAuthorization> authorizationService = null,
-        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = null,
+        Mock<IInstanceEventService> instanceEventService = null,
         Mock<IPDP> pdpMock = null,
         Mock<ILogger<InstancesController>> loggerMock = null
     )
@@ -3414,15 +3398,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
                 services.AddSingleton(keyVaultWrapper.Object);
 
-                services.AddSingleton<
-                    IPartiesWithInstancesClient,
-                    PartiesWithInstancesClientMock
-                >();
-
-                if (partiesWithInstancesClient != null)
+                if (instanceEventService != null)
                 {
-                    services.AddSingleton(partiesWithInstancesClient.Object);
+                    services.AddSingleton(instanceEventService.Object);
                 }
+
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
 
                 if (pdpMock != null)

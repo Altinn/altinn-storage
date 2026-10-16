@@ -37,9 +37,7 @@ public class PgApplicationRepository : IApplicationRepository
         + " jsonb_build_object($4, storage.applications.application->>$4) || jsonb_build_object($5, storage.applications.application->>$5)";
 
     private readonly IMemoryCache _memoryCache;
-    private readonly MemoryCacheEntryOptions _cacheEntryOptionsTitles;
     private readonly MemoryCacheEntryOptions _cacheEntryOptionsMetadata;
-    private readonly string _cacheKey = "allAppTitles";
     private readonly NpgsqlDataSource _dataSource;
 
     /// <summary>
@@ -56,11 +54,6 @@ public class PgApplicationRepository : IApplicationRepository
     {
         _dataSource = dataSource;
         _memoryCache = memoryCache;
-        _cacheEntryOptionsTitles = new MemoryCacheEntryOptions()
-            .SetPriority(CacheItemPriority.High)
-            .SetAbsoluteExpiration(
-                new TimeSpan(0, 0, generalSettings.Value.AppTitleCacheLifeTimeInSeconds)
-            );
         _cacheEntryOptionsMetadata = new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
             .SetAbsoluteExpiration(
@@ -171,32 +164,6 @@ public class PgApplicationRepository : IApplicationRepository
 
         var rc = await pgcom.ExecuteNonQueryAsync();
         return rc == 1;
-    }
-
-    /// <inheritdoc/>
-    public async Task<Dictionary<string, string>> GetAllAppTitles()
-    {
-        if (!_memoryCache.TryGetValue(_cacheKey, out Dictionary<string, string> appTitles))
-        {
-            appTitles = [];
-            foreach (Application item in await FindAll())
-            {
-                StringBuilder titles = new();
-                if (item.Title?.Values != null)
-                {
-                    foreach (string title in item.Title.Values)
-                    {
-                        titles.Append(title + ";");
-                    }
-                }
-
-                appTitles.Add(item.Id, titles.ToString().TrimEnd(';'));
-            }
-
-            _memoryCache.Set(_cacheKey, appTitles, _cacheEntryOptionsTitles);
-        }
-
-        return appTitles;
     }
 
     private static string GetAppFromAppId(string appId)

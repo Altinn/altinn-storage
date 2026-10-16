@@ -14,7 +14,6 @@ using Altinn.Platform.Storage.Telemetry;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
-using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
@@ -95,10 +94,6 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
 
                 services.AddSingleton(keyVaultWrapper.Object);
 
-                services.AddSingleton<
-                    IPartiesWithInstancesClient,
-                    PartiesWithInstancesClientMock
-                >();
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton<
                     IPostConfigureOptions<JwtCookieOptions>,

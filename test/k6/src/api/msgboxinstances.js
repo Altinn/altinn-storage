@@ -16,19 +16,6 @@ export function getInstanceById(token, instanceId) {
   return http.get(endpoint, params);
 }
 
-export function searchInstances(token, queryModel) {
-  validateEnvironmentVars();
-
-  var endpoint = config.buildMessageboxInstanceUrl("", "search");
-  var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(
-    token,
-    sblAccesKey
-  );
-  var requestBody = JSON.stringify(queryModel);
-
-  return http.post(endpoint, requestBody, params);
-}
-
 export function getInstanceEvents(token, instanceId) {
   validateEnvironmentVars();
 
@@ -53,18 +40,6 @@ export function deleteInstance(token, instanceId, hardDelete) {
     sblAccesKey
   );
   return http.del(endpoint, null, params);
-}
-
-export function undeleteInstance(token, instanceId) {
-  validateEnvironmentVars();
-
-  var endpoint = config.buildMessageboxInstanceUrl(instanceId, "undelete");
-
-  var params = apiHelper.buildHeaderWithBearerAndSubscriptionKey(
-    token,
-    sblAccesKey
-  );
-  return http.put(endpoint, null, params);
 }
 
 function validateEnvironmentVars() {

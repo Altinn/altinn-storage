@@ -34,37 +34,6 @@ public class DependencyFilterProcessorTests
     /// Should trace all activities when disableTelemetryForMigration setting is false
     /// </summary>
     [Fact]
-    public void ShouldMarkAsNoneWhenDisableMigrationTelemetry()
-    {
-        // Arrange
-        Mock<IHttpContextAccessor> httpContextAccessor = new Mock<IHttpContextAccessor>(
-            MockBehavior.Strict
-        );
-        var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/storage/api/v1/migration";
-        httpContextAccessor.SetupGet(accessor => accessor.HttpContext).Returns(httpContext);
-
-        var dependencyFilterProcessor = new RequestFilterProcessor(
-            new Storage.Configuration.GeneralSettings { DisableTelemetryForMigration = true },
-            httpContextAccessor.Object
-        );
-
-        var activity = new System.Diagnostics.Activity(
-            "Microsoft.AspNetCore.Hosting.HttpRequestIn"
-        );
-        activity.ActivityTraceFlags = System.Diagnostics.ActivityTraceFlags.Recorded;
-
-        // Act
-        dependencyFilterProcessor.OnStart(activity);
-
-        // Assert
-        Assert.Equal(System.Diagnostics.ActivityTraceFlags.None, activity.ActivityTraceFlags);
-    }
-
-    /// <summary>
-    /// Should trace all activities when disableTelemetryForMigration setting is false
-    /// </summary>
-    [Fact]
     public void ShouldMarkAsRecordenWhenOtherActivityAndNotDisableMigrationTelemetry()
     {
         // Arrange
