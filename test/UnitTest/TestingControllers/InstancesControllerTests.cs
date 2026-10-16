@@ -68,6 +68,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     private const string BasePath = "storage/api/v1/instances";
 
+    /// <summary>
+    /// System user with roles for party 1337 in data/roles/system_49913a53 and a direct rule in the
+    /// tdd/authlevel-4* test app policies.
+    /// </summary>
+    private const string SystemUserId = "49913a53-0bf9-47fc-9cad-6aa3dc825008";
+
     private readonly TestApplicationFactory<InstancesController> _factory = factory;
 
     /// <summary>
@@ -1284,6 +1290,174 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedNoInstances, queryResponse.Count);
+    }
+
+    /// <summary>
+    /// Test case: A system user (always authentication level 3) instantiates an app whose policy requires
+    /// level 4 but relaxes the requirement to level 3 for system users
+    /// (urn:altinn:minimum-authenticationlevel-systemuser).
+    /// Expected: Returns status created.
+    /// </summary>
+    [Fact]
+    public async Task Post_SystemUser_PolicyWithSystemUserObligation_ReturnsStatusCreated()
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800")
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{BasePath}?appId=tdd/authlevel-4-systemuser",
+            JsonContent.Create(
+                new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } },
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: A system user (always authentication level 3) instantiates an app whose policy requires
+    /// level 4 and has no system user obligation.
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Fact]
+    public async Task Post_SystemUser_PolicyWithoutSystemUserObligation_ReturnsStatusForbidden()
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800")
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{BasePath}?appId=tdd/authlevel-4",
+            JsonContent.Create(
+                new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } },
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: An end user with authentication level 3 instantiates an app whose policy requires level 4.
+    /// The system user obligation does not apply to end users.
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Theory]
+    [InlineData("tdd/authlevel-4")]
+    [InlineData("tdd/authlevel-4-systemuser")]
+    public async Task Post_UserHasAuthLv3_PolicyRequiresLv4_ReturnsStatusForbidden(string appId)
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{BasePath}?appId={appId}",
+            JsonContent.Create(
+                new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } },
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: An end user with authentication level 4 instantiates an app whose policy requires level 4.
+    /// Expected: Returns status created, with or without the system user obligation.
+    /// </summary>
+    [Theory]
+    [InlineData("tdd/authlevel-4")]
+    [InlineData("tdd/authlevel-4-systemuser")]
+    public async Task Post_UserHasAuthLv4_PolicyRequiresLv4_ReturnsStatusCreated(string appId)
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 4)
+        );
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            $"{BasePath}?appId={appId}",
+            JsonContent.Create(
+                new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } },
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: A system user reads an instance of an app whose policy requires level 4 but relaxes the
+    /// requirement to level 3 for system users.
+    /// Expected: Returns status OK.
+    /// </summary>
+    [Fact]
+    public async Task Get_SystemUser_PolicyWithSystemUserObligation_ReturnsStatusOk()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1000001/1a4f2e6c-0d3b-4c8e-9f21-5b7a8c9d0e02";
+
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800")
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Instance instance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal("tdd/authlevel-4-systemuser", instance.AppId);
+    }
+
+    /// <summary>
+    /// Test case: A system user reads an instance of an app whose policy requires level 4 and has no system
+    /// user obligation.
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Fact]
+    public async Task Get_SystemUser_PolicyWithoutSystemUserObligation_ReturnsStatusForbidden()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1000001/1a4f2e6c-0d3b-4c8e-9f21-5b7a8c9d0e01";
+
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800")
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     /// <summary>
