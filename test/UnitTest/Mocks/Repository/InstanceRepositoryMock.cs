@@ -27,8 +27,7 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     public async Task<InstanceInternal> Create(
         InstanceInternal instance,
-        CancellationToken cancellationToken,
-        int altinnMainVersion = 3
+        CancellationToken cancellationToken
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -102,17 +101,6 @@ public class InstanceRepositoryMock : IInstanceRepository
         {
             instances.RemoveAll(i =>
                 queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId)
-            );
-        }
-        else if (
-            queryParams.InstanceOwnerPartyIds != null
-            && queryParams.InstanceOwnerPartyIds.Length > 0
-        )
-        {
-            instances.RemoveAll(i =>
-                !queryParams.InstanceOwnerPartyIds.Contains(
-                    Convert.ToInt32(i.InstanceOwner.PartyId)
-                )
             );
         }
 
