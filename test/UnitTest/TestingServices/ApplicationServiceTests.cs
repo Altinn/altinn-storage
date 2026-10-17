@@ -23,23 +23,15 @@ public class ApplicationServiceTests
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Success()
+    public void ValidateDataTypeForApp_Success()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "sign-datatype",
             "currentTask"
         );
@@ -47,46 +39,18 @@ public class ApplicationServiceTests
         // Assert
         Assert.True(isValid);
         Assert.Null(serviceError);
-        _applicationRepositoryMock.VerifyAll();
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Failed_AppNotExists()
-    {
-        // Arrange
-        ApplicationService applicationService = new(_applicationRepositoryMock.Object);
-
-        // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
-            "sign-datatype",
-            "currentTask"
-        );
-
-        // Assert
-        Assert.False(isValid);
-        Assert.Equal(404, serviceError.ErrorCode);
-    }
-
-    [Fact]
-    public async Task ValidateDataTypeForApp_Failed_InvalidDataType()
+    public void ValidateDataTypeForApp_Failed_InvalidDataType()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "invalid-datatype",
             "currentTask"
         );
@@ -94,27 +58,18 @@ public class ApplicationServiceTests
         // Assert
         Assert.False(isValid);
         Assert.Equal(405, serviceError.ErrorCode);
-        _applicationRepositoryMock.VerifyAll();
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Failed_InvalidTask()
+    public void ValidateDataTypeForApp_Failed_InvalidTask()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "sign-datatype",
             "invalidTask"
         );
@@ -122,7 +77,6 @@ public class ApplicationServiceTests
         // Assert
         Assert.False(isValid);
         Assert.Equal(405, serviceError.ErrorCode);
-        _applicationRepositoryMock.VerifyAll();
     }
 
     private static Application CreateApplication(string org, string appName)
