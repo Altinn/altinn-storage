@@ -229,6 +229,7 @@ public class DataBlobIntegrationTests
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
+        authorization.DelegateGetAuthorizedInstance(_dataElementFixture.InstanceRepo);
         Mock<IInstanceEventService> eventService = new();
         eventService
             .Setup(service =>
@@ -272,7 +273,6 @@ public class DataBlobIntegrationTests
         InstanceMutationsController mutationController = new(
             _dataElementFixture.DataRepo,
             _blobFixture.Repository,
-            _dataElementFixture.InstanceRepo,
             _dataElementFixture.InstanceMutationRepo,
             applicationRepository.Object,
             dataService,

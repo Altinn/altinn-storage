@@ -32,7 +32,6 @@ namespace Altinn.Platform.Storage.Controllers;
 /// </summary>
 /// <param name="dataRepository">the data repository handler</param>
 /// <param name="blobRepository">the blob repository handler</param>
-/// <param name="instanceRepository">the instance repository</param>
 /// <param name="instanceMutationRepository">the aggregate instance mutation repository.</param>
 /// <param name="applicationRepository">the application repository</param>
 /// <param name="dataService">A data service with data element related business logic.</param>
@@ -45,7 +44,6 @@ namespace Altinn.Platform.Storage.Controllers;
 public class InstanceMutationsController(
     IDataRepository dataRepository,
     IBlobRepository blobRepository,
-    IInstanceRepository instanceRepository,
     IInstanceMutationRepository instanceMutationRepository,
     IApplicationRepository applicationRepository,
     IDataService dataService,
@@ -121,21 +119,17 @@ public class InstanceMutationsController(
         [FromHeader(Name = StorageHeaders.IdempotencyKey)] string idempotencyKeyHeader = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-
-        if (
-            !await authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                true,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -192,11 +186,6 @@ public class InstanceMutationsController(
         if (instanceEventError is not null)
         {
             return instanceEventError;
-        }
-
-        if (instanceError is not null)
-        {
-            return instanceError;
         }
 
         StorageVersions snapshotVersions = instance.Versions;
@@ -1972,29 +1961,6 @@ public class InstanceMutationsController(
         return application is null
             ? (null, NotFound($"Cannot find application {appId} in storage"))
             : (application, null);
-    }
-
-    private async Task<(InstanceInternal Instance, ActionResult ErrorMessage)> GetInstanceAsync(
-        Guid instanceGuid,
-        int instanceOwnerPartyId,
-        bool includeDataelements,
-        CancellationToken cancellationToken
-    )
-    {
-        InstanceInternal instance = await instanceRepository.GetOne(
-            instanceGuid,
-            includeDataelements,
-            cancellationToken
-        );
-
-        return instance is null
-            ? (
-                null,
-                NotFound(
-                    $"Unable to find any instance with id: {instanceOwnerPartyId}/{instanceGuid}."
-                )
-            )
-            : (instance, null);
     }
 
     private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(

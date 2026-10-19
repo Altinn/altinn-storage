@@ -419,7 +419,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             cleanupService,
             CreateApplicationService().Object,
             dataService,
-            CreatePermissiveAuthorization()
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(_fixture.InstanceRepo)
         );
     }
 
@@ -437,16 +437,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
 
         return new SignController(
             signingService,
-            _fixture.InstanceRepo,
-            CreatePermissiveAuthorization()
-        );
-    }
-
-    private static IAuthorization CreatePermissiveAuthorization()
-    {
-        return Mock.Of<IAuthorization>(a =>
-            a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
-            == Task.FromResult(true)
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(_fixture.InstanceRepo)
         );
     }
 

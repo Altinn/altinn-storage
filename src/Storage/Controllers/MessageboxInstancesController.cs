@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -243,20 +244,16 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
+        (_, ActionResult error) = await _authorizationService.GetAuthorizedInstanceOrError(
+            instanceOwnerPartyId,
             instanceGuid,
+            AuthorizationActions.Read,
             false,
             CancellationToken.None
         );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         string[] eventTypes =
@@ -309,28 +306,17 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Delete
-            )
-            is false
-        )
-        {
-            return Forbid();
-        }
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be restored with instanceId={instanceOwnerPartyId}/{instanceGuid}"
+        (InstanceInternal instance, ActionResult? error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                false,
+                cancellationToken
             );
+        if (error is not null)
+        {
+            return error;
         }
 
         if (instance.Status.IsHardDeleted)
@@ -405,30 +391,17 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
-
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Delete
-            )
-            is false
-        )
-        {
-            return Forbid();
-        }
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceId}"
+        (InstanceInternal instance, ActionResult? error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                false,
+                cancellationToken
             );
+        if (error is not null)
+        {
+            return error;
         }
 
         instance.Status ??= new InstanceStatus();

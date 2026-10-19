@@ -1722,15 +1722,16 @@ public class MessageBoxInstancesControllerTests(
             )
             .ReturnsAsync(new List<InstanceEvent>());
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            Mock.Of<IInstanceRepository>(),
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
-                == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1785,15 +1786,16 @@ public class MessageBoxInstancesControllerTests(
             )
             .ReturnsAsync(eventList);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            Mock.Of<IInstanceRepository>(),
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
-                == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1842,15 +1844,16 @@ public class MessageBoxInstancesControllerTests(
             )
             .ReturnsAsync(largeNumberOfEvents);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            Mock.Of<IInstanceRepository>(),
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), AuthorizationActions.Read)
-                == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1911,12 +1914,7 @@ public class MessageBoxInstancesControllerTests(
             instanceEventRepository.Object,
             Mock.Of<ITextRepository>(),
             Mock.Of<IApplicationRepository>(),
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(
-                    It.IsAny<InstanceInternal>(),
-                    AuthorizationActions.Delete
-                ) == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             applicationService.Object,
             NullLogger<MessageBoxInstancesController>.Instance
         )

@@ -119,22 +119,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -142,11 +137,6 @@ public class DataController : ControllerBase
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -291,32 +281,22 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -588,32 +568,22 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                true,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
@@ -664,22 +634,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -694,11 +659,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, elementType or attached file content cannot be null"
             );
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -841,22 +801,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -871,11 +826,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, datafile or attached file content cannot be empty"
             );
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -1158,22 +1108,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Write
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -1189,11 +1134,6 @@ public class DataController : ControllerBase
         )
         {
             return BadRequest("Mismatch between path and dataElement content");
-        }
-
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(

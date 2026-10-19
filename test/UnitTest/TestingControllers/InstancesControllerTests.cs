@@ -3325,10 +3325,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
-                == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             Mock.Of<IInstanceEventService>(),
             Mock.Of<IRegisterService>(),
             Mock.Of<IApplicationService>(),
@@ -3475,10 +3472,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(a =>
-                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
-                == Task.FromResult(true)
-            ),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             instanceEventService.Object,
             Mock.Of<IRegisterService>(),
             applicationService.Object,

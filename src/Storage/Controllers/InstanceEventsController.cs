@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -23,7 +24,6 @@ namespace Altinn.Platform.Storage.Controllers;
 public class InstanceEventsController : ControllerBase
 {
     private readonly IAuthorization _authorizationService;
-    private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _repository;
     private readonly WolverineSettings _wolverineSettings;
 
@@ -31,18 +31,15 @@ public class InstanceEventsController : ControllerBase
     /// Initializes a new instance of the <see cref="InstanceEventsController"/> class
     /// </summary>
     /// <param name="authorizationService">the authorization service</param>
-    /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="instanceEventRepository">the instance event repository handler</param>
     /// <param name="wolverineSettings">Wolverine settings</param>
     public InstanceEventsController(
         IAuthorization authorizationService,
-        IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
         IOptions<WolverineSettings> wolverineSettings
     )
     {
         _authorizationService = authorizationService;
-        _instanceRepository = instanceRepository;
         _repository = instanceEventRepository;
         _wolverineSettings = wolverineSettings.Value;
     }
@@ -66,20 +63,17 @@ public class InstanceEventsController : ControllerBase
         [FromBody] InstanceEvent instanceEvent
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            CancellationToken.None
-        );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        (InstanceInternal? instance, ActionResult? error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                false,
+                CancellationToken.None
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         if (instanceEvent?.InstanceId == null)
@@ -121,19 +115,16 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
+        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+            instanceOwnerPartyId,
             instanceGuid,
+            AuthorizationActions.Read,
             false,
             CancellationToken.None
         );
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         InstanceEvent theEvent = await _repository.GetOneEvent(instanceGuid, eventGuid);
@@ -175,19 +166,16 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
+        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+            instanceOwnerPartyId,
             instanceGuid,
+            AuthorizationActions.Read,
             false,
             CancellationToken.None
         );
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         DateTime? fromDateTime = null,

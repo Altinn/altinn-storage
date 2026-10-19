@@ -5397,6 +5397,7 @@ public class InstanceMutationsControllerUnitTests
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(200001, 1337) };
         if (mutationJson is not null)
@@ -5407,7 +5408,6 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationsController sut = new(
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceRepositoryMock.Object,
             mutationRepositoryMock.Object,
             applicationRepositoryMock.Object,
             dataServiceMock.Object,

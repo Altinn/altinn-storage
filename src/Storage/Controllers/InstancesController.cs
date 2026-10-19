@@ -470,21 +470,17 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (
-            await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Delete
-            )
-            is false
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                false,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -492,13 +488,6 @@ public class InstancesController : ControllerBase
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
-            );
         }
 
         instance.Status ??= new InstanceStatus();
@@ -620,20 +609,17 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Complete
-            )
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Complete,
+                true,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -644,11 +630,6 @@ public class InstancesController : ControllerBase
         }
 
         List<string> updateProperties = [];
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
-        }
-
         string org = User.GetOrg();
 
         instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
@@ -736,20 +717,17 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                true,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
@@ -757,11 +735,6 @@ public class InstancesController : ControllerBase
             return BadRequest(
                 $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
             );
-        }
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
         InstanceInternal updatedInstance;

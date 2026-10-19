@@ -463,20 +463,16 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
+        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+            instanceOwnerPartyId,
             instanceGuid,
+            AuthorizationActions.Read,
             false,
             CancellationToken.None
         );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-        )
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         string[] eventTypes = Enum.GetNames<InstanceEventType>()

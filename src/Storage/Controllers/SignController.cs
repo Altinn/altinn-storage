@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -23,23 +24,16 @@ namespace Altinn.Platform.Storage.Controllers;
 public class SignController : ControllerBase
 {
     private readonly ISigningService _signingService;
-    private readonly IInstanceRepository _instanceRepository;
     private readonly IAuthorization _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SignController"/> class
     /// </summary>
     /// <param name="signingService">An instance service with instance related business logic.</param>
-    /// <param name="instanceRepository">the instance repository handler</param>
     /// <param name="authorizationService">the authorization service</param>
-    public SignController(
-        ISigningService signingService,
-        IInstanceRepository instanceRepository,
-        IAuthorization authorizationService
-    )
+    public SignController(ISigningService signingService, IAuthorization authorizationService)
     {
         _signingService = signingService;
-        _instanceRepository = instanceRepository;
         _authorizationService = authorizationService;
     }
 
@@ -69,20 +63,17 @@ public class SignController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (
-            !await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Sign
-            )
-        )
+        (InstanceInternal instance, ActionResult error) =
+            await _authorizationService.GetAuthorizedInstanceOrError(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Sign,
+                true,
+                cancellationToken
+            );
+        if (error is not null)
         {
-            return Forbid();
+            return error;
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =

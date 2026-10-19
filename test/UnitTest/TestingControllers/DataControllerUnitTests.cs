@@ -3035,6 +3035,7 @@ public class DataControllerUnitTests
                 a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(authorized);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
@@ -3195,6 +3196,7 @@ public class DataControllerUnitTests
             .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
         authorization.Setup(a => a.AuthorizeInstanceRequest(instance, "read")).ReturnsAsync(true);
+        authorization.DelegateGetAuthorizedInstance(instanceRepository.Object);
 
         DefaultHttpContext httpContext = new() { User = CreateOrgPrincipal(_org) };
         DataController sut = new(
@@ -3274,6 +3276,7 @@ public class DataControllerUnitTests
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
         dataRepositoryMock
             .Setup(repository =>
                 repository.Read(instanceGuid, dataElementId, It.IsAny<CancellationToken>())

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Configuration;
@@ -15,6 +16,7 @@ using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
@@ -36,6 +38,7 @@ namespace Altinn.Platform.Storage.Authorization;
 /// <param name="settings">General configuration settings</param>
 /// <param name="memoryCache">The memory cache</param>
 /// <param name="pepSettings">The settings for pep</param>
+/// <param name="instanceRepository">Repository used to load the instance an authorization decision concerns.</param>
 public class AuthorizationService(
     IHttpContextAccessor httpContextAccessor,
     IPDP pdp,
@@ -43,11 +46,13 @@ public class AuthorizationService(
     ILogger<AuthorizationService> logger,
     IOptions<GeneralSettings> settings,
     IMemoryCache memoryCache,
-    IOptions<PepSettings> pepSettings
+    IOptions<PepSettings> pepSettings,
+    IInstanceRepository instanceRepository
 ) : IAuthorization
 {
     private readonly IHttpContextAccessor _httpContextAccessor = httpContextAccessor;
     private readonly IPDP _pdp = pdp;
+    private readonly IInstanceRepository _instanceRepository = instanceRepository;
     private readonly IClaimsPrincipalProvider _claimsPrincipalProvider = claimsPrincipalProvider;
     private readonly ILogger<AuthorizationService> _logger = logger;
     private readonly GeneralSettings _settings = settings.Value;
@@ -233,6 +238,53 @@ public class AuthorizationService(
     /// <inheritdoc />
     public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
     {
+        RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
+        return await AuthorizeInstanceRequest(
+            instance,
+            action,
+            routeData?.Values["instanceOwnerPartyId"] as string,
+            routeData?.Values["instanceGuid"] as string
+        );
+    }
+
+    /// <inheritdoc />
+    public async Task<(InstanceInternal Instance, bool IsAuthorized)> GetAuthorizedInstance(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        string action,
+        bool includeElements,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            includeElements,
+            cancellationToken
+        );
+
+        bool authorized = await AuthorizeInstanceRequest(
+            instance,
+            action,
+            instanceOwnerPartyId.ToString(),
+            instanceGuid.ToString()
+        );
+
+        return authorized ? (instance, true) : (null, false);
+    }
+
+    /// <summary>
+    /// Authorizes <paramref name="action"/> for the current user. The XACML resource is built from the
+    /// instance when it exists, so the decision is enriched with the process state and cached. Without an
+    /// instance the resource is built from the identifiers, which is what lets an endpoint deny access
+    /// before revealing whether the instance exists.
+    /// </summary>
+    private async Task<bool> AuthorizeInstanceRequest(
+        InstanceInternal instance,
+        string action,
+        string instanceOwnerPartyId,
+        string instanceGuid
+    )
+    {
         if (IsSyncAdapterBypassRequest(action))
         {
             return true;
@@ -240,8 +292,6 @@ public class AuthorizationService(
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
 
-        // The subject and action come from the caller; the resource is set below from the instance
-        // when it exists, otherwise from the route values.
         XacmlJsonRequestRoot request = DecisionHelper.CreateDecisionRequest(
             null,
             null,
@@ -256,8 +306,6 @@ public class AuthorizationService(
         }
         else
         {
-            RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
-            string instanceGuid = routeData?.Values["instanceGuid"] as string;
             if (string.IsNullOrWhiteSpace(instanceGuid))
             {
                 _logger.LogInformation(
@@ -266,7 +314,7 @@ public class AuthorizationService(
                 return false;
             }
 
-            SetResourceFromRoute(request, routeData, instanceGuid);
+            SetResourceFromIds(request, instanceOwnerPartyId, instanceGuid);
             response = await _pdp.GetDecisionForRequest(request);
         }
 
@@ -505,28 +553,15 @@ public class AuthorizationService(
     }
 
     /// <summary>
-    /// Replaces the resource attributes with the ones the route identifies: the instance owner and
-    /// instance id when the route has an owner, and org/app when the route has them.
+    /// Replaces the resource attributes with the identifiers of an instance that could not be loaded:
+    /// the instance owner, and the instance id when an owner is known.
     /// </summary>
-    private static void SetResourceFromRoute(
+    private static void SetResourceFromIds(
         XacmlJsonRequestRoot request,
-        RouteData routeData,
+        string instanceOwnerPartyId,
         string instanceGuid
     )
     {
-        string instanceOwnerPartyId = routeData.Values["instanceOwnerPartyId"] as string;
-        string org = routeData.Values["org"] as string;
-        string app = routeData.Values["app"] as string;
-        if (
-            string.IsNullOrWhiteSpace(org)
-            && string.IsNullOrWhiteSpace(app)
-            && routeData.Values["appId"] is string appId
-        )
-        {
-            org = appId.Split('/')[0];
-            app = appId.Split('/')[1];
-        }
-
         XacmlJsonCategory resource = new() { Attribute = [] };
         AddResourceAttribute(resource, AltinnXacmlUrns.PartyId, instanceOwnerPartyId);
         if (!string.IsNullOrWhiteSpace(instanceOwnerPartyId))
@@ -537,9 +572,6 @@ public class AuthorizationService(
                 $"{instanceOwnerPartyId}/{instanceGuid}"
             );
         }
-
-        AddResourceAttribute(resource, AltinnXacmlUrns.OrgId, org);
-        AddResourceAttribute(resource, AltinnXacmlUrns.AppId, app);
 
         request.Request.Resource = [resource];
     }
