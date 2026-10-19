@@ -51,8 +51,13 @@ public interface IInstanceRepository
     /// </remarks>
     /// <param name="instance">The storage-domain instance to insert.</param>
     /// <param name="cancellationToken">CancellationToken</param>
+    /// <param name="altinnMainVersion">the altinn main version</param>
     /// <returns>The same successfully inserted <paramref name="instance"/> reference.</returns>
-    Task<InstanceInternal> Create(InstanceInternal instance, CancellationToken cancellationToken);
+    Task<InstanceInternal> Create(
+        InstanceInternal instance,
+        CancellationToken cancellationToken,
+        int altinnMainVersion = 3
+    );
 
     /// <summary>
     /// update existing instance

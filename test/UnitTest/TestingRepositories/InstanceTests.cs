@@ -2358,9 +2358,14 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
-        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
 
-        InstanceQueryParameters queryParams = new() { Size = 100, DataValuesA2ArchRef = "123456" };
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            DataValuesA2ArchRef = "123456",
+            MainVersionInclude = 2,
+        };
 
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
@@ -2381,9 +2386,14 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Arrange
         InstanceInternal newInstance = TestData.Instance_1_1.Clone().FromApiModel();
         newInstance.DataValues = new() { { "A2ArchRef", "123456" } };
-        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None);
+        await _instanceFixture.InstanceRepo.Create(newInstance, CancellationToken.None, 2);
 
-        InstanceQueryParameters queryParams = new() { Size = 100, DataValuesA2ArchRef = "654321" };
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = 100,
+            DataValuesA2ArchRef = "654321",
+            MainVersionInclude = 2,
+        };
 
         // Act
         var instances = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(

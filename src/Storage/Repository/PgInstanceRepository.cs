@@ -79,7 +79,8 @@ public class PgInstanceRepository : IInstanceRepository
     /// <inheritdoc/>
     public async Task<InstanceInternal> Create(
         InstanceInternal instance,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int altinnMainVersion = 3
     )
     {
         // Remove last decimal digit to make postgres TIMESTAMPTZ equal to json serialized DateTime
@@ -118,7 +119,11 @@ public class PgInstanceRepository : IInstanceRepository
             NpgsqlDbType.Text,
             instance.Process?.CurrentTask?.ElementId ?? (object)DBNull.Value
         );
-        pgcom.Parameters.AddWithValue("_altinnmainversion", NpgsqlDbType.Integer, 3);
+        pgcom.Parameters.AddWithValue(
+            "_altinnmainversion",
+            NpgsqlDbType.Integer,
+            altinnMainVersion
+        );
         pgcom.Parameters.AddWithValue(
             "_confirmed",
             NpgsqlDbType.Boolean,

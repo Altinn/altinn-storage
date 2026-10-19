@@ -27,7 +27,8 @@ public class InstanceRepositoryMock : IInstanceRepository
 
     public async Task<InstanceInternal> Create(
         InstanceInternal instance,
-        CancellationToken cancellationToken
+        CancellationToken cancellationToken,
+        int altinnMainVersion = 3
     )
     {
         Guid instanceGuid = Guid.NewGuid();

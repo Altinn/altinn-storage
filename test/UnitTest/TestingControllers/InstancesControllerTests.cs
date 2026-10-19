@@ -601,9 +601,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         InstanceInternal createdInstance = null;
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
-            .Setup(r => r.Create(It.IsAny<InstanceInternal>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                )
+            )
             .ReturnsAsync(
-                (InstanceInternal toCreate, CancellationToken _) =>
+                (InstanceInternal toCreate, CancellationToken _, int _) =>
                 {
                     toCreate.Id = Guid.NewGuid();
                     toCreate.Versions = new StorageVersions(1, 1);
@@ -688,9 +694,15 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         Mock<IInstanceRepository> repositoryMock = new();
         repositoryMock
-            .Setup(r => r.Create(It.IsAny<InstanceInternal>(), It.IsAny<CancellationToken>()))
+            .Setup(r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                )
+            )
             .ReturnsAsync(
-                (InstanceInternal toCreate, CancellationToken _) =>
+                (InstanceInternal toCreate, CancellationToken _, int _) =>
                 {
                     if (toCreate.Id == Guid.Empty)
                     {
