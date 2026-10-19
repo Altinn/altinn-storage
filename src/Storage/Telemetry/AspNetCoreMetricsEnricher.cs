@@ -214,6 +214,9 @@ internal sealed class CustomActionDescriptorProvider : IActionDescriptorProvider
             ["Altinn.Platform.Storage.Controllers.DataController.Get (Altinn.Platform.Storage)"] =
                 RequiredScope.Read,
             [
+                "Altinn.Platform.Storage.Controllers.DataController.GetBlobVersion (Altinn.Platform.Storage)"
+            ] = RequiredScope.Read,
+            [
                 "Altinn.Platform.Storage.Controllers.DataController.GetMany (Altinn.Platform.Storage)"
             ] = RequiredScope.Read,
             [

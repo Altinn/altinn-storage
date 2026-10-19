@@ -172,6 +172,7 @@ void AddAzureMonitorTelemetryExporters(
         logging.AddAzureMonitorLogExporter(o =>
         {
             o.ConnectionString = applicationInsightsConnectionString;
+            o.EnableTraceBasedLogsSampler = false;
         })
     );
     services.ConfigureOpenTelemetryMeterProvider(metrics =>
@@ -184,6 +185,8 @@ void AddAzureMonitorTelemetryExporters(
         tracing.AddAzureMonitorTraceExporter(o =>
         {
             o.ConnectionString = applicationInsightsConnectionString;
+            o.SamplingRatio = 1.0f;
+            o.TracesPerSecond = null;
         })
     );
 }
