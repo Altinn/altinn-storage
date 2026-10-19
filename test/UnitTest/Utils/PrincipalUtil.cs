@@ -139,19 +139,32 @@ public static class PrincipalUtil
         return token;
     }
 
+    /// <summary>
+    /// Token for a system user at authentication level 3. The authorization_details claim is PEP's
+    /// <see cref="SystemUserClaim"/>, which carries the type urn:altinn:systemuser that PEP requires; set
+    /// <paramref name="includeType"/> to false for a claim without it.
+    /// </summary>
     public static string GetSystemUserToken(
         string systemUserId,
         string orgNumber,
-        IEnumerable<string> scopes = null
+        IEnumerable<string> scopes = null,
+        bool includeType = true
     )
     {
         string issuer = "UnitTest";
-        SystemUserClaim systemUserClaim = new SystemUserClaim
-        {
-            Systemuser_id = new List<string>() { systemUserId },
-            Systemuser_org = new OrgClaim() { ID = $"0192:{orgNumber}" },
-            System_id = "the_matrix",
-        };
+        object systemUserClaim = includeType
+            ? new SystemUserClaim
+            {
+                Systemuser_id = new List<string>() { systemUserId },
+                Systemuser_org = new OrgClaim() { ID = $"0192:{orgNumber}" },
+                System_id = "the_matrix",
+            }
+            : new
+            {
+                systemuser_id = new List<string>() { systemUserId },
+                systemuser_org = new { ID = $"0192:{orgNumber}" },
+                system_id = "the_matrix",
+            };
 
         var claimScopes = new List<string>();
         if (scopes is not null)
