@@ -73,7 +73,7 @@ BEGIN
             AND (_confirmed IS NULL OR _confirmed = confirmed)
             AND (_continue_idx <= 0 OR
                 (_continue_idx > 0 AND _sort_ascending = true  AND (i.lastchanged > _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))) OR
-                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id < _continue_idx))))
+                (_continue_idx > 0 AND _sort_ascending = false AND (i.lastchanged < _lastChanged_idx OR (i.lastchanged = _lastChanged_idx AND i.id > _continue_idx))))
             AND (_appId IS NULL OR i.appid = _appId)
             AND (_archiveReference IS NULL OR i.instance ->> 'Id' like '%' || _archiveReference)
             AND (_created_gte IS NULL OR i.created >= _created_gte)
