@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
@@ -12,23 +11,22 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
 
-namespace Altinn.Platform.Storage.UnitTest.Extensions;
+namespace Altinn.Platform.Storage.UnitTest.HelperTests;
 
-public class ControllerAuthorizationExtensionsTests
+public class InstanceAuthorizationTests
 {
     private const int PartyId = 1337;
     private static readonly Guid _instanceGuid = Guid.NewGuid();
     private readonly Mock<IAuthorization> _authorization = new();
-    private readonly ControllerBase _controller = new TestController();
 
     [Fact]
-    public async Task GetAuthorizedInstanceOrProblem_Authorized_ReturnsInstanceWithoutProblem()
+    public async Task GetInstanceOrProblem_Authorized_ReturnsInstanceWithoutProblem()
     {
         InstanceInternal expected = new() { Id = _instanceGuid };
         SetupAuthorization((expected, true));
 
         (InstanceInternal instance, ProblemDetails problem) =
-            await _controller.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorization.Object,
                 PartyId,
                 _instanceGuid,
@@ -42,12 +40,12 @@ public class ControllerAuthorizationExtensionsTests
     }
 
     [Fact]
-    public async Task GetAuthorizedInstanceOrProblem_Denied_ReturnsForbiddenProblemWithoutInstance()
+    public async Task GetInstanceOrProblem_Denied_ReturnsForbiddenProblemWithoutInstance()
     {
         SetupAuthorization((null, false));
 
         (InstanceInternal instance, ProblemDetails problem) =
-            await _controller.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorization.Object,
                 PartyId,
                 _instanceGuid,
@@ -63,12 +61,12 @@ public class ControllerAuthorizationExtensionsTests
     }
 
     [Fact]
-    public async Task GetAuthorizedInstanceOrProblem_AuthorizedButMissing_ReturnsNotFoundProblemWithIds()
+    public async Task GetInstanceOrProblem_AuthorizedButMissing_ReturnsNotFoundProblemWithIds()
     {
         SetupAuthorization((null, true));
 
         (InstanceInternal instance, ProblemDetails problem) =
-            await _controller.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorization.Object,
                 PartyId,
                 _instanceGuid,
@@ -87,11 +85,11 @@ public class ControllerAuthorizationExtensionsTests
     }
 
     [Fact]
-    public async Task GetAuthorizedInstanceOrProblem_WithoutIncludeElements_LoadsWithoutElements()
+    public async Task GetInstanceOrProblem_WithoutIncludeElements_LoadsWithoutElements()
     {
         SetupAuthorization((new InstanceInternal(), true));
 
-        await _controller.GetAuthorizedInstanceOrProblem(
+        await InstanceAuthorization.GetInstanceOrProblem(
             _authorization.Object,
             PartyId,
             _instanceGuid,
@@ -126,6 +124,4 @@ public class ControllerAuthorizationExtensionsTests
             )
             .ReturnsAsync(outcome);
     }
-
-    private sealed class TestController : ControllerBase;
 }

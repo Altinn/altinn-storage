@@ -463,7 +463,7 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
             _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,

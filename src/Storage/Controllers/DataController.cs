@@ -120,7 +120,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -282,7 +282,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -569,7 +569,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -636,7 +636,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -803,7 +803,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -1110,7 +1110,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,

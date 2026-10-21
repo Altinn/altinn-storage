@@ -120,7 +120,7 @@ public class InstanceMutationsController(
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,

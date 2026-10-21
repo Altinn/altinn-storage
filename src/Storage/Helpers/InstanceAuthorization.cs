@@ -4,36 +4,31 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Altinn.Platform.Storage.Extensions;
+namespace Altinn.Platform.Storage.Helpers;
 
 /// <summary>
-/// Instance authorization for controller actions. The methods hang off <see cref="ControllerBase"/>
-/// because they produce controller concerns, HTTP problem details, rather than authorization results;
-/// <see cref="IAuthorization"/> itself stays free of MVC types.
+/// Instance authorization for controller actions. Produces the HTTP problem details a controller
+/// returns when the request is denied or the instance is missing, so that <see cref="IAuthorization"/>
+/// itself stays free of MVC types.
 /// </summary>
-internal static class ControllerAuthorizationExtensions
+internal static class InstanceAuthorization
 {
     /// <summary>
     /// Loads and authorizes an instance without its data elements.
-    /// See <see cref="GetAuthorizedInstanceOrProblem(ControllerBase, IAuthorization, int, Guid, string, bool, CancellationToken)"/>.
+    /// See <see cref="GetInstanceOrProblem(IAuthorization, int, Guid, string, bool, CancellationToken)"/>.
     /// </summary>
-    internal static Task<(
-        InstanceInternal Instance,
-        ProblemDetails Problem
-    )> GetAuthorizedInstanceOrProblem(
-        this ControllerBase controller,
+    internal static Task<(InstanceInternal Instance, ProblemDetails Problem)> GetInstanceOrProblem(
         IAuthorization authorization,
         int instanceOwnerPartyId,
         Guid instanceGuid,
         string action,
         CancellationToken cancellationToken
     ) =>
-        controller.GetAuthorizedInstanceOrProblem(
+        GetInstanceOrProblem(
             authorization,
             instanceOwnerPartyId,
             instanceGuid,
@@ -49,7 +44,6 @@ internal static class ControllerAuthorizationExtensions
     /// authorized and 404 when the user is authorized but the instance does not exist, in that order, so
     /// that an unauthorized caller learns nothing about whether the instance exists.
     /// </summary>
-    /// <param name="controller">The controller handling the request.</param>
     /// <param name="authorization">The authorization service.</param>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance.</param>
@@ -59,8 +53,7 @@ internal static class ControllerAuthorizationExtensions
     internal static async Task<(
         InstanceInternal Instance,
         ProblemDetails Problem
-    )> GetAuthorizedInstanceOrProblem(
-        this ControllerBase controller,
+    )> GetInstanceOrProblem(
         IAuthorization authorization,
         int instanceOwnerPartyId,
         Guid instanceGuid,

@@ -471,7 +471,7 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -610,7 +610,7 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -719,7 +719,7 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,

@@ -8,7 +8,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
-using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -244,7 +243,7 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ProblemDetails problem) = await this.GetAuthorizedInstanceOrProblem(
+        (_, ProblemDetails problem) = await InstanceAuthorization.GetInstanceOrProblem(
             _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
@@ -307,7 +306,7 @@ public class MessageBoxInstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails? problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -392,7 +391,7 @@ public class MessageBoxInstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails? problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,

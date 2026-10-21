@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -64,7 +63,7 @@ public class InstanceEventsController : ControllerBase
     )
     {
         (InstanceInternal? instance, ProblemDetails? problem) =
-            await this.GetAuthorizedInstanceOrProblem(
+            await InstanceAuthorization.GetInstanceOrProblem(
                 _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -115,7 +114,7 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
             _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
@@ -166,7 +165,7 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
             _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
