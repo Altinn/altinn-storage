@@ -689,10 +689,10 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     /// <summary>
     /// Test case: The application's validTo has passed.
-    /// Expected: Returns status forbidden and no instance is created.
+    /// Expected: Returns status gone and no instance is created.
     /// </summary>
     [Fact]
-    public async Task Post_ApplicationValidToHasPassed_ReturnsForbiddenAndCreatesNoInstance()
+    public async Task Post_ApplicationValidToHasPassed_ReturnsGoneAndCreatesNoInstance()
     {
         // Arrange
         string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
@@ -726,7 +726,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
         Assert.Contains(
             "can no longer be used to create new instances",
             await response.Content.ReadAsStringAsync()
