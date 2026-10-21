@@ -63,17 +63,17 @@ public class InstanceEventsController : ControllerBase
         [FromBody] InstanceEvent instanceEvent
     )
     {
-        (InstanceInternal? instance, ActionResult? error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal? instance, ProblemDetails? problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
-                false,
                 CancellationToken.None
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (instanceEvent?.InstanceId == null)
@@ -115,16 +115,16 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+            _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
-            false,
             CancellationToken.None
         );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         InstanceEvent theEvent = await _repository.GetOneEvent(instanceGuid, eventGuid);
@@ -166,16 +166,16 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+            _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
-            false,
             CancellationToken.None
         );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         DateTime? fromDateTime = null,

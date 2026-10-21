@@ -253,8 +253,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -279,8 +280,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -400,8 +402,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -425,8 +428,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>

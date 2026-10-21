@@ -470,17 +470,17 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Delete,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -609,17 +609,18 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Complete,
-                true,
+                includeElements: true,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -717,17 +718,18 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
-                true,
+                includeElements: true,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))

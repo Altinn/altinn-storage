@@ -119,17 +119,18 @@ public class InstanceMutationsController(
         [FromHeader(Name = StorageHeaders.IdempotencyKey)] string idempotencyKeyHeader = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
-                true,
+                includeElements: true,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =

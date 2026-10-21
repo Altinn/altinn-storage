@@ -463,16 +463,16 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ActionResult? error) = await _authorizationService.GetAuthorizedInstanceOrError(
+        (_, ProblemDetails? problem) = await this.GetAuthorizedInstanceOrProblem(
+            _authorizationService,
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
-            false,
             CancellationToken.None
         );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         string[] eventTypes = Enum.GetNames<InstanceEventType>()

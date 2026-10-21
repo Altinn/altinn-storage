@@ -1173,7 +1173,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        ProblemDetailsAssert.IsProblem(result.Result, StatusCodes.Status403Forbidden);
         fixture.AuthorizationService.Verify(
             service =>
                 service.AuthorizeInstanceRequest(instanceInternal, AuthorizationActions.Write),
@@ -1326,8 +1326,11 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
-        Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", notFound.Value);
+        ProblemDetails problem = ProblemDetailsAssert.IsProblem(
+            result.Result,
+            StatusCodes.Status404NotFound
+        );
+        Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", problem.Detail);
         fixture.AuthorizationService.Verify(
             service =>
                 service.AuthorizeInstanceRequest(

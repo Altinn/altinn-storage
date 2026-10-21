@@ -119,17 +119,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -281,17 +281,17 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (instanceOwnerPartyId == 0)
@@ -568,17 +568,18 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
-                true,
+                includeElements: true,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (instanceOwnerPartyId == 0)
@@ -634,17 +635,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -801,17 +802,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -1108,17 +1109,17 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
-        (InstanceInternal instance, ActionResult error) =
-            await _authorizationService.GetAuthorizedInstanceOrError(
+        (InstanceInternal instance, ProblemDetails problem) =
+            await this.GetAuthorizedInstanceOrProblem(
+                _authorizationService,
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
-                false,
                 cancellationToken
             );
-        if (error is not null)
+        if (problem is not null)
         {
-            return error;
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
