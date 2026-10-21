@@ -1133,7 +1133,9 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        ProblemDetailsAssert.IsProblem(result, StatusCodes.Status403Forbidden);
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.IsType<ProblemDetails>(forbidden.Value);
         dataRepositoryMock.Verify(
             repository =>
                 repository.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
