@@ -586,4 +586,39 @@ public class InstanceHelperTest
         // Assert
         Assert.Equal(expected, result);
     }
+
+    public static TheoryData<DateTime?, bool> ValidToCases =>
+        new()
+        {
+            { null, false },
+            { DateTime.UtcNow.AddMinutes(-1), true },
+            { DateTime.UtcNow.AddMinutes(1), false },
+            { DateTime.Now.AddMinutes(-1), true },
+            { DateTime.Now.AddMinutes(1), false },
+            {
+                DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(-1), DateTimeKind.Unspecified),
+                true
+            },
+            {
+                DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(1), DateTimeKind.Unspecified),
+                false
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(ValidToCases))]
+    public void IsApplicationExpired_ReturnsTrueOnlyWhenValidToHasPassed(
+        DateTime? validTo,
+        bool expected
+    )
+    {
+        // Arrange
+        Application app = new() { ValidTo = validTo };
+
+        // Act
+        bool result = InstanceHelper.IsApplicationExpired(app);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
 }

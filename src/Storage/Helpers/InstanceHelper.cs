@@ -350,6 +350,30 @@ public static class InstanceHelper
 
         return DateTime.UtcNow < dueDate;
     }
+
+    /// <summary>
+    /// Checks if the application's ValidTo has passed, meaning new instances can no longer be created.
+    /// A ValidTo without an offset is interpreted as UTC.
+    /// </summary>
+    /// <param name="application">The application to check</param>
+    public static bool IsApplicationExpired(Application application)
+    {
+        if (!application.ValidTo.HasValue)
+        {
+            return false;
+        }
+
+        return ToUtc(application.ValidTo.Value) < DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Converts a date time to UTC, interpreting a value without a specified kind as UTC.
+    /// </summary>
+    /// <param name="dateTime">The date time to convert</param>
+    public static DateTime ToUtc(DateTime dateTime) =>
+        dateTime.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+            : dateTime.ToUniversalTime();
 }
 
 /// <summary>

@@ -688,6 +688,102 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     }
 
     /// <summary>
+    /// Test case: The application's validTo has passed.
+    /// Expected: Returns status forbidden and no instance is created.
+    /// </summary>
+    [Fact]
+    public async Task Post_ApplicationValidToHasPassed_ReturnsForbiddenAndCreatesNoInstance()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+
+        Mock<IApplicationService> applicationService = new();
+        applicationService
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync(
+                (
+                    new Application
+                    {
+                        Id = "tdd/endring-av-navn",
+                        Org = "tdd",
+                        ValidTo = DateTime.UtcNow.AddMinutes(-1),
+                    },
+                    null
+                )
+            );
+        Mock<IInstanceRepository> repositoryMock = new();
+
+        HttpClient client = GetTestClient(repositoryMock, applicationService: applicationService);
+        string token = PrincipalUtil.GetOrgToken("tdd");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains(
+            "can no longer be used to create new instances",
+            await response.Content.ReadAsStringAsync()
+        );
+        repositoryMock.Verify(
+            r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                ),
+            Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Test case: The application's validTo is in the future.
+    /// Expected: The instance is created.
+    /// </summary>
+    [Fact]
+    public async Task Post_ApplicationValidToInTheFuture_ReturnsCreated()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+
+        Mock<IApplicationService> applicationService = new();
+        applicationService
+            .Setup(x => x.GetApplicationOrErrorAsync(It.IsAny<string>()))
+            .ReturnsAsync(
+                (
+                    new Application
+                    {
+                        Id = "tdd/endring-av-navn",
+                        Org = "tdd",
+                        ValidTo = DateTime.UtcNow.AddDays(1),
+                    },
+                    null
+                )
+            );
+
+        HttpClient client = GetTestClient(applicationService: applicationService);
+        string token = PrincipalUtil.GetOrgToken("tdd");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Instance instance = new() { InstanceOwner = new InstanceOwner { PartyId = "1337" } };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>
     /// Test case: Registering the party with the parties-with-instances client fails after
     /// the instance is created, hitting the catch-all that deletes the instance again.
     /// Expected: 500 without success version headers, and the created instance is deleted.
