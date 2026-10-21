@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -47,6 +48,60 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
 
         string sql = "delete from storage.applications";
         _ = PostgresUtil.RunSql(sql).Result;
+    }
+
+    public static TheoryData<DateTimeKind, DateTime> ValidToByKind =>
+        new()
+        {
+            { DateTimeKind.Utc, new DateTime(2026, 10, 21, 10, 0, 0, DateTimeKind.Utc) },
+            {
+                DateTimeKind.Unspecified,
+                new DateTime(2026, 10, 21, 10, 0, 0, DateTimeKind.Unspecified)
+            },
+            {
+                DateTimeKind.Local,
+                new DateTime(2026, 10, 21, 10, 0, 0, DateTimeKind.Utc).ToLocalTime()
+            },
+        };
+
+    /// <summary>
+    /// ValidTo is normalized to UTC before it is written (see ApplicationsController), so the stored
+    /// value must be in UTC form and read back as the same instant regardless of the original kind.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ValidToByKind))]
+    public async Task Application_ValidTo_IsStoredAndReadBackAsUtc(
+        DateTimeKind kind,
+        DateTime validTo
+    )
+    {
+        // Arrange
+        string app = $"validto-{kind}".ToLowerInvariant();
+        Application application = new()
+        {
+            Id = $"ttd/{app}",
+            Org = "ttd",
+            Title = new() { { "nb", "t" } },
+            ValidTo = DateTimeHelper.ConvertToUniversalTime(validTo),
+        };
+
+        // Act
+        await _applicationFixture.ApplicationRepo.Create(application);
+        string stored = await PostgresUtil.RunQuery<string>(
+            $"select application->>'ValidTo' from storage.applications where org = 'ttd' and app = '{app}'"
+        );
+        Application readBack = await _applicationFixture.ApplicationRepo.FindOne(
+            application.Id,
+            "ttd"
+        );
+
+        // Assert
+        Assert.Equal("2026-10-21T10:00:00Z", stored);
+        Assert.Equal(DateTimeKind.Utc, readBack.ValidTo.Value.Kind);
+        Assert.Equal(
+            new DateTime(2026, 10, 21, 10, 0, 0, DateTimeKind.Utc),
+            readBack.ValidTo.Value
+        );
     }
 
     /// <summary>

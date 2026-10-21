@@ -138,10 +138,9 @@ public class ApplicationsController : ControllerBase
         application.LastChanged = creationTime;
         application.DataTypes ??= new();
 
-        if (application.ValidFrom == null)
-        {
-            application.ValidFrom = creationTime;
-        }
+        application.ValidFrom =
+            DateTimeHelper.ConvertToUniversalTime(application.ValidFrom) ?? creationTime;
+        application.ValidTo = DateTimeHelper.ConvertToUniversalTime(application.ValidTo);
 
         Application result = await repository.Create(application);
 
@@ -203,6 +202,8 @@ public class ApplicationsController : ControllerBase
         application.LastChangedBy = GetUserId();
         application.LastChanged = DateTime.UtcNow;
         application.PartyTypesAllowed ??= new();
+        application.ValidFrom = DateTimeHelper.ConvertToUniversalTime(application.ValidFrom);
+        application.ValidTo = DateTimeHelper.ConvertToUniversalTime(application.ValidTo);
         application.StorageAccountNumber = existingApplication.StorageAccountNumber; // ?
 
         Application result = await repository.Update(application);

@@ -462,7 +462,7 @@ public class InstancesController : ControllerBase
         {
             return StatusCode(
                 StatusCodes.Status410Gone,
-                $"The application {appId} expired at {InstanceHelper.ToUtc(appInfo.ValidTo.Value):O} and can no longer be used to create new instances"
+                $"The application {appId} expired at {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidTo).Value:O} and can no longer be used to create new instances"
             );
         }
 
