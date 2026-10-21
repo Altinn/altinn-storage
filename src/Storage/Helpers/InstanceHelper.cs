@@ -352,6 +352,15 @@ public static class InstanceHelper
     }
 
     /// <summary>
+    /// Checks if the application's ValidFrom is still in the future, meaning new instances cannot be created yet.
+    /// </summary>
+    /// <param name="application">The application to check</param>
+    public static bool IsApplicationNotYetValid(Application application)
+    {
+        return DateTimeHelper.ConvertToUniversalTime(application.ValidFrom) > DateTime.UtcNow;
+    }
+
+    /// <summary>
     /// Checks if the application's ValidTo has passed, meaning new instances can no longer be created.
     /// </summary>
     /// <param name="application">The application to check</param>

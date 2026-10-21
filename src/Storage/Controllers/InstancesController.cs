@@ -458,6 +458,14 @@ public class InstancesController : ControllerBase
             return Forbid();
         }
 
+        if (InstanceHelper.IsApplicationNotYetValid(appInfo))
+        {
+            return StatusCode(
+                StatusCodes.Status410Gone,
+                $"The application {appId} is not valid before {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidFrom).Value:O} and cannot be used to create new instances yet"
+            );
+        }
+
         if (InstanceHelper.IsApplicationExpired(appInfo))
         {
             return StatusCode(

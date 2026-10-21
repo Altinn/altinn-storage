@@ -621,4 +621,36 @@ public class InstanceHelperTest
         // Assert
         Assert.Equal(expected, result);
     }
+
+    public static TheoryData<DateTime?, bool> ValidFromCases =>
+        new()
+        {
+            { null, false },
+            { DateTime.UtcNow.AddMinutes(1), true },
+            { DateTime.UtcNow.AddMinutes(-1), false },
+            { DateTime.Now.AddMinutes(1), true },
+            { DateTime.Now.AddMinutes(-1), false },
+            { DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(1), DateTimeKind.Unspecified), true },
+            {
+                DateTime.SpecifyKind(DateTime.UtcNow.AddMinutes(-1), DateTimeKind.Unspecified),
+                false
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(ValidFromCases))]
+    public void IsApplicationNotYetValid_ReturnsTrueOnlyWhileValidFromIsInTheFuture(
+        DateTime? validFrom,
+        bool expected
+    )
+    {
+        // Arrange
+        Application app = new() { ValidFrom = validFrom };
+
+        // Act
+        bool result = InstanceHelper.IsApplicationNotYetValid(app);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
 }
