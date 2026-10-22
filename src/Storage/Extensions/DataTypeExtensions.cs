@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
+using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 
@@ -52,5 +53,36 @@ internal static class DataTypeExtensions
             dataType.ActionRequiredToWrite,
             task ?? instance.Process?.CurrentTask?.ElementId
         );
+    }
+
+    /// <summary>
+    /// Returns why data of this type may not be written in the instance's current task, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// Process transitions are exempt: the workflow engine moves the instance between tasks while it holds it in
+    /// <see cref="ProcessStatus.Processing"/>, and asserts that status on every write it makes. The caller's identity
+    /// plays no part; the app's own token outside a transition is bound like any other.
+    /// </remarks>
+    public static string? GetTaskBindingConflict(
+        this DataType dataType,
+        InstanceInternal instance,
+        bool isPartOfProcessTransition
+    )
+    {
+        if (dataType.TaskIds is not { Count: > 0 } taskIds || isPartOfProcessTransition)
+        {
+            return null;
+        }
+
+        string? currentTask = instance.Process?.CurrentTask?.ElementId;
+        if (currentTask is not null && taskIds.Contains(currentTask))
+        {
+            return null;
+        }
+
+        string boundTasks = string.Join(", ", taskIds);
+        return currentTask is null
+            ? $"Data element of type {dataType.Id} can only be modified in {boundTasks} (no current task)"
+            : $"Data element of type {dataType.Id} can only be modified in {boundTasks} (current task {currentTask})";
     }
 }
