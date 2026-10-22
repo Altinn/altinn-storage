@@ -74,10 +74,28 @@ public class DataType
     public ApplicationLogic AppLogic { get; set; }
 
     /// <summary>
-    /// Gets or sets a reference to the process element id of the task where this data element should be updated.
+    /// Gets or sets the process element id of the task that elements of this data type belong to, as v8 apps
+    /// declare it.
     /// </summary>
+    /// <remarks>
+    /// v9 apps ignore it and use <see cref="TaskIds"/>. In Storage only the sign endpoint reads it: when it is set
+    /// and <see cref="TaskIds"/> is null, a signature document is created only while the instance is in this task.
+    /// </remarks>
+    [Obsolete("Use TaskIds instead. v9 apps ignore TaskId; v8 apps read only TaskId.")]
     [JsonProperty(PropertyName = "taskId")]
     public string TaskId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the process element ids of the tasks that elements of this data type belong to.
+    /// </summary>
+    /// <remarks>
+    /// Null or empty means the data type is not bound to any task. Otherwise Storage refuses to create, change or
+    /// delete its elements, whoever the caller is, unless the instance's current task is in the list or the write
+    /// is part of a process transition, which asserts the processing status the instance is in.
+    /// </remarks>
+    [JsonProperty(PropertyName = "taskIds")]
+    [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string> TaskIds { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum allowed size of the file in mega bytes. If missing there is no limit on file size.

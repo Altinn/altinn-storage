@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
@@ -125,6 +126,60 @@ public class ApplicationServiceTests
         _applicationRepositoryMock.VerifyAll();
     }
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(null, new[] { "Task_2", "Task_1" })]
+    [InlineData("Task_2", new string[0])]
+    [InlineData("Task_2", new[] { "Task_1" })]
+    public async Task ValidateDataTypeForApp_Success_CurrentTaskInBoundTasksOrDataTypeUnbound(
+        string taskId,
+        string[] taskIds
+    )
+    {
+        // Arrange
+        ApplicationService applicationService = CreateServiceWithSignDataType(taskId, taskIds);
+
+        // Act
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "sign-datatype",
+            "Task_1"
+        );
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Null(serviceError);
+        _applicationRepositoryMock.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData(null, new[] { "Task_2", "Task_3" })]
+    [InlineData("Task_1", new[] { "Task_2" })]
+    public async Task ValidateDataTypeForApp_Failed_CurrentTaskNotInBoundTasks(
+        string taskId,
+        string[] taskIds
+    )
+    {
+        // Arrange
+        ApplicationService applicationService = CreateServiceWithSignDataType(taskId, taskIds);
+
+        // Act
+        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
+            "ttd",
+            "test-app",
+            "sign-datatype",
+            "Task_1"
+        );
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Equal(405, serviceError.ErrorCode);
+        _applicationRepositoryMock.VerifyAll();
+    }
+
+    // The sign check still reads the obsolete TaskId for v8 apps.
+#pragma warning disable CS0618 // Type or member is obsolete
     private static Application CreateApplication(string org, string appName)
     {
         Application appInfo = new Application
@@ -143,6 +198,29 @@ public class ApplicationServiceTests
 
         return appInfo;
     }
+
+    private ApplicationService CreateServiceWithSignDataType(string taskId, string[] taskIds)
+    {
+        Application application = CreateApplication("ttd", "test-app");
+        application.DataTypes =
+        [
+            new DataType
+            {
+                Id = "sign-datatype",
+                TaskId = taskId,
+                TaskIds = taskIds?.ToList(),
+            },
+        ];
+
+        _applicationRepositoryMock
+            .Setup(arm =>
+                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(application);
+
+        return new ApplicationService(_applicationRepositoryMock.Object);
+    }
+#pragma warning restore CS0618 // Type or member is obsolete
 
     [Fact]
     public async Task GetApplicationOrErrorAsync_WhenFound_ReturnsApplication()

@@ -410,6 +410,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -1609,7 +1619,7 @@
           "InstanceMutations"
         ],
         "summary": "Commits a batch of mutations for a single instance.\nFor multipart requests, the first part must be the `mutation` JSON field;\neach subsequent part must match exactly one `contentPartName` in the request.\nUnknown, duplicate, or missing file parts are rejected with 400 Bad Request.",
-        "description": "After the endpoint's outer `InstanceWrite` policy admits the request, idempotent replay\nis checked before process-state, presentation-text, data-value, per-data-type write,\ncomplete-confirmation, and delete-instance authorization. A complete confirmation is\nadditionally subject to the `InstanceComplete` policy and is recorded for the calling\norganisation only; an organisation that already has a confirmation keeps the one it has, and\nthe remaining operations commit either way. An admitted replay is a no-op and uses the snapshot\nreturned by replay admission. For non-replays, operation-specific authorization is evaluated\nagainst the controller's instance snapshot; data-element update and delete references missing\nfrom that snapshot are rejected by later plan validation. Process-state authorization admits a\nmutation on an instance without a current task only from the app that owns the instance. A\ndelete-instance mutation returns 403 while the application's\n`PreventInstanceDeletionForDays` period, counted from when the instance was archived, has\nnot passed. A delete-instance mutation checks instance existence before delete authorization,\nso a missing instance returns 404 before a possible delete-policy 403.",
+        "description": "After the endpoint's outer `InstanceWrite` policy admits the request, idempotent replay\nis checked before process-state, presentation-text, data-value, per-data-type write,\ncomplete-confirmation, and delete-instance authorization. A complete confirmation is\nadditionally subject to the `InstanceComplete` policy and is recorded for the calling\norganisation only; an organisation that already has a confirmation keeps the one it has, and\nthe remaining operations commit either way. An admitted replay is a no-op and uses the snapshot\nreturned by replay admission. For non-replays, operation-specific authorization is evaluated\nagainst the controller's instance snapshot; data-element update and delete references missing\nfrom that snapshot are rejected by later plan validation. A data-element create, update, or delete\nof a data type bound to tasks returns 409 unless the snapshot's current task is one of them or the\nrequest is part of a process transition: it asserts the `processing` process status, and the\nexpected-status check, which runs first, has accepted that assertion. Process-state\nauthorization admits a mutation on an instance without a current task only from the app that\nowns the instance. A delete-instance mutation returns 403 while the application's\n`PreventInstanceDeletionForDays` period, counted from when the instance was archived, has\nnot passed. A delete-instance mutation checks instance existence before delete authorization,\nso a missing instance returns 404 before a possible delete-policy 403.",
         "parameters": [
           {
             "name": "instanceOwnerPartyId",
@@ -5142,6 +5152,14 @@
           },
           "taskId": {
             "type": "string",
+            "nullable": true,
+            "deprecated": true
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           },
           "maxSize": {
