@@ -357,7 +357,9 @@ public class InstancesController : ControllerBase
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status410Gone)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Post(
         string appId,
@@ -454,6 +456,22 @@ public class InstancesController : ControllerBase
         if (!authorized)
         {
             return Forbid();
+        }
+
+        if (InstanceHelper.IsApplicationNotYetValid(appInfo))
+        {
+            return StatusCode(
+                StatusCodes.Status410Gone,
+                $"The application {appId} is not valid before {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidFrom).Value:O} and cannot be used to create new instances yet"
+            );
+        }
+
+        if (InstanceHelper.IsApplicationExpired(appInfo))
+        {
+            return StatusCode(
+                StatusCodes.Status410Gone,
+                $"The application {appId} expired at {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidTo).Value:O} and can no longer be used to create new instances"
+            );
         }
 
         InstanceInternal storedInstance = null;
