@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
@@ -22,14 +23,17 @@ namespace Altinn.Platform.Storage.Controllers;
 public class SignController : ControllerBase
 {
     private readonly ISigningService _signingService;
+    private readonly IAuthorization _authorizationService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SignController"/> class
     /// </summary>
     /// <param name="signingService">An instance service with instance related business logic.</param>
-    public SignController(ISigningService signingService)
+    /// <param name="authorizationService">the authorization service</param>
+    public SignController(ISigningService signingService, IAuthorization authorizationService)
     {
         _signingService = signingService;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -41,7 +45,7 @@ public class SignController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_SIGN)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/sign")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -58,6 +62,20 @@ public class SignController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Sign,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -87,7 +105,7 @@ public class SignController : ControllerBase
         try
         {
             result = await _signingService.CreateSignDocument(
-                instanceGuid,
+                instance,
                 signRequest,
                 performedBy,
                 preconditions.InstanceVersion,

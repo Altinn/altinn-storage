@@ -1,6 +1,8 @@
 ﻿#nullable disable
 
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Platform.Storage.Helpers;
@@ -31,9 +33,41 @@ public interface IAuthorization
     );
 
     /// <summary>
-    /// Authorizes a read action on a storage instance with full process context.
+    /// Authorizes the current HTTP request to perform <paramref name="action"/> on the instance
+    /// identified by the request's route values. Callers with the sync adapter scope are authorized
+    /// directly for read/write/delete without contacting the PDP. When <paramref name="instance"/>
+    /// is provided the XACML request is enriched with the instance's process context (current task
+    /// or end event) and the decision is cached. Without an instance the request is denied unless
+    /// the route carries an instance guid.
     /// </summary>
-    public Task<bool> AuthorizeEnrichedInstanceAction(InstanceInternal instance, string action);
+    /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
+    /// <returns>true if the user is authorized.</returns>
+    public Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action);
+
+    /// <summary>
+    /// Loads the instance identified by <paramref name="instanceOwnerPartyId"/> and <paramref name="instanceGuid"/>
+    /// and authorizes the current user to perform <paramref name="action"/> on it. The decision is made before the
+    /// existence of the instance is revealed: a missing instance is authorized against the identifiers alone,
+    /// exactly as <see cref="AuthorizeInstanceRequest"/> does for a null instance.
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
+    /// <param name="includeElements">Whether to load the instance's data elements.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// <c>IsAuthorized</c> is true when the user may perform the action. <c>Instance</c> is the loaded instance
+    /// when the user is authorized and the instance exists. It is null when the user is not authorized, so a
+    /// denied caller never receives the instance.
+    /// </returns>
+    public Task<(InstanceInternal Instance, bool IsAuthorized)> GetAuthorizedInstance(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        string action,
+        bool includeElements,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
     /// Authorizes that the user has one or more of the actions on a storage instance.
