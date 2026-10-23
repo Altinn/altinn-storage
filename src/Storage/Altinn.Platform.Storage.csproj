@@ -22,7 +22,7 @@
     <PackageReference Include="Azure.Storage.Blobs.Batch" Version="12.27.1" />
     <PackageReference Include="Azure.Storage.Queues" Version="12.28.1" />
     <PackageReference Include="JWTCookieAuthentication" Version="4.0.4" />
-    <PackageReference Include="PDFsharp" Version="6.5.0" />
+    <PackageReference Include="PDFsharp" Version="6.2.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.3.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
