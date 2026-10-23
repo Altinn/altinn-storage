@@ -18,7 +18,6 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
-using Altinn.Platform.Storage.Filters;
 using Altinn.Platform.Storage.Health;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Messages;
@@ -320,24 +319,9 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 )
         )
         .AddPolicy(
-            AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE,
-            policy =>
-                policy.Requirements.Add(
-                    new ScopeAccessRequirement("altinn:correspondence.sblbridge")
-                )
-        )
-        .AddPolicy(
             "PlatformAccess",
             policy => policy.Requirements.Add(new AccessTokenRequirement())
         );
-
-    services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
-    {
-        return new ClientIpCheckActionFilterAttribute()
-        {
-            Safelist = generalSettings.MigrationIpWhiteList,
-        };
-    });
 
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
@@ -372,8 +356,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSingleton<IApplicationService, ApplicationService>();
     services.AddSingleton<IA2OndemandFormattingService, A2OndemandFormattingService>();
 
-    services.AddHttpClient<IPartiesWithInstancesClient, PartiesWithInstancesClient>();
-    services.AddHttpClient<ICorrespondenceClient, CorrespondenceClient>();
     services.AddHttpClient<IOnDemandClient, OnDemandClient>();
     services.AddHttpClient<IPdfGeneratorClient, PdfGeneratorClient>();
     services.AddHttpClient<IOrganisationRepository, AltinnCdnOrganisationRepository>(client =>

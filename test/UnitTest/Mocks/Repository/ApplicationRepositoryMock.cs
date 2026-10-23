@@ -47,48 +47,6 @@ public class ApplicationRepositoryMock : IApplicationRepository
         throw new NotImplementedException();
     }
 
-    public Task<Dictionary<string, string>> GetAllAppTitles()
-    {
-        Dictionary<string, string> appTitles = new Dictionary<string, string>();
-
-        if (Directory.Exists(GetAppsPath()))
-        {
-            string[] orgFolders = Directory.GetDirectories(GetAppsPath());
-            foreach (string orgDirectory in orgFolders)
-            {
-                string[] appDirectiories = Directory.GetDirectories(orgDirectory);
-
-                foreach (var appDirectory in appDirectiories)
-                {
-                    string metadataPath = Path.Combine(
-                        appDirectory,
-                        "config",
-                        "applicationmetadata.json"
-                    );
-                    if (File.Exists(metadataPath))
-                    {
-                        string content = File.ReadAllText(metadataPath);
-                        Application application = JsonConvert.DeserializeObject<Application>(
-                            content
-                        );
-                        string titles = string.Empty;
-                        if (application.Title != null)
-                        {
-                            foreach (string title in application.Title.Values)
-                            {
-                                titles += title + ";";
-                            }
-
-                            appTitles.Add(application.Id, titles);
-                        }
-                    }
-                }
-            }
-        }
-
-        return Task.FromResult(appTitles);
-    }
-
     private static Application GetTestApplication(string org, string app)
     {
         string applicationPath = Path.Combine(

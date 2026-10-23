@@ -275,15 +275,6 @@ public class MessageBoxTestData
     }
 
     /// <summary>
-    /// Doc
-    /// </summary>
-    /// <returns></returns>
-    public List<string> GetAppIds()
-    {
-        return new List<string>() { AppId_1, AppId_2, AppId_3 };
-    }
-
-    /// <summary>
     /// Gets application title dictinoary based on application id.
     /// </summary>
     public List<Application> GetApps()

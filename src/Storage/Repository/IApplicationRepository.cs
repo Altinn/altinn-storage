@@ -59,14 +59,4 @@ public interface IApplicationRepository
     /// <param name="org">The application owner id</param>
     /// <returns>if the item is deleted or not</returns>
     Task<bool> Delete(string appId, string org);
-
-    /// <summary>
-    /// Gets a dictionary of all application titles.
-    /// </summary>
-    /// <returns>A dictionary of application titles.</returns>
-    /// <remarks>
-    /// Key is application id formated as [org]/[app]
-    /// The value holds the titles, each language by ';'.
-    /// </remarks>
-    Task<Dictionary<string, string>> GetAllAppTitles();
 }

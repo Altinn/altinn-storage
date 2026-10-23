@@ -104,17 +104,6 @@ public class InstanceRepositoryMock : IInstanceRepository
                 queryParams.InstanceOwnerPartyId != Convert.ToInt32(i.InstanceOwner.PartyId)
             );
         }
-        else if (
-            queryParams.InstanceOwnerPartyIds != null
-            && queryParams.InstanceOwnerPartyIds.Length > 0
-        )
-        {
-            instances.RemoveAll(i =>
-                !queryParams.InstanceOwnerPartyIds.Contains(
-                    Convert.ToInt32(i.InstanceOwner.PartyId)
-                )
-            );
-        }
 
         if (!string.IsNullOrEmpty(queryParams.ArchiveReference))
         {
