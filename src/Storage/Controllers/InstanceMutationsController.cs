@@ -84,9 +84,12 @@ public class InstanceMutationsController(
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
-    /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
-    /// mutation on an instance without a current task only from the app that owns the instance. A
-    /// delete-instance mutation returns 403 while the application's
+    /// from that snapshot are rejected by later plan validation. A data-element create, update, or delete
+    /// of a data type bound to tasks returns 409 unless the snapshot's current task is one of them or the
+    /// request is part of a process transition: it asserts the <c>processing</c> process status, and the
+    /// expected-status check, which runs first, has accepted that assertion. Process-state
+    /// authorization admits a mutation on an instance without a current task only from the app that
+    /// owns the instance. A delete-instance mutation returns 403 while the application's
     /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
     /// not passed. A delete-instance mutation checks instance existence before delete authorization,
     /// so a missing instance returns 404 before a possible delete-policy 403.
@@ -461,6 +464,38 @@ public class InstanceMutationsController(
         return null;
     }
 
+    private ActionResult ValidateTaskBindings(
+        InstanceMutationRequest mutationRequest,
+        Dictionary<Guid, DataElementInternal> existingDataElementsById,
+        InstanceInternal instance,
+        Application application
+    )
+    {
+        // Only a process transition asserts Processing, and EnsureExpectedStatus has checked the assertion.
+        bool isPartOfProcessTransition =
+            mutationRequest.ExpectedProcessStatus == ProcessStatus.Processing;
+        foreach (
+            string dataTypeId in EnumerateRequestedDataTypeIds(
+                    mutationRequest,
+                    existingDataElementsById
+                )
+                .Distinct(StringComparer.Ordinal)
+        )
+        {
+            // Plan validation rejects undeclared data types with 400.
+            DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
+            if (
+                dataType?.GetTaskBindingConflict(instance, isPartOfProcessTransition) is
+                { } taskBindingConflict
+            )
+            {
+                return Conflict(taskBindingConflict);
+            }
+        }
+
+        return null;
+    }
+
     private static IEnumerable<string> EnumerateRequestedDataTypeIds(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElementsById
@@ -530,6 +565,17 @@ public class InstanceMutationsController(
                 instance,
                 mutationRequest.ExpectedProcessStatus
             );
+
+            ActionResult taskBindingError = ValidateTaskBindings(
+                mutationRequest,
+                existingDataElementsById,
+                instance,
+                application
+            );
+            if (taskBindingError is not null)
+            {
+                return (null, taskBindingError);
+            }
 
             ActionResult validationError = await ValidateMutationPlan(
                 mutationRequest,
