@@ -1911,6 +1911,19 @@ public class InstanceMutationsControllerUnitTests
                     """
             },
             {
+                "substatus",
+                """
+                    {
+                      "deleteInstance": {
+                        "hard": true
+                      },
+                      "substatus": {
+                        "label": "deleted"
+                      }
+                    }
+                    """
+            },
+            {
                 "processState.state",
                 """
                     {
@@ -2441,6 +2454,200 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
                     It.IsAny<object>(),
                     AuthzConstants.POLICY_INSTANCE_COMPLETE
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_Substatus_SetsItAndAddsSubstatusUpdatedEvent()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "substatus": {
+                "label": "substatus.received",
+                "description": "substatus.received.description"
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent { EventType = eventType.ToString() }
+            );
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Contains(
+            nameof(InstanceStatus.Substatus),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Equal("substatus.received", capturedMutation.InstanceUpdates.Status.Substatus.Label);
+        Assert.Equal(
+            "substatus.received.description",
+            capturedMutation.InstanceUpdates.Status.Substatus.Description
+        );
+        Assert.Single(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+                instanceEvent.EventType == InstanceEventType.SubstatusUpdated.ToString()
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_SubstatusWithProcessEnd_KeepsTheArchiveStatus()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "processState": {
+                "state": {
+                  "started": "2026-06-07T08:00:00Z",
+                  "startEvent": "StartEvent_1",
+                  "ended": "{{processEnded:O}}",
+                  "endEvent": "EndEvent_1"
+                }
+              },
+              "substatus": {
+                "label": "substatus.received"
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent { EventType = eventType.ToString() }
+            );
+        SetupCapturingMutationRepository(
+            fixture,
+            instanceGuid,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsArchived);
+        Assert.Equal(processEnded, capturedMutation.InstanceUpdates.Status.Archived);
+        Assert.Equal("substatus.received", capturedMutation.InstanceUpdates.Status.Substatus.Label);
+        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            nameof(InstanceStatus.IsArchived),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Contains(nameof(InstanceStatus.Archived), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            nameof(InstanceStatus.Substatus),
+            capturedMutation.InstanceUpdateProperties
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("other-org")]
+    public async Task CommitMutation_SubstatusFromAUserOrAnotherOrg_ReturnsForbid(string callerOrg)
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "substatus": {
+                "label": "substatus.received"
+              }
+            }
+            """
+        );
+        if (callerOrg is not null)
+        {
+            fixture.HttpContext.User = CreateOrgPrincipal(callerOrg);
+        }
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData("""{"substatus":{"label":""}}""")]
+    [InlineData("""{"substatus":{"description":"no label"}}""")]
+    public async Task CommitMutation_SubstatusWithoutLabel_ReturnsBadRequestBeforeReads(
+        string mutationJson
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("substatus.label is required.", badRequest.Value);
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
