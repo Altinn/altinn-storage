@@ -5426,24 +5426,57 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Theory]
-    [InlineData("Task_1")]
-    [InlineData(null)]
-    public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_Applies(
+    [InlineData(DataElementOperation.Create, "Task_1")]
+    [InlineData(DataElementOperation.Update, "Task_1")]
+    [InlineData(DataElementOperation.UpdateMetadata, "Task_1")]
+    [InlineData(DataElementOperation.Delete, "Task_1")]
+    [InlineData(DataElementOperation.Create, null)]
+    [InlineData(DataElementOperation.Update, null)]
+    [InlineData(DataElementOperation.UpdateMetadata, null)]
+    [InlineData(DataElementOperation.Delete, null)]
+    public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_ReturnsConflict(
+        DataElementOperation operation,
         string currentTask
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [
-                DataElementOperation.Create,
-                DataElementOperation.Update,
-                DataElementOperation.UpdateMetadata,
-                DataElementOperation.Delete,
-            ],
+            [operation],
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
             expectedProcessStatus: ProcessStatus.Processing,
             currentTask: currentTask
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(
+            currentTask is null
+                ? "Data element of type attachment can only be modified in Task_2 (no current task)"
+                : "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
+            conflict.Value
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_Applies()
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            [DataElementOperation.Delete],
+            ["Task_2"],
+            callerIsAppOwner: true,
+            currentProcessStatus: ProcessStatus.Processing,
+            expectedProcessStatus: ProcessStatus.Processing,
+            currentTask: null,
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
         );
         InstanceMutationCommit capturedMutation = null;
         SetupCapturingMutationRepository(
@@ -5460,9 +5493,41 @@ public class InstanceMutationsControllerUnitTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.NotNull(capturedMutation);
-        Assert.Single(capturedMutation.CreateDataElements);
-        Assert.Equal(2, capturedMutation.UpdateDataElements.Count);
         Assert.Single(capturedMutation.DeleteDataElements);
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    public async Task CommitMutation_WriteOfAutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsConflict(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            [operation],
+            ["Task_2"],
+            callerIsAppOwner: true,
+            currentProcessStatus: ProcessStatus.Processing,
+            expectedProcessStatus: ProcessStatus.Processing,
+            currentTask: null,
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(
+            "Data element of type attachment can only be modified in Task_2 (no current task)",
+            conflict.Value
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
     }
 
     [Fact]
@@ -5682,7 +5747,9 @@ public class InstanceMutationsControllerUnitTests
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
         ProcessStatus? expectedProcessStatus = null,
         string currentTask = "Task_1",
-        string actionRequiredToWrite = null
+        string actionRequiredToWrite = null,
+        bool processEnded = false,
+        bool autoDeleteOnProcessEnd = false
     )
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -5778,10 +5845,18 @@ public class InstanceMutationsControllerUnitTests
             CurrentTask = currentTask is null
                 ? null
                 : new ProcessElementInfo { ElementId = currentTask },
+            Ended = processEnded ? DateTime.UtcNow : null,
         };
         Application application = CreateAggregateApplication();
         application.DataTypes[0].TaskIds = taskIds;
         application.DataTypes[0].ActionRequiredToWrite = actionRequiredToWrite;
+        if (autoDeleteOnProcessEnd)
+        {
+            application.DataTypes[0].AppLogic = new ApplicationLogic
+            {
+                AutoDeleteOnProcessEnd = true,
+            };
+        }
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
