@@ -2858,6 +2858,56 @@ public class DataControllerUnitTests
         );
     }
 
+    [Fact]
+    public async Task Delete_AutoDeleteOnProcessEndDataAfterProcessEnd_Succeeds()
+    {
+        // Arrange
+        (DataController testController, _, _) = GetTaskBoundTestController(
+            DataWriteEndpoint.Delete,
+            ["Task_2"],
+            callerIsAppOwner: true,
+            currentTask: null,
+            processEnded: true
+        );
+
+        // Act
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            testController,
+            DataWriteEndpoint.Delete
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    [Theory]
+    [InlineData(DataWriteEndpoint.CreateAndUpload)]
+    [InlineData(DataWriteEndpoint.Overwrite)]
+    [InlineData(DataWriteEndpoint.UpdateMetadata)]
+    public async Task DataWrite_AutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsConflict(
+        DataWriteEndpoint endpoint
+    )
+    {
+        // Arrange
+        (DataController testController, _, _) = GetTaskBoundTestController(
+            endpoint,
+            ["Task_2"],
+            callerIsAppOwner: true,
+            currentTask: null,
+            processEnded: true
+        );
+
+        // Act
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
+
+        // Assert
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(
+            "Data element of type attachment can only be modified in Task_2 (no current task)",
+            conflict.Value
+        );
+    }
+
     [Theory]
     [InlineData(DataWriteEndpoint.CreateAndUpload)]
     [InlineData(DataWriteEndpoint.Overwrite)]
@@ -2958,7 +3008,8 @@ public class DataControllerUnitTests
         bool callerIsAppOwner,
         string currentTask = "Task_1",
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
-        string actionRequiredToWrite = null
+        string actionRequiredToWrite = null,
+        bool processEnded = false
     )
     {
         List<string> expectedPropertiesForPatch = endpoint switch
@@ -2983,7 +3034,8 @@ public class DataControllerUnitTests
             currentTask: currentTask,
             user: callerIsAppOwner ? CreateOrgPrincipal(_org) : null,
             currentProcessStatus: currentProcessStatus,
-            dataTypeActionRequiredToWrite: actionRequiredToWrite
+            dataTypeActionRequiredToWrite: actionRequiredToWrite,
+            processEnded: processEnded
         );
     }
 
@@ -3127,7 +3179,8 @@ public class DataControllerUnitTests
         string currentTask = null,
         ClaimsPrincipal user = null,
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
-        string dataTypeActionRequiredToWrite = null
+        string dataTypeActionRequiredToWrite = null,
+        bool processEnded = false
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -3315,7 +3368,11 @@ public class DataControllerUnitTests
                         instanceGuid,
                         includeDataElements
                     );
-                    if (currentTask is not null || currentProcessStatus != ProcessStatus.Idle)
+                    if (
+                        currentTask is not null
+                        || currentProcessStatus != ProcessStatus.Idle
+                        || processEnded
+                    )
                     {
                         instance.Process = new ProcessState
                         {
@@ -3323,6 +3380,7 @@ public class DataControllerUnitTests
                             CurrentTask = currentTask is null
                                 ? null
                                 : new ProcessElementInfo { ElementId = currentTask },
+                            Ended = processEnded ? DateTime.UtcNow : null,
                         };
                     }
 
