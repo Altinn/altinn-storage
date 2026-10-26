@@ -68,6 +68,12 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
     private const string BasePath = "storage/api/v1/instances";
 
+    /// <summary>
+    /// System user with roles for party 1337 in data/roles/system_49913a53. The tdd/authlevel-4* test app
+    /// policies admit it directly by this id, whatever the party, so those tests do not depend on roles.
+    /// </summary>
+    private const string SystemUserId = "49913a53-0bf9-47fc-9cad-6aa3dc825008";
+
     private readonly TestApplicationFactory<InstancesController> _factory = factory;
 
     /// <summary>
@@ -337,6 +343,34 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Reading the instance from the repository fails.
+    /// Expected: Returns status internal server error, not not found.
+    /// </summary>
+    [Theory]
+    [InlineData("1337/23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    [InlineData("23d6aa98-df3b-4982-8d8a-8fe67a53b828")]
+    public async Task Get_RepositoryThrows_ReturnsInternalServerError(string instancePath)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/{instancePath}";
+
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r => r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        HttpClient client = GetTestClient(repositoryMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
     /// <summary>
@@ -635,6 +669,59 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Instance createdInstance = await response.Content.ReadFromJsonAsync<Instance>();
         Assert.Equal(expectedStatus, createdInstance.Process.Status);
+    }
+
+    [Fact]
+    public async Task Post_WithPresentationTexts_StoresNonEmptyTexts()
+    {
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+        InstanceInternal createdInstance = null;
+        Mock<IInstanceRepository> repositoryMock = new();
+        repositoryMock
+            .Setup(r =>
+                r.Create(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<CancellationToken>(),
+                    It.IsAny<int>()
+                )
+            )
+            .ReturnsAsync(
+                (InstanceInternal toCreate, CancellationToken _, int _) =>
+                {
+                    toCreate.Id = Guid.NewGuid();
+                    toCreate.Versions = new StorageVersions(1, 1);
+                    createdInstance = toCreate;
+                    return toCreate;
+                }
+            );
+        HttpClient client = GetTestClient(repositoryMock);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, 3)
+        );
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
+            PresentationTexts = new Dictionary<string, string>
+            {
+                ["name"] = "Ola Olsen",
+                ["empty"] = string.Empty,
+                ["missing"] = null,
+            },
+        };
+
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Dictionary<string, string> expected = new() { ["name"] = "Ola Olsen" };
+        Assert.Equal(expected, createdInstance.PresentationTexts);
+        Instance responseInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        );
+        Assert.Equal(expected, responseInstance.PresentationTexts);
     }
 
     /// <summary>
@@ -1245,8 +1332,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         string requestUri = $"{BasePath}?instanceOwner.partyId=1337";
 
         HttpClient client = GetTestClient();
-        string systemUserId = "49913a53-0bf9-47fc-9cad-6aa3dc825008";
-        string token = PrincipalUtil.GetSystemUserToken(systemUserId, "725736800");
+        string token = PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         int expectedNoInstances = 38;
@@ -1261,6 +1347,129 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(expectedNoInstances, queryResponse.Count);
+    }
+
+    /// <summary>
+    /// Test case: A system user (always authentication level 3) creates and reads an instance of an app whose
+    /// policy requires level 4. The policy either relaxes the requirement to level 3 for system users
+    /// (urn:altinn:minimum-authenticationlevel-systemuser) or not.
+    /// Expected: Permitted only when the policy has the system user obligation.
+    /// </summary>
+    [Theory]
+    [InlineData("authlevel-4-systemuser", true)]
+    [InlineData("authlevel-4", false)]
+    public async Task SystemUser_PolicyRequiresAuthLv4_PermittedOnlyWithSystemUserObligation(
+        string app,
+        bool permitted
+    )
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800")
+        );
+
+        // Act
+        HttpResponseMessage postResponse = await PostAuthLevel4Instance(client, app);
+        HttpResponseMessage getResponse = await client.GetAsync(AuthLevel4InstanceUri(app));
+
+        // Assert
+        Assert.Equal(
+            permitted ? HttpStatusCode.Created : HttpStatusCode.Forbidden,
+            postResponse.StatusCode
+        );
+        Assert.Equal(
+            permitted ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
+            getResponse.StatusCode
+        );
+    }
+
+    /// <summary>
+    /// Test case: An end user creates and reads an instance of an app whose policy requires level 4. The
+    /// system user obligation does not apply to end users.
+    /// Expected: Permitted only at authentication level 4, with or without the system user obligation.
+    /// </summary>
+    [Theory]
+    [InlineData("authlevel-4", 3, false)]
+    [InlineData("authlevel-4", 4, true)]
+    [InlineData("authlevel-4-systemuser", 3, false)]
+    [InlineData("authlevel-4-systemuser", 4, true)]
+    public async Task User_PolicyRequiresAuthLv4_PermittedOnlyAtAuthLv4(
+        string app,
+        int authenticationLevel,
+        bool permitted
+    )
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337, authenticationLevel)
+        );
+
+        // Act
+        HttpResponseMessage postResponse = await PostAuthLevel4Instance(client, app);
+        HttpResponseMessage getResponse = await client.GetAsync(AuthLevel4InstanceUri(app));
+
+        // Assert
+        Assert.Equal(
+            permitted ? HttpStatusCode.Created : HttpStatusCode.Forbidden,
+            postResponse.StatusCode
+        );
+        Assert.Equal(
+            permitted ? HttpStatusCode.OK : HttpStatusCode.Forbidden,
+            getResponse.StatusCode
+        );
+    }
+
+    /// <summary>
+    /// Test case: The authorization_details claim lacks the type urn:altinn:systemuser, so PEP does not treat
+    /// the caller as a system user and the system user obligation does not apply.
+    /// Expected: Returns status forbidden even though the policy relaxes the level for system users.
+    /// </summary>
+    [Fact]
+    public async Task Get_SystemUserTokenWithoutType_IsNotASystemUser_ReturnsStatusForbidden()
+    {
+        // Arrange
+        HttpClient client = GetTestClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetSystemUserToken(SystemUserId, "725736800", includeType: false)
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            AuthLevel4InstanceUri("authlevel-4-systemuser")
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static Task<HttpResponseMessage> PostAuthLevel4Instance(HttpClient client, string app)
+    {
+        return client.PostAsync(
+            $"{BasePath}?appId=tdd/{app}",
+            JsonContent.Create(
+                new Instance { InstanceOwner = new InstanceOwner { PartyId = "1337" } },
+                new MediaTypeHeaderValue("application/json")
+            )
+        );
+    }
+
+    /// <summary>
+    /// The instance of each tdd/authlevel-4* test app in data/postgresdata/instances, owned by party 1000001.
+    /// </summary>
+    private static string AuthLevel4InstanceUri(string app)
+    {
+        string instanceGuid = app switch
+        {
+            "authlevel-4" => "1a4f2e6c-0d3b-4c8e-9f21-5b7a8c9d0e01",
+            "authlevel-4-systemuser" => "1a4f2e6c-0d3b-4c8e-9f21-5b7a8c9d0e02",
+            _ => throw new ArgumentOutOfRangeException(nameof(app)),
+        };
+        return $"{BasePath}/1000001/{instanceGuid}";
     }
 
     /// <summary>

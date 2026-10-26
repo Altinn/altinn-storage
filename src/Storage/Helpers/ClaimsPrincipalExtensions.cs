@@ -12,6 +12,8 @@ namespace Altinn.Platform.Storage.Helpers;
 /// </summary>
 public static class ClaimsPrincipalExtensions
 {
+    private const string SystemUserClaimType = "urn:altinn:systemuser";
+
     /// <summary>
     /// Looks for any service owner related scopes and return true if any are found, otherwise false.
     /// </summary>
@@ -88,7 +90,9 @@ public static class ClaimsPrincipalExtensions
     }
 
     /// <summary>
-    /// Return the SystemUserClaim value of the authorization_details claim if found. Otherwise null.
+    /// Return the SystemUserClaim value of the authorization_details claim if the principal is a system user.
+    /// Otherwise null. A system user is recognised the way Altinn.Common.PEP recognises it: the claim is a JSON
+    /// object with type urn:altinn:systemuser and at least one system user id. Any other value is ignored.
     /// </summary>
     /// <param name="user">The ClaimsPrincipal to check for the claim value.</param>
     public static SystemUserClaim? GetSystemUser(this ClaimsPrincipal user)
@@ -99,7 +103,27 @@ public static class ClaimsPrincipalExtensions
             return null;
         }
 
-        return JsonSerializer.Deserialize<SystemUserClaim>(authorizationDetailsValue);
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(authorizationDetailsValue);
+            JsonElement root = document.RootElement;
+            if (
+                root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("type", out JsonElement type)
+                || type.ValueKind != JsonValueKind.String
+                || type.GetString() != SystemUserClaimType
+            )
+            {
+                return null;
+            }
+
+            SystemUserClaim? systemUser = root.Deserialize<SystemUserClaim>();
+            return systemUser?.Systemuser_id is { Count: > 0 } ? systemUser : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

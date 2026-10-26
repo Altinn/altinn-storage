@@ -259,15 +259,11 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance;
-        try
-        {
-            instance = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
-        }
-        catch (Exception e)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}: {e}");
-        }
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         if (instance is null)
         {
@@ -317,15 +313,11 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance;
-        try
-        {
-            instance = await _instanceRepository.GetOne(instanceGuid, true, cancellationToken);
-        }
-        catch (Exception e)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}: {e}");
-        }
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
 
         if (instance is null)
         {
@@ -1177,6 +1169,11 @@ public class InstancesController : ControllerBase
             Data = new List<DataElement>(),
             Process = instanceTemplate.Process,
             DataValues = instanceTemplate.DataValues,
+
+            // An empty value removes the text in UpdatePresentationTexts, so it is not stored on creation either
+            PresentationTexts = instanceTemplate
+                .PresentationTexts?.Where(text => !string.IsNullOrEmpty(text.Value))
+                .ToDictionary(text => text.Key, text => text.Value),
         };
 
         return createdInstance;
