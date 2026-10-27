@@ -10,6 +10,8 @@ namespace Altinn.Platform.Storage.Configuration;
 /// </summary>
 public class GeneralSettings
 {
+    private string _platformBaseUrl;
+
     /// <summary>
     /// Open Id Connect Well known endpoint. Related to JSON WEB token validation.
     /// </summary>
@@ -19,6 +21,20 @@ public class GeneralSettings
     /// Hostname
     /// </summary>
     public string Hostname { get; set; }
+
+    /// <summary>
+    /// Gets or sets the scheme and host that clients use to reach the platform, for example
+    /// <c>https://platform.altinn.no</c>. Links to Storage endpoints in responses start with it.
+    /// Defaults to <c>https://platform.{Hostname}</c>.
+    /// </summary>
+    public string PlatformBaseUrl
+    {
+        get =>
+            string.IsNullOrEmpty(_platformBaseUrl)
+                ? $"https://platform.{Hostname}"
+                : _platformBaseUrl;
+        set => _platformBaseUrl = value?.TrimEnd('/');
+    }
 
     /// <summary>
     /// Name of the cookie for runtime

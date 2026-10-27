@@ -1462,7 +1462,7 @@ public class InstancesController : ControllerBase
     {
         string url = Request.Path;
         string queryString = Request.QueryString.Value;
-        string host = $"https://platform.{_generalSettings.Hostname}";
+        string host = _generalSettings.PlatformBaseUrl;
 
         if (string.IsNullOrEmpty(continuationToken))
         {
