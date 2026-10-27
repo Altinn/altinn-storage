@@ -369,7 +369,10 @@ public class InstancesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(instance.InstanceOwner.PartyId))
         {
-            return BadRequest("Cannot create an instance without an instanceOwner.PartyId.");
+            return Problem(
+                detail: "Cannot create an instance without an instanceOwner.PartyId.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         int instanceOwnerPartyId = int.Parse(instance.InstanceOwner.PartyId);
@@ -381,11 +384,7 @@ public class InstancesController : ControllerBase
 
         if (appInfoError != null)
         {
-            return appInfoError.ErrorCode switch
-            {
-                404 => NotFound(appInfoError.ErrorMessage),
-                _ => StatusCode(appInfoError.ErrorCode, appInfoError.ErrorMessage),
-            };
+            return Problem(detail: appInfoError.ErrorMessage, statusCode: appInfoError.ErrorCode);
         }
 
         // Checking that user is authorized to instantiate.
@@ -434,7 +433,10 @@ public class InstancesController : ControllerBase
                 "// Instances Controller // Authorization of instantiation failed with request: {request}.",
                 JsonConvert.SerializeObject(request)
             );
-            return Forbid();
+            return Problem(
+                detail: "Not authorized to instantiate.",
+                statusCode: StatusCodes.Status403Forbidden
+            );
         }
 
         bool authorized;
@@ -455,22 +457,25 @@ public class InstancesController : ControllerBase
 
         if (!authorized)
         {
-            return Forbid();
+            return Problem(
+                detail: "Not authorized to instantiate.",
+                statusCode: StatusCodes.Status403Forbidden
+            );
         }
 
         if (InstanceHelper.IsApplicationNotYetValid(appInfo))
         {
-            return StatusCode(
-                StatusCodes.Status410Gone,
-                $"The application {appId} is not valid before {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidFrom).Value:O} and cannot be used to create new instances yet"
+            return Problem(
+                detail: $"The application {appId} is not valid before {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidFrom).Value:O} and cannot be used to create new instances yet",
+                statusCode: StatusCodes.Status410Gone
             );
         }
 
         if (InstanceHelper.IsApplicationExpired(appInfo))
         {
-            return StatusCode(
-                StatusCodes.Status410Gone,
-                $"The application {appId} expired at {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidTo).Value:O} and can no longer be used to create new instances"
+            return Problem(
+                detail: $"The application {appId} expired at {DateTimeHelper.ConvertToUniversalTime(appInfo.ValidTo).Value:O} and can no longer be used to create new instances",
+                statusCode: StatusCodes.Status410Gone
             );
         }
 
@@ -515,9 +520,9 @@ public class InstancesController : ControllerBase
             }
 
             _logger.LogError("Deleted instance {InstanceId}", storedInstance?.Id);
-            return StatusCode(
-                500,
-                $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}"
+            return Problem(
+                detail: $"Unable to create {appId} instance for {instance.InstanceOwner?.PartyId} due to {storageException.Message}",
+                statusCode: StatusCodes.Status500InternalServerError
             );
         }
     }

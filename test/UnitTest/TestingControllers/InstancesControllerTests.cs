@@ -727,10 +727,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
-        Assert.Contains(
-            "can no longer be used to create new instances",
-            await response.Content.ReadAsStringAsync()
-        );
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status410Gone, problem.Status);
+        Assert.Contains("can no longer be used to create new instances", problem.Detail);
         repositoryMock.Verify(
             r =>
                 r.Create(
@@ -823,10 +822,9 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
-        Assert.Contains(
-            "cannot be used to create new instances yet",
-            await response.Content.ReadAsStringAsync()
-        );
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status410Gone, problem.Status);
+        Assert.Contains("cannot be used to create new instances yet", problem.Detail);
         repositoryMock.Verify(
             r =>
                 r.Create(

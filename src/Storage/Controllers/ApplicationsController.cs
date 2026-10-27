@@ -122,7 +122,10 @@ public class ApplicationsController : ControllerBase
     {
         if (!IsValidAppId(appId))
         {
-            return BadRequest("AppId is not valid.");
+            return Problem(
+                detail: "AppId is not valid.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         string org = appId.Split("/")[0];
@@ -173,18 +176,25 @@ public class ApplicationsController : ControllerBase
 
         if (!IsValidAppId(appId))
         {
-            return BadRequest($"Illegal appId {appId}");
+            return Problem(
+                detail: $"Illegal appId {appId}",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         if (application.Id == null || !application.Id.Equals(appId))
         {
-            return BadRequest("appId in path does not match id in attached object");
+            return Problem(
+                detail: "appId in path does not match id in attached object",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         if (application.Org == null || !application.Org.Equals(org))
         {
-            return BadRequest(
-                "Org (application owner id) from path is not matching attached object"
+            return Problem(
+                detail: "Org (application owner id) from path is not matching attached object",
+                statusCode: StatusCodes.Status400BadRequest
             );
         }
 
@@ -194,7 +204,10 @@ public class ApplicationsController : ControllerBase
 
         if (existingApplication == null)
         {
-            return NotFound($"Cannot find application {appId}");
+            return Problem(
+                detail: $"Cannot find application {appId}",
+                statusCode: StatusCodes.Status404NotFound
+            );
         }
 
         application.Id = appId;
