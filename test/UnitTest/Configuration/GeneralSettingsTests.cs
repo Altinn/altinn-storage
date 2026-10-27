@@ -1,5 +1,3 @@
-#nullable disable
-
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;

@@ -1,5 +1,3 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -12,17 +10,17 @@ namespace Altinn.Platform.Storage.Configuration;
 /// </summary>
 public class GeneralSettings
 {
-    private string _platformBaseUrl;
+    private string? _platformBaseUrl;
 
     /// <summary>
     /// Open Id Connect Well known endpoint. Related to JSON WEB token validation.
     /// </summary>
-    public string OpenIdWellKnownEndpoint { get; set; }
+    public string? OpenIdWellKnownEndpoint { get; set; }
 
     /// <summary>
     /// Hostname
     /// </summary>
-    public string Hostname { get; set; }
+    public string? Hostname { get; set; }
 
     /// <summary>
     /// Gets or sets the scheme and host that clients use to reach the platform, for example
@@ -76,27 +74,27 @@ public class GeneralSettings
     /// <summary>
     /// Name of the cookie for runtime
     /// </summary>
-    public string RuntimeCookieName { get; set; }
+    public string? RuntimeCookieName { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the SBL Bridge Authorization API.
     /// </summary>
-    public Uri BridgeApiAuthorizationEndpoint { get; set; }
+    public Uri? BridgeApiAuthorizationEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the SBL Bridge Authorization API.
     /// </summary>
-    public Uri BridgeApiCorrespondenceEndpoint { get; set; }
+    public Uri? BridgeApiCorrespondenceEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the scopes for Instance Read.
     /// </summary>
-    public List<string> InstanceReadScope { get; set; }
+    public List<string>? InstanceReadScope { get; set; }
 
     /// <summary>
     /// Gets or sets the scope for storage sync adapters.
     /// </summary>
-    public string InstanceSyncAdapterScope { get; set; }
+    public string? InstanceSyncAdapterScope { get; set; }
 
     /// <summary>
     /// Gets or sets the cache lifetime for text resources.
@@ -116,17 +114,17 @@ public class GeneralSettings
     /// <summary>
     /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
     /// </summary>
-    public string MigrationIpWhiteList { get; set; }
+    public string? MigrationIpWhiteList { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the ondemand API
     /// </summary>
-    public string OndemandEndpoint { get; set; }
+    public string? OndemandEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the pdf generator
     /// </summary>
-    public string PdfGeneratorEndpoint { get; set; }
+    public string? PdfGeneratorEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
@@ -162,7 +160,7 @@ public class GeneralSettings
     /// <summary>
     /// Gets or sets the url to organisations on CDN
     /// </summary>
-    public string OrganisationsUrl { get; set; }
+    public string? OrganisationsUrl { get; set; }
 
     /// <summary>
     /// Gets or sets the cache lifetime for the Altinn CDN organisation list.
