@@ -1,8 +1,7 @@
-#nullable disable
-
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -52,7 +51,7 @@ public class OtlpExporterTests(TestApplicationFactory<InstancesController> facto
 
         // Act
         await client.GetAsync("/storage/api/v1/otlp-exporter-test");
-        byte[] export = await WaitForExport(app, collector);
+        byte[]? export = await WaitForExport(app, collector);
 
         // Assert
         Assert.NotNull(export);
@@ -80,13 +79,13 @@ public class OtlpExporterTests(TestApplicationFactory<InstancesController> facto
 
         // Act
         await client.GetAsync("/storage/api/v1/otlp-exporter-test");
-        byte[] export = await WaitForExport(app, collector, TimeSpan.FromSeconds(2));
+        byte[]? export = await WaitForExport(app, collector, TimeSpan.FromSeconds(2));
 
         // Assert
         Assert.Null(export);
     }
 
-    private static async Task<byte[]> WaitForExport(
+    private static async Task<byte[]?> WaitForExport(
         WebApplicationFactory<InstancesController> app,
         FakeOtlpCollector collector,
         TimeSpan? timeout = null
@@ -97,7 +96,7 @@ public class OtlpExporterTests(TestApplicationFactory<InstancesController> facto
         while (stopwatch.Elapsed < (timeout ?? TimeSpan.FromSeconds(10)))
         {
             tracerProvider.ForceFlush();
-            if (collector.TryTake(TracesPath, out byte[] body))
+            if (collector.TryTake(TracesPath, out byte[]? body))
             {
                 return body;
             }
@@ -168,7 +167,7 @@ public class OtlpExporterTests(TestApplicationFactory<InstancesController> facto
             return collector;
         }
 
-        public bool TryTake(string path, out byte[] body)
+        public bool TryTake(string path, [NotNullWhen(true)] out byte[]? body)
         {
             while (_requests.TryDequeue(out var request))
             {
@@ -201,7 +200,7 @@ public class OtlpExporterTests(TestApplicationFactory<InstancesController> facto
 
                 using MemoryStream body = new();
                 await context.Request.InputStream.CopyToAsync(body);
-                _requests.Enqueue((context.Request.Url.AbsolutePath, body.ToArray()));
+                _requests.Enqueue((context.Request.Url!.AbsolutePath, body.ToArray()));
 
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "application/x-protobuf";
