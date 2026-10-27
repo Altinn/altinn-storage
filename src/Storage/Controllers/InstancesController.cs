@@ -355,12 +355,20 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpPost]
     [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status410Gone)]
-    [Produces("application/json")]
+    [ProducesResponseType<Instance>(StatusCodes.Status201Created, "application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status410Gone, "application/problem+json")]
     public async Task<ActionResult<Instance>> Post(
         string appId,
         [FromBody] Instance instance,

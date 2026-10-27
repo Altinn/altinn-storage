@@ -112,9 +112,11 @@ public class ApplicationsController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
     [HttpPost]
     [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Produces("application/json")]
+    [ProducesResponseType<Application>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Application>> Post(
         string appId,
         [FromBody] Application application
@@ -162,10 +164,15 @@ public class ApplicationsController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
     [HttpPut("{org}/{app}")]
     [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Produces("application/json")]
+    [ProducesResponseType<Application>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Application>> Put(
         string org,
         string app,

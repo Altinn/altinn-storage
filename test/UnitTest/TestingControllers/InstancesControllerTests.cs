@@ -727,6 +727,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.Equal(StatusCodes.Status410Gone, problem.Status);
         Assert.Contains("can no longer be used to create new instances", problem.Detail);
@@ -822,6 +823,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.Gone, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
         Assert.Equal(StatusCodes.Status410Gone, problem.Status);
         Assert.Contains("cannot be used to create new instances yet", problem.Detail);
