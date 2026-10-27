@@ -2,6 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Configuration;
 
@@ -24,7 +26,8 @@ public class GeneralSettings
 
     /// <summary>
     /// Gets or sets the scheme and host that clients use to reach the platform, for example
-    /// <c>https://platform.altinn.no</c>. Links to Storage endpoints in responses start with it.
+    /// <c>https://platform.altinn.no</c>. Links to Storage endpoints in responses (paging links and
+    /// self links) start with it.
     /// Defaults to <c>https://platform.{Hostname}</c>.
     /// </summary>
     public string PlatformBaseUrl
@@ -34,6 +37,40 @@ public class GeneralSettings
                 ? $"https://platform.{Hostname}"
                 : _platformBaseUrl;
         set => _platformBaseUrl = value?.TrimEnd('/');
+    }
+
+    /// <summary>
+    /// Sets the platform self link of the instance and of each of its data elements.
+    /// </summary>
+    /// <param name="instance">The instance to set the self links on.</param>
+    public void SetPlatformSelfLinks(Instance instance)
+    {
+        instance.SelfLinks ??= new ResourceLinks();
+        instance.SelfLinks.Platform = $"{PlatformBaseUrl}/storage/api/v1/instances/{instance.Id}";
+
+        if (instance.Data != null)
+        {
+            int instanceOwnerPartyId = int.Parse(
+                instance.InstanceOwner.PartyId,
+                CultureInfo.InvariantCulture
+            );
+            foreach (DataElement dataElement in instance.Data)
+            {
+                SetPlatformSelfLinks(dataElement, instanceOwnerPartyId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets the platform self link of the data element.
+    /// </summary>
+    /// <param name="dataElement">The data element to set the self link on.</param>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    public void SetPlatformSelfLinks(DataElement dataElement, int instanceOwnerPartyId)
+    {
+        dataElement.SelfLinks ??= new ResourceLinks();
+        dataElement.SelfLinks.Platform =
+            $"{PlatformBaseUrl}/storage/api/v1/instances/{instanceOwnerPartyId}/{dataElement.InstanceGuid}/data/{dataElement.Id}";
     }
 
     /// <summary>

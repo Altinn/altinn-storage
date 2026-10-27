@@ -43,7 +43,6 @@ public class InstancesController : ControllerBase
     private readonly ILogger _logger;
     private readonly IAuthorization _authorizationService;
     private readonly IInstanceEventService _instanceEventService;
-    private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IRegisterService _registerService;
     private readonly IApplicationService _applicationService;
@@ -76,7 +75,6 @@ public class InstancesController : ControllerBase
         _instanceRepository = instanceRepository;
         _partiesWithInstancesClient = partiesWithInstancesClient;
         _logger = logger;
-        _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
         _authorizationService = authorizationService;
         _instanceEventService = instanceEventService;
         _registerService = registerService;
@@ -223,7 +221,7 @@ public class InstancesController : ControllerBase
             }
 
             // add self links to platform
-            response.Instances.ForEach(i => i.SetPlatformSelfLinks(_storageBaseAndHost));
+            response.Instances.ForEach(i => _generalSettings.SetPlatformSelfLinks(i));
 
             return Ok(response);
         }
@@ -271,7 +269,7 @@ public class InstancesController : ControllerBase
         if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
         {
             Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            _generalSettings.SetPlatformSelfLinks(responseInstance);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(responseInstance);
         }
@@ -287,7 +285,7 @@ public class InstancesController : ControllerBase
             FilterOutDeletedDataElements(mappedInstance);
         }
 
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(mappedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
         return Ok(mappedInstance);
     }
@@ -323,7 +321,7 @@ public class InstancesController : ControllerBase
         if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
         {
             Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            _generalSettings.SetPlatformSelfLinks(responseInstance);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(responseInstance);
         }
@@ -339,7 +337,7 @@ public class InstancesController : ControllerBase
             FilterOutDeletedDataElements(mappedInstance);
         }
 
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(mappedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
         return Ok(mappedInstance);
     }
@@ -475,7 +473,7 @@ public class InstancesController : ControllerBase
             await _instanceEventService.DispatchEvent(InstanceEventType.Created, storedInstance);
             _logger.LogInformation("Created instance: {InstanceId}", storedInstance.Id);
             Instance responseInstance = storedInstance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            _generalSettings.SetPlatformSelfLinks(responseInstance);
 
             await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, storedInstance);
@@ -697,7 +695,7 @@ public class InstancesController : ControllerBase
         if (instance.CompleteConfirmations.Exists(cc => cc.StakeholderId == org))
         {
             Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+            _generalSettings.SetPlatformSelfLinks(responseInstance);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
             return Ok(responseInstance);
         }
@@ -752,7 +750,7 @@ public class InstancesController : ControllerBase
         );
 
         Instance mappedInstance = updatedInstance.ToApiModel();
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(mappedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }
@@ -827,7 +825,7 @@ public class InstancesController : ControllerBase
         }
 
         Instance mappedInstance = updatedInstance.ToApiModel();
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(mappedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }
@@ -946,7 +944,7 @@ public class InstancesController : ControllerBase
             updatedInstance
         );
         Instance mappedInstance = updatedInstance.ToApiModel();
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(mappedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(mappedInstance);
     }

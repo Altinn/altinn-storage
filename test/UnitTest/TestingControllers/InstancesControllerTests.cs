@@ -1571,7 +1571,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 },
             ],
         };
-        expected.SetPlatformSelfLinks("at22.altinn.cloud/storage/api/v1/");
+        new GeneralSettings { Hostname = "at22.altinn.cloud" }.SetPlatformSelfLinks(expected);
         Assert.True(
             JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(expected)), publicInstance)
         );
