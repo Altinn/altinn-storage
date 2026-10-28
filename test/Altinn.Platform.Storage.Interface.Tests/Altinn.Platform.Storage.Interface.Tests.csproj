@@ -37,6 +37,8 @@
     <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
+    <EmbeddedResource Include="TaskIds\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="TaskIds\applicationMetadata_afterChange.json" />
   </ItemGroup>
 
   <PropertyGroup>

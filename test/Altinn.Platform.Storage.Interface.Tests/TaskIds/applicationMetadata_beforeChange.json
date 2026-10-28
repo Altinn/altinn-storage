@@ -1,0 +1,32 @@
+{
+  "id": "ttd/task-ids",
+  "org": "ttd",
+  "title": {
+    "nb": "task-ids"
+  },
+  "dataTypes": [
+    {
+      "id": "model",
+      "allowedContentTypes": ["application/xml"],
+      "appLogic": {
+        "autoCreate": true,
+        "classRef": "Altinn.App.Models.Model"
+      },
+      "taskId": "Task_1",
+      "maxCount": 1,
+      "minCount": 1
+    },
+    {
+      "id": "attachment",
+      "allowedContentTypes": ["application/pdf"],
+      "maxCount": 0,
+      "minCount": 0
+    }
+  ],
+  "partyTypesAllowed": {
+    "bankruptcyEstate": false,
+    "organisation": true,
+    "person": true,
+    "subUnit": false
+  }
+}

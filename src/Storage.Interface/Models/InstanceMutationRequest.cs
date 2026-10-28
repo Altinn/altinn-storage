@@ -63,7 +63,15 @@ public class InstanceMutationRequest
     public bool AddCompleteConfirmation { get; set; }
 
     /// <summary>
-    /// Optional process state and instance events to persist with the aggregate mutation.
+    /// The instance's new substatus. Only the instance's own organisation can set it, and it
+    /// needs a label. Null leaves the substatus unchanged; a substatus cannot be removed.
+    /// </summary>
+    [JsonProperty(PropertyName = "substatus")]
+    public Substatus Substatus { get; set; }
+
+    /// <summary>
+    /// Optional process state and instance events to persist with the aggregate mutation. A mutation that sets
+    /// the process state cannot also create, update or delete data elements.
     /// </summary>
     [JsonProperty(PropertyName = "processState")]
     public ProcessStateUpdate ProcessState { get; set; }
