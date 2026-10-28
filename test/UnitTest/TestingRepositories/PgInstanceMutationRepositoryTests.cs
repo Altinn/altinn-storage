@@ -1,16 +1,18 @@
-﻿#nullable disable
+#nullable disable
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
-using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Xunit;
@@ -20,739 +22,419 @@ namespace Altinn.Platform.Storage.UnitTest.TestingRepositories;
 public class PgInstanceMutationRepositoryTests
 {
     [Fact]
-    public void BuildPayloads_RepresentativeMutation_WritesSemanticJsonStructure()
+    public void Serialize_Operations_WritesNaturalContractAndNativeBlobVersions()
     {
-        Guid instanceGuid = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        Guid createElementId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        Guid updateElementId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
-        Guid deleteElementId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
-        Guid createBlobVersion = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        Guid newBlobVersion = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        Guid expectedBlobVersion = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        DateTime created = UtcWithExtraTicks(2026, 1, 2, 3, 4, 5, 123, 7);
-        DateTime lastChanged = UtcWithExtraTicks(2026, 1, 2, 3, 4, 6, 234, 8);
-        DateTime hardDeleted = UtcWithExtraTicks(2026, 1, 2, 3, 4, 7, 345, 9);
-        DateTime eventCreated = UtcWithExtraTicks(2026, 1, 2, 3, 4, 8, 456, 6);
-
-        InstanceMutationCommit mutation = new(
-            [
-                new DataElement
-                {
-                    Id = createElementId.ToString(),
-                    DataType = "main",
-                    ContentType = "application/json",
-                    Created = created,
-                    LastChanged = lastChanged,
-                    LastChangedBy = "1001",
-                    DeleteStatus = new DeleteStatus
-                    {
-                        IsHardDeleted = true,
-                        HardDeleted = hardDeleted,
-                    },
-                }.FromApiModel(BlobVersionId.Encode(createBlobVersion)),
-            ],
-            [
-                new InstanceMutationDataElementUpdate(
-                    updateElementId,
-                    new Dictionary<string, object>
-                    {
-                        ["/contentType"] = "application/xml",
-                        ["/isRead"] = false,
-                        ["/currentBlobVersion"] = BlobVersionId.Encode(newBlobVersion),
-                    },
-                    BlobVersionId.Encode(expectedBlobVersion),
-                    IgnoreLock: true
-                ),
-            ],
-            [
-                new InstanceMutationDataElementDelete(
-                    new DataElementInternal { Id = deleteElementId, LastChangedBy = "3003" },
-                    IgnoreLock: true
-                ),
-            ],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                Created = created,
-                LastChanged = lastChanged,
-                LastChangedBy = "4004",
-                DataValues = new Dictionary<string, string> { ["case"] = "42" },
-                Status = new InstanceStatus { IsHardDeleted = true, HardDeleted = hardDeleted },
-            },
-            [
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsHardDeleted),
-                nameof(InstanceStatus.HardDeleted),
-                nameof(InstanceInternal.LastChanged),
-                nameof(InstanceInternal.LastChangedBy),
-                nameof(InstanceInternal.DataValues),
-            ],
-            12,
-            4,
-            [
-                new InstanceEvent
-                {
-                    EventType = InstanceEventType.Saved.ToString(),
-                    Created = eventCreated,
-                    ProcessInfo = new ProcessState
-                    {
-                        Started = eventCreated,
-                        CurrentTask = new ProcessElementInfo
-                        {
-                            ElementId = "Task_1",
-                            Started = eventCreated,
-                            Ended = eventCreated,
-                        },
-                        Ended = eventCreated,
-                    },
-                },
-                new InstanceEvent
-                {
-                    EventType = InstanceEventType.Deleted.ToString(),
-                    Created = eventCreated.AddMinutes(1),
-                },
-            ]
-        );
-
-        string createPayload = PgInstanceMutationRepository.BuildCreateElementsPayload(
-            mutation.CreateDataElements
-        );
-        string updatePayload = PgInstanceMutationRepository.BuildUpdateElementsPayload(
-            mutation.UpdateDataElements
-        );
-        string deletePayload = PgInstanceMutationRepository.BuildDeleteElementsPayload(
-            mutation.DeleteDataElements
-        );
-        string instanceUpdatesPayload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(
-            mutation
-        );
-        string eventsPayload = PgInstanceMutationRepository.BuildEventsPayload(
-            instanceGuid,
-            mutation
-        );
-        string outboxPayload = InvokeOutboxPayload(instanceGuid, mutation);
-
-        using JsonDocument createDocument = JsonDocument.Parse(createPayload);
-        JsonElement createItem = AssertSingleArrayItem(createDocument.RootElement);
-        Assert.Equal(createElementId.ToString(), createItem.GetProperty("elementId").GetString());
-        Assert.Equal(
-            createBlobVersion.ToString(),
-            createItem.GetProperty("blobVersion").GetString()
-        );
-        JsonElement createdElement = AssertObjectProperty(createItem, "element");
-        Assert.Equal(createElementId.ToString(), createdElement.GetProperty("Id").GetString());
-        Assert.Equal(Normalize(created), createdElement.GetProperty("Created").GetDateTime());
-        Assert.Equal(
-            Normalize(hardDeleted),
-            createdElement.GetProperty("DeleteStatus").GetProperty("HardDeleted").GetDateTime()
-        );
-        Assert.False(createdElement.TryGetProperty("LastChanged", out _));
-        Assert.False(createdElement.TryGetProperty("LastChangedBy", out _));
-
-        using JsonDocument updateDocument = JsonDocument.Parse(updatePayload);
-        JsonElement updateItem = AssertSingleArrayItem(updateDocument.RootElement);
-        Assert.Equal(updateElementId.ToString(), updateItem.GetProperty("elementId").GetString());
-        JsonElement elementChanges = AssertObjectProperty(updateItem, "elementChanges");
-        Assert.Equal("application/xml", elementChanges.GetProperty("ContentType").GetString());
-        Assert.False(elementChanges.GetProperty("IsRead").GetBoolean());
-        Assert.False(elementChanges.TryGetProperty("LastChanged", out _));
-        Assert.False(elementChanges.TryGetProperty("LastChangedBy", out _));
-        Assert.False(updateItem.TryGetProperty("instanceChanges", out _));
-        Assert.False(updateItem.TryGetProperty("isReadChangedToFalse", out _));
-        Assert.False(updateItem.TryGetProperty("lastChanged", out _));
-        Assert.Equal(
-            newBlobVersion.ToString(),
-            updateItem.GetProperty("newBlobVersion").GetString()
-        );
-        Assert.Equal(
-            expectedBlobVersion.ToString(),
-            updateItem.GetProperty("expectedBlobVersion").GetString()
-        );
-        Assert.True(updateItem.GetProperty("ignoreLock").GetBoolean());
-
-        using JsonDocument deleteDocument = JsonDocument.Parse(deletePayload);
-        JsonElement deleteItem = AssertSingleArrayItem(deleteDocument.RootElement);
-        Assert.Equal(deleteElementId.ToString(), deleteItem.GetProperty("elementId").GetString());
-        Assert.True(deleteItem.GetProperty("ignoreLock").GetBoolean());
-        Assert.False(deleteItem.TryGetProperty("lastChangedBy", out _));
-
-        using JsonDocument instanceUpdatesDocument = JsonDocument.Parse(instanceUpdatesPayload);
-        JsonElement instanceUpdate = AssertObject(instanceUpdatesDocument.RootElement);
-        JsonElement topLevelSimpleProps = AssertObjectProperty(
-            instanceUpdate,
-            "toplevelsimpleprops"
-        );
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChanged", out _));
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChangedBy", out _));
-        JsonElement status = AssertObjectProperty(instanceUpdate, "status");
-        Assert.True(status.GetProperty("IsHardDeleted").GetBoolean());
-        Assert.Equal(Normalize(hardDeleted), status.GetProperty("HardDeleted").GetDateTime());
-        Assert.False(instanceUpdate.TryGetProperty("lastchanged", out _));
-        JsonElement dataValues = AssertObjectProperty(instanceUpdate, "datavalues");
-        Assert.Equal("42", dataValues.GetProperty("case").GetString());
-
-        using JsonDocument eventsDocument = JsonDocument.Parse(eventsPayload);
-        Assert.Equal(2, eventsDocument.RootElement.GetArrayLength());
-        JsonElement savedEvent = eventsDocument.RootElement[0];
-        Assert.Equal(
-            $"{mutation.InstanceUpdates.InstanceOwner.PartyId}/{instanceGuid}",
-            savedEvent.GetProperty("InstanceId").GetString()
-        );
-        Assert.Equal(
-            InstanceEventType.Saved.ToString(),
-            savedEvent.GetProperty("EventType").GetString()
-        );
-        Assert.NotEqual(Guid.Empty, savedEvent.GetProperty("Id").GetGuid());
-        Assert.Equal(Normalize(eventCreated), savedEvent.GetProperty("Created").GetDateTime());
-        JsonElement processInfo = AssertObjectProperty(savedEvent, "ProcessInfo");
-        Assert.Equal(
-            Normalize(eventCreated),
-            processInfo.GetProperty("CurrentTask").GetProperty("Started").GetDateTime()
-        );
-        Assert.Equal(
-            InstanceEventType.Deleted.ToString(),
-            eventsDocument.RootElement[1].GetProperty("EventType").GetString()
-        );
-
-        using JsonDocument outboxDocument = JsonDocument.Parse(outboxPayload);
-        Assert.Equal("ttd/app", outboxDocument.RootElement.GetProperty("appid").GetString());
-        Assert.Equal(5000, outboxDocument.RootElement.GetProperty("partyid").GetInt64());
-        Assert.Equal(3, outboxDocument.RootElement.GetProperty("delaySeconds").GetInt32());
-        Assert.Equal(
-            Normalize(created),
-            outboxDocument.RootElement.GetProperty("instancecreated").GetDateTime()
-        );
-        Assert.False(outboxDocument.RootElement.GetProperty("ismigration").GetBoolean());
-        Assert.Equal(
-            (int)InstanceEventType.Deleted,
-            outboxDocument.RootElement.GetProperty("instanceeventtype").GetInt32()
-        );
-    }
-
-    [Fact]
-    public void BuildInstanceUpdatesPayload_ProcessEndArchive_WritesProcessAndStatusInFlatObject()
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        DateTime lastChanged = UtcWithExtraTicks(2026, 2, 3, 4, 5, 6, 123, 4);
-        DateTime archived = UtcWithExtraTicks(2026, 2, 3, 4, 6, 7, 234, 5);
-        DateTime processEnded = UtcWithExtraTicks(2026, 2, 3, 4, 7, 8, 345, 6);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                LastChanged = lastChanged,
-                LastChangedBy = "4004",
-                Status = new InstanceStatus { IsArchived = true, Archived = archived },
-                Process = new ProcessState
-                {
-                    Ended = processEnded,
-                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Archive" },
-                },
-            },
-            [
-                nameof(InstanceInternal.Process),
-                nameof(InstanceInternal.LastChanged),
-                nameof(InstanceInternal.LastChangedBy),
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsArchived),
-                nameof(InstanceStatus.Archived),
-            ],
-            null,
-            null,
-            []
-        );
-
-        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement item = AssertObject(document.RootElement);
-        JsonElement topLevelSimpleProps = AssertObjectProperty(item, "toplevelsimpleprops");
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChanged", out _));
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChangedBy", out _));
-        JsonElement status = AssertObjectProperty(item, "status");
-        Assert.True(status.GetProperty("IsArchived").GetBoolean());
-        Assert.Equal(Normalize(archived), status.GetProperty("Archived").GetDateTime());
-        JsonElement process = AssertObjectProperty(item, "process");
-        Assert.Equal(Normalize(processEnded), process.GetProperty("Ended").GetDateTime());
-        Assert.Equal(
-            "Task_Archive",
-            process.GetProperty("CurrentTask").GetProperty("ElementId").GetString()
-        );
-        Assert.Equal("Task_Archive", item.GetProperty("taskid").GetString());
-        Assert.False(item.TryGetProperty("lastchanged", out _));
-        Assert.Equal(JsonValueKind.Null, item.GetProperty("confirmed").ValueKind);
-    }
-
-    [Fact]
-    public void BuildInstanceUpdatesPayload_MultipleBranches_WritesOneFlatObject()
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        DateTime lastChanged = UtcWithExtraTicks(2026, 3, 4, 5, 6, 7, 123, 4);
-        DateTime archived = UtcWithExtraTicks(2026, 3, 4, 5, 7, 8, 234, 5);
-        DateTime processStarted = UtcWithExtraTicks(2026, 3, 4, 5, 8, 9, 345, 6);
-        DateTime confirmedOn = UtcWithExtraTicks(2026, 3, 4, 5, 9, 10, 456, 7);
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                LastChanged = lastChanged,
-                LastChangedBy = "4004",
-                DataValues = new Dictionary<string, string> { ["case"] = "42" },
-                PresentationTexts = new Dictionary<string, string> { ["title"] = "Archive" },
-                CompleteConfirmations =
-                [
-                    new CompleteConfirmation { StakeholderId = "ttd", ConfirmedOn = confirmedOn },
-                ],
-                Status = new InstanceStatus
-                {
-                    IsArchived = true,
-                    Archived = archived,
-                    Substatus = new Substatus
-                    {
-                        Label = "substatus-label",
-                        Description = "substatus-description",
-                    },
-                },
-                Process = new ProcessState
-                {
-                    Started = processStarted,
-                    CurrentTask = new ProcessElementInfo { ElementId = "Task_Shape" },
-                },
-            },
-            [
-                nameof(InstanceInternal.Process),
-                nameof(InstanceInternal.LastChanged),
-                nameof(InstanceInternal.LastChangedBy),
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.IsArchived),
-                nameof(InstanceStatus.Archived),
-                nameof(InstanceInternal.DataValues),
-                nameof(InstanceInternal.PresentationTexts),
-                nameof(InstanceInternal.CompleteConfirmations),
-                nameof(InstanceStatus.Substatus),
-            ],
-            null,
-            null,
-            []
-        );
-
-        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement root = AssertObject(document.RootElement);
-
-        AssertSharedInstanceUpdateScalars(root, "Task_Shape", true);
-        JsonElement topLevelSimpleProps = AssertObjectProperty(root, "toplevelsimpleprops");
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChanged", out _));
-        Assert.False(topLevelSimpleProps.TryGetProperty("LastChangedBy", out _));
-        JsonElement process = AssertObjectProperty(root, "process");
-        Assert.Equal(
-            "Task_Shape",
-            process.GetProperty("CurrentTask").GetProperty("ElementId").GetString()
-        );
-        JsonElement status = AssertObjectProperty(root, "status");
-        Assert.True(status.GetProperty("IsArchived").GetBoolean());
-        Assert.Equal(Normalize(archived), status.GetProperty("Archived").GetDateTime());
-
-        JsonElement dataValues = AssertObjectProperty(root, "datavalues");
-        Assert.Equal("42", dataValues.GetProperty("case").GetString());
-
-        JsonElement presentationTexts = AssertObjectProperty(root, "presentationtexts");
-        Assert.Equal("Archive", presentationTexts.GetProperty("title").GetString());
-
-        JsonElement completeConfirmations = root.GetProperty("completeconfirmations");
-        Assert.Equal(JsonValueKind.Array, completeConfirmations.ValueKind);
-        Assert.Single(completeConfirmations.EnumerateArray());
-
-        JsonElement substatus = AssertObjectProperty(root, "substatus");
-        Assert.Equal("substatus-label", substatus.GetProperty("Label").GetString());
-        Assert.Equal("substatus-description", substatus.GetProperty("Description").GetString());
-    }
-
-    [Fact]
-    public void NormalizePayloadTimestamp_UtcKind_TruncatesToPostgresMicroseconds()
-    {
-        DateTime value = UtcWithExtraTicks(2026, 5, 6, 7, 8, 9, 123, 7);
-
-        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
-
-        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
-        Assert.Equal(value.AddTicks(-7), normalized);
-    }
-
-    [Fact]
-    public void NormalizePayloadTimestamp_UnspecifiedKind_IsReadAsUtcWithoutShiftingTheWallClock()
-    {
-        DateTime value = WithKind(DateTimeKind.Unspecified, 9, 123, 7);
-
-        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
-
-        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
-        Assert.Equal(value.AddTicks(-7).TimeOfDay, normalized.TimeOfDay);
-        Assert.Equal(value.Date, normalized.Date);
-    }
-
-    [Fact]
-    public void NormalizePayloadTimestamp_LocalKind_PreservesTheInstant()
-    {
-        DateTime value = WithKind(DateTimeKind.Local, 9, 123, 7);
-
-        DateTime normalized = PgInstanceMutationRepository.NormalizePayloadTimestamp(value);
-
-        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
-        Assert.Equal(value.ToUniversalTime().AddTicks(-7), normalized);
-    }
-
-    [Theory]
-    [InlineData(DateTimeKind.Unspecified)]
-    [InlineData(DateTimeKind.Local)]
-    public void BuildInstanceUpdatesPayload_NonUtcKindTimestamps_WritesUtcTimestamps(
-        DateTimeKind kind
-    )
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        DateTime created = WithKind(kind, 1, 123, 1);
-        DateTime dueBefore = WithKind(kind, 2, 234, 2);
-        DateTime visibleAfter = WithKind(kind, 3, 345, 3);
-        DateTime archived = WithKind(kind, 4, 456, 4);
-        DateTime softDeleted = WithKind(kind, 5, 567, 5);
-        DateTime hardDeleted = WithKind(kind, 6, 678, 6);
-        DateTime processStarted = WithKind(kind, 7, 789, 7);
-        DateTime processEnded = WithKind(kind, 8, 890, 8);
-        DateTime taskStarted = WithKind(kind, 9, 901, 9);
-        DateTime taskEnded = WithKind(kind, 10, 12, 1);
-        DateTime confirmedOn = WithKind(kind, 11, 123, 2);
-
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                Created = created,
-                DueBefore = dueBefore,
-                VisibleAfter = visibleAfter,
-                Status = new InstanceStatus
-                {
-                    Archived = archived,
-                    SoftDeleted = softDeleted,
-                    HardDeleted = hardDeleted,
-                },
-                Process = new ProcessState
-                {
-                    Started = processStarted,
-                    Ended = processEnded,
-                    CurrentTask = new ProcessElementInfo
-                    {
-                        ElementId = "Task_1",
-                        Started = taskStarted,
-                        Ended = taskEnded,
-                    },
-                },
-                CompleteConfirmations =
-                [
-                    new CompleteConfirmation { StakeholderId = "ttd", ConfirmedOn = confirmedOn },
-                ],
-            },
-            [
-                nameof(InstanceInternal.Created),
-                nameof(InstanceInternal.DueBefore),
-                nameof(InstanceInternal.VisibleAfter),
-                nameof(InstanceInternal.Status),
-                nameof(InstanceStatus.Archived),
-                nameof(InstanceStatus.SoftDeleted),
-                nameof(InstanceStatus.HardDeleted),
-                nameof(InstanceInternal.Process),
-                nameof(InstanceInternal.CompleteConfirmations),
-            ],
-            null,
-            null,
-            []
-        );
-
-        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement root = AssertObject(document.RootElement);
-
-        JsonElement topLevelSimpleProps = AssertObjectProperty(root, "toplevelsimpleprops");
-        AssertUtcJsonTimestamp(topLevelSimpleProps, "Created", created);
-        AssertUtcJsonTimestamp(topLevelSimpleProps, "DueBefore", dueBefore);
-        AssertUtcJsonTimestamp(topLevelSimpleProps, "VisibleAfter", visibleAfter);
-
-        JsonElement status = AssertObjectProperty(root, "status");
-        AssertUtcJsonTimestamp(status, "Archived", archived);
-        AssertUtcJsonTimestamp(status, "SoftDeleted", softDeleted);
-        AssertUtcJsonTimestamp(status, "HardDeleted", hardDeleted);
-
-        JsonElement process = AssertObjectProperty(root, "process");
-        AssertUtcJsonTimestamp(process, "Started", processStarted);
-        AssertUtcJsonTimestamp(process, "Ended", processEnded);
-        JsonElement currentTask = AssertObjectProperty(process, "CurrentTask");
-        AssertUtcJsonTimestamp(currentTask, "Started", taskStarted);
-        AssertUtcJsonTimestamp(currentTask, "Ended", taskEnded);
-
-        JsonElement confirmation = root.GetProperty("completeconfirmations")[0];
-        AssertUtcJsonTimestamp(confirmation, "ConfirmedOn", confirmedOn);
-    }
-
-    [Fact]
-    public void BuildInstanceUpdatesPayload_DefaultConfirmedOn_WritesUtcTimestamp()
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                CompleteConfirmations = [new CompleteConfirmation { StakeholderId = "ttd" }],
-            },
-            [nameof(InstanceInternal.CompleteConfirmations)],
-            null,
-            null,
-            []
-        );
-
-        string payload = PgInstanceMutationRepository.BuildInstanceUpdatesPayload(mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement confirmation = document
-            .RootElement.GetProperty("completeconfirmations")[0]
-            .GetProperty("ConfirmedOn");
-        Assert.EndsWith("Z", confirmation.GetString(), StringComparison.Ordinal);
-        Assert.Equal(default, confirmation.GetDateTime());
-    }
-
-    [Fact]
-    public void BuildEventsPayload_UnspecifiedKindTimestamp_WritesTheWallClockWithZuluSuffix()
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-            },
-            [],
-            null,
-            null,
-            [
-                new InstanceEvent
-                {
-                    EventType = InstanceEventType.Saved.ToString(),
-                    Created = WithKind(DateTimeKind.Unspecified, 9, 123, 4567),
-                },
-            ]
-        );
-
-        string payload = PgInstanceMutationRepository.BuildEventsPayload(instanceGuid, mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        Assert.Equal(
-            "2026-05-06T07:08:09.123456Z",
-            AssertSingleArrayItem(document.RootElement).GetProperty("Created").GetString()
-        );
-    }
-
-    [Theory]
-    [InlineData(DateTimeKind.Unspecified)]
-    [InlineData(DateTimeKind.Local)]
-    public void BuildEventsPayload_NonUtcKindTimestamps_WritesUtcTimestamps(DateTimeKind kind)
-    {
-        Guid instanceGuid = Guid.NewGuid();
-        DateTime eventCreated = WithKind(kind, 1, 123, 1);
-        DateTime processStarted = WithKind(kind, 2, 234, 2);
-        DateTime processEnded = WithKind(kind, 3, 345, 3);
-        DateTime taskStarted = WithKind(kind, 4, 456, 4);
-        DateTime taskEnded = WithKind(kind, 5, 567, 5);
-
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
-            {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-            },
-            [],
-            null,
-            null,
-            [
-                new InstanceEvent
-                {
-                    EventType = InstanceEventType.Saved.ToString(),
-                    Created = eventCreated,
-                    ProcessInfo = new ProcessState
-                    {
-                        Started = processStarted,
-                        Ended = processEnded,
-                        CurrentTask = new ProcessElementInfo
-                        {
-                            ElementId = "Task_1",
-                            Started = taskStarted,
-                            Ended = taskEnded,
-                        },
-                    },
-                },
-            ]
-        );
-
-        string payload = PgInstanceMutationRepository.BuildEventsPayload(instanceGuid, mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement savedEvent = AssertSingleArrayItem(document.RootElement);
-        AssertUtcJsonTimestamp(savedEvent, "Created", eventCreated);
-        JsonElement processInfo = AssertObjectProperty(savedEvent, "ProcessInfo");
-        AssertUtcJsonTimestamp(processInfo, "Started", processStarted);
-        AssertUtcJsonTimestamp(processInfo, "Ended", processEnded);
-        JsonElement currentTask = AssertObjectProperty(processInfo, "CurrentTask");
-        AssertUtcJsonTimestamp(currentTask, "Started", taskStarted);
-        AssertUtcJsonTimestamp(currentTask, "Ended", taskEnded);
-    }
-
-    [Fact]
-    public void BuildUpdateElementsPayload_NestedObjectProperties_AreWrittenInFull()
-    {
-        Guid updateElementId = Guid.NewGuid();
-        DateTime hardDeleted = new(2026, 8, 19, 10, 0, 0, DateTimeKind.Utc);
-
-        string payload = PgInstanceMutationRepository.BuildUpdateElementsPayload([
-            new InstanceMutationDataElementUpdate(
-                updateElementId,
-                new Dictionary<string, object>
-                {
-                    ["/deleteStatus"] = new DeleteStatus
-                    {
-                        IsHardDeleted = true,
-                        HardDeleted = hardDeleted,
-                    },
-                    ["/metadata"] = new List<KeyValueEntry>
-                    {
-                        new() { Key = "key1", Value = "value1" },
-                    },
-                },
-                null,
-                IgnoreLock: true
+        Guid createId = Guid.NewGuid();
+        Guid updateId = Guid.NewGuid();
+        Guid deleteId = Guid.NewGuid();
+        Guid blobVersion = Guid.NewGuid();
+        Guid expectedBlobVersion = Guid.NewGuid();
+        DataElementInternal element = new()
+        {
+            Id = createId,
+            DataType = "main",
+            IsRead = false,
+        };
+        string creates = InstanceMutationJson.Serialize<IReadOnlyList<DataElementCreation>>([
+            new(element, blobVersion),
+        ]);
+        string updates = InstanceMutationJson.Serialize<IReadOnlyList<DataElementUpdate>>([
+            new(
+                updateId,
+                new() { Locked = false },
+                expectedBlobVersion,
+                IgnoreLock: true,
+                NewBlobVersion: blobVersion
             ),
         ]);
+        string deletes = InstanceMutationJson.Serialize<IReadOnlyList<DataElementDeletion>>([
+            new(deleteId, IgnoreLock: true),
+        ]);
 
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement elementChanges = AssertObjectProperty(
-            AssertSingleArrayItem(document.RootElement),
-            "elementChanges"
+        using JsonDocument createDocument = JsonDocument.Parse(creates);
+        JsonElement create = AssertSingleArrayItem(createDocument.RootElement);
+        Assert.Equal(createId, create.GetProperty("Element").GetProperty("Id").GetGuid());
+        Assert.Equal(blobVersion, create.GetProperty("BlobVersion").GetGuid());
+        Assert.False(create.GetProperty("Element").GetProperty("IsRead").GetBoolean());
+        Assert.False(create.TryGetProperty("DataElementId", out _));
+        using JsonDocument updateDocument = JsonDocument.Parse(updates);
+        JsonElement update = AssertSingleArrayItem(updateDocument.RootElement);
+        Assert.Equal(updateId, update.GetProperty("DataElementId").GetGuid());
+        Assert.Equal(
+            expectedBlobVersion,
+            update.GetProperty("ExpectedCurrentBlobVersion").GetGuid()
         );
-        JsonElement deleteStatus = AssertObjectProperty(elementChanges, "DeleteStatus");
-        Assert.True(deleteStatus.GetProperty("IsHardDeleted").GetBoolean());
-        Assert.Equal(hardDeleted, deleteStatus.GetProperty("HardDeleted").GetDateTime());
-        JsonElement metadataEntry = AssertSingleArrayItem(
-            elementChanges.GetProperty(nameof(DataElementInternal.Metadata))
+        Assert.Equal(blobVersion, update.GetProperty("NewBlobVersion").GetGuid());
+        Assert.True(update.GetProperty("IgnoreLock").GetBoolean());
+        Assert.False(update.GetProperty("Changes").GetProperty("Locked").GetBoolean());
+        Assert.False(update.GetProperty("Changes").TryGetProperty("NewBlobVersion", out _));
+        using JsonDocument deleteDocument = JsonDocument.Parse(deletes);
+        JsonElement delete = AssertSingleArrayItem(deleteDocument.RootElement);
+        Assert.Equal(deleteId, delete.GetProperty("DataElementId").GetGuid());
+        Assert.True(delete.GetProperty("IgnoreLock").GetBoolean());
+    }
+
+    [Fact]
+    public void Serialize_Patches_DistinguishesOmissionNullFalseZeroAndEmpty()
+    {
+        InstanceMutationChanges instanceChanges = new()
+        {
+            DueBefore = Change<DateTime?>.Set(null),
+            DataValues = new Dictionary<string, string> { ["remove"] = null, ["set"] = "value" },
+            PresentationTexts = new Dictionary<string, string>(),
+            Confirmed = false,
+            Status = new() { IsArchived = false, Archived = Change<DateTime?>.Set(null) },
+        };
+        InstanceMutationDataElementChanges elementChanges = new()
+        {
+            Locked = false,
+            IsRead = false,
+            Size = 0,
+            ContentType = Change<string>.Set(null),
+            Refs = Change<IReadOnlyList<Guid>>.Set(null),
+            Tags = Change<IReadOnlyList<string>>.Set([]),
+            Metadata = Change<IReadOnlyList<KeyValueEntry>>.Set([]),
+            FileScanResult = FileScanResult.NotApplicable,
+        };
+
+        using JsonDocument instanceDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(instanceChanges)
         );
-        Assert.Equal("key1", metadataEntry.GetProperty("Key").GetString());
-        Assert.Equal("value1", metadataEntry.GetProperty("Value").GetString());
+        JsonElement instance = instanceDocument.RootElement;
+        Assert.Equal(JsonValueKind.Null, instance.GetProperty("DueBefore").ValueKind);
+        Assert.False(instance.TryGetProperty("VisibleAfter", out _));
+        Assert.False(instance.TryGetProperty("Process", out _));
+        Assert.False(instance.GetProperty("Confirmed").GetBoolean());
+        Assert.Equal(
+            JsonValueKind.Null,
+            instance.GetProperty("DataValues").GetProperty("remove").ValueKind
+        );
+        Assert.Equal("value", instance.GetProperty("DataValues").GetProperty("set").GetString());
+        Assert.Empty(instance.GetProperty("PresentationTexts").EnumerateObject());
+        JsonElement status = instance.GetProperty("Status");
+        Assert.False(status.GetProperty("IsArchived").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("Archived").ValueKind);
+        Assert.False(status.TryGetProperty("IsSoftDeleted", out _));
+        using JsonDocument elementDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(elementChanges)
+        );
+        JsonElement element = elementDocument.RootElement;
+        Assert.False(element.GetProperty("Locked").GetBoolean());
+        Assert.False(element.GetProperty("IsRead").GetBoolean());
+        Assert.Equal(0, element.GetProperty("Size").GetInt64());
+        Assert.Equal(JsonValueKind.Null, element.GetProperty("ContentType").ValueKind);
+        Assert.Equal(JsonValueKind.Null, element.GetProperty("Refs").ValueKind);
+        Assert.Empty(element.GetProperty("Tags").EnumerateArray());
+        Assert.Empty(element.GetProperty("Metadata").EnumerateArray());
+        Assert.Equal("NotApplicable", element.GetProperty("FileScanResult").GetString());
+        Assert.False(element.TryGetProperty("Filename", out _));
+        Assert.False(element.TryGetProperty("References", out _));
+        Assert.False(element.TryGetProperty("IsEmpty", out _));
+    }
+
+    [Fact]
+    public void Serialize_ReplacementObjects_PreservesNestedNullValues()
+    {
+        InstanceMutationChanges instanceChanges = new()
+        {
+            Process = new() { CurrentTask = new() { ElementId = "Task_1" } },
+            Status = new() { Substatus = new() { Label = "label" } },
+        };
+        InstanceMutationDataElementChanges elementChanges = new()
+        {
+            DeleteStatus = Change<DeleteStatus>.Set(new() { IsHardDeleted = true }),
+            Metadata = Change<IReadOnlyList<KeyValueEntry>>.Set([new() { Key = "key" }]),
+        };
+
+        using JsonDocument instanceDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(instanceChanges)
+        );
+        JsonElement instance = instanceDocument.RootElement;
+        Assert.Equal(
+            JsonValueKind.Null,
+            instance.GetProperty("Process").GetProperty("Ended").ValueKind
+        );
+        Assert.Equal(
+            JsonValueKind.Null,
+            instance.GetProperty("Process").GetProperty("CurrentTask").GetProperty("Name").ValueKind
+        );
+        Assert.Equal(
+            JsonValueKind.Null,
+            instance
+                .GetProperty("Status")
+                .GetProperty("Substatus")
+                .GetProperty("Description")
+                .ValueKind
+        );
+        using JsonDocument elementDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(elementChanges)
+        );
+        JsonElement element = elementDocument.RootElement;
+        Assert.Equal(
+            JsonValueKind.Null,
+            element.GetProperty("DeleteStatus").GetProperty("HardDeleted").ValueKind
+        );
+        Assert.Equal(
+            JsonValueKind.Null,
+            AssertSingleArrayItem(element.GetProperty("Metadata")).GetProperty("Value").ValueKind
+        );
+    }
+
+    [Fact]
+    public void SerializeAndSelectDelivery_PreservesInputsAndSuppliedIdentities()
+    {
+        DateTime written = WithKind(DateTimeKind.Unspecified, 9, 123, 7);
+        ProcessState process = new()
+        {
+            Started = written,
+            CurrentTask = new() { Started = written },
+        };
+        DeleteStatus deleteStatus = new() { IsHardDeleted = true, HardDeleted = written };
+        InstanceMutationCommit mutation = new()
+        {
+            Stamp = new(written, "actor"),
+            CreateDataElements =
+            [
+                new(
+                    new()
+                    {
+                        Id = Guid.NewGuid(),
+                        Created = written,
+                        LastChanged = written,
+                        LastChangedBy = "previous",
+                        DeleteStatus = deleteStatus,
+                    },
+                    Guid.NewGuid()
+                ),
+            ],
+            UpdateDataElements =
+            [
+                new(
+                    Guid.NewGuid(),
+                    new() { DeleteStatus = Change<DeleteStatus>.Set(deleteStatus) },
+                    null
+                ),
+            ],
+            InstanceChanges = new()
+            {
+                Process = process,
+                Status = new() { Archived = Change<DateTime?>.Set(written) },
+                CompleteConfirmations = [new() { StakeholderId = "ttd", ConfirmedOn = written }],
+            },
+            InstanceEvents =
+            [
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    InstanceId = "5000/supplied",
+                    EventType = InstanceEventType.Saved.ToString(),
+                    Created = written,
+                    ProcessInfo = process,
+                },
+                new()
+                {
+                    Id = Guid.Empty,
+                    InstanceId = "5000/supplied",
+                    EventType = InstanceEventType.Deleted.ToString(),
+                    Created = written.AddMinutes(1),
+                },
+            ],
+        };
+        string before = JsonSerializer.Serialize(mutation);
+
+        InstanceMutationJson.Serialize(mutation.CreateDataElements);
+        InstanceMutationJson.Serialize(mutation.UpdateDataElements);
+        InstanceMutationJson.Serialize(mutation.InstanceChanges);
+        string events = InstanceMutationJson.Serialize(mutation.InstanceEvents);
+        CreateOutboxFactory().TryBuildMutationDelivery(mutation.InstanceEvents);
+        MutationTimestamp.NormalizeForPostgres(mutation.Stamp.LastChanged);
+
+        Assert.Equal(before, JsonSerializer.Serialize(mutation));
+        using JsonDocument document = JsonDocument.Parse(events);
+        Assert.Equal(
+            mutation.InstanceEvents[0].Id,
+            document.RootElement[0].GetProperty("Id").GetGuid()
+        );
+        Assert.Equal(Guid.Empty, document.RootElement[1].GetProperty("Id").GetGuid());
+        Assert.Equal(
+            "5000/supplied",
+            document.RootElement[0].GetProperty("InstanceId").GetString()
+        );
+    }
+
+    [Fact]
+    public void Serialize_NullAndEmptyInstanceChanges_DistinguishesSqlNullAndEmptyUpdate()
+    {
+        Assert.Null(InstanceMutationJson.Serialize<InstanceMutationChanges>(null));
+        Assert.Equal("{}", InstanceMutationJson.Serialize(new InstanceMutationChanges()));
+        Assert.Equal(
+            "{}",
+            InstanceMutationJson.Serialize(new InstanceMutationDataElementChanges())
+        );
+        Assert.Equal("[]", InstanceMutationJson.Serialize(Array.Empty<DataElementUpdate>()));
     }
 
     [Theory]
+    [InlineData(DateTimeKind.Utc)]
     [InlineData(DateTimeKind.Unspecified)]
     [InlineData(DateTimeKind.Local)]
-    public void BuildCreateElementsPayload_NonUtcKindTimestamps_WritesUtcTimestamps(
+    public void Serialize_NestedTimestamps_WritesUtcMicroseconds(DateTimeKind kind)
+    {
+        DateTime written = WithKind(kind, 9, 123, 7);
+        ProcessState process = new()
+        {
+            Started = written,
+            Ended = written,
+            CurrentTask = new() { Started = written, Ended = written },
+        };
+        InstanceMutationChanges changes = new()
+        {
+            Created = Change<DateTime?>.Set(written),
+            DueBefore = Change<DateTime?>.Set(written),
+            VisibleAfter = Change<DateTime?>.Set(written),
+            Status = new()
+            {
+                Archived = Change<DateTime?>.Set(written),
+                SoftDeleted = Change<DateTime?>.Set(written),
+                HardDeleted = Change<DateTime?>.Set(written),
+            },
+            Process = process,
+            CompleteConfirmations = [new() { ConfirmedOn = written }],
+        };
+
+        using JsonDocument document = JsonDocument.Parse(InstanceMutationJson.Serialize(changes));
+        JsonElement root = document.RootElement;
+        AssertUtcJsonTimestamp(root, "Created", written);
+        AssertUtcJsonTimestamp(root, "DueBefore", written);
+        AssertUtcJsonTimestamp(root, "VisibleAfter", written);
+        AssertUtcJsonTimestamp(root.GetProperty("Status"), "Archived", written);
+        AssertUtcJsonTimestamp(root.GetProperty("Status"), "SoftDeleted", written);
+        AssertUtcJsonTimestamp(root.GetProperty("Status"), "HardDeleted", written);
+        AssertProcessTimestamps(root.GetProperty("Process"), written);
+        AssertUtcJsonTimestamp(
+            AssertSingleArrayItem(root.GetProperty("CompleteConfirmations")),
+            "ConfirmedOn",
+            written
+        );
+        using JsonDocument createDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(
+                new DataElementCreation(
+                    new()
+                    {
+                        Id = Guid.NewGuid(),
+                        Created = written,
+                        LastChanged = written,
+                        DeleteStatus = new() { HardDeleted = written },
+                    },
+                    null
+                )
+            )
+        );
+        JsonElement element = createDocument.RootElement.GetProperty("Element");
+        AssertUtcJsonTimestamp(element, "Created", written);
+        AssertUtcJsonTimestamp(element, "LastChanged", written);
+        AssertUtcJsonTimestamp(element.GetProperty("DeleteStatus"), "HardDeleted", written);
+        using JsonDocument eventDocument = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(
+                new InstanceEvent { Created = written, ProcessInfo = process }
+            )
+        );
+        AssertUtcJsonTimestamp(eventDocument.RootElement, "Created", written);
+        AssertProcessTimestamps(eventDocument.RootElement.GetProperty("ProcessInfo"), written);
+    }
+
+    [Fact]
+    public void Serialize_DefaultConfirmedOn_WritesUtcTimestamp()
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            InstanceMutationJson.Serialize(new CompleteConfirmation())
+        );
+
+        JsonElement timestamp = document.RootElement.GetProperty("ConfirmedOn");
+        Assert.EndsWith("Z", timestamp.GetString(), StringComparison.Ordinal);
+        Assert.Equal(default, timestamp.GetDateTime());
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Utc)]
+    [InlineData(DateTimeKind.Unspecified)]
+    [InlineData(DateTimeKind.Local)]
+    public void NormalizeForPostgres_PreservesUtcInstantAndTruncatesToMicroseconds(
         DateTimeKind kind
     )
     {
-        Guid createElementId = Guid.NewGuid();
-        DateTime created = WithKind(kind, 1, 123, 1);
-        DateTime hardDeleted = WithKind(kind, 2, 234, 2);
+        DateTime written = WithKind(kind, 9, 123, 7);
+        DateTime expected =
+            kind == DateTimeKind.Local
+                ? written.ToUniversalTime()
+                : DateTime.SpecifyKind(written, DateTimeKind.Utc);
 
-        string payload = PgInstanceMutationRepository.BuildCreateElementsPayload([
-            new DataElement
-            {
-                Id = createElementId.ToString(),
-                DataType = "main",
-                Created = created,
-                DeleteStatus = new DeleteStatus { IsHardDeleted = true, HardDeleted = hardDeleted },
-            }.FromApiModel(null),
-        ]);
+        DateTime normalized = MutationTimestamp.NormalizeForPostgres(written);
 
-        using JsonDocument document = JsonDocument.Parse(payload);
-        JsonElement element = AssertObjectProperty(
-            AssertSingleArrayItem(document.RootElement),
-            "element"
-        );
-        AssertUtcJsonTimestamp(element, "Created", created);
-        AssertUtcJsonTimestamp(
-            AssertObjectProperty(element, "DeleteStatus"),
-            "HardDeleted",
-            hardDeleted
+        Assert.Equal(DateTimeKind.Utc, normalized.Kind);
+        Assert.Equal(
+            new DateTime(expected.Ticks - expected.Ticks % 10, DateTimeKind.Utc),
+            normalized
         );
     }
 
     [Theory]
-    [InlineData(DateTimeKind.Unspecified)]
-    [InlineData(DateTimeKind.Local)]
-    public void BuildOutboxPayload_NonUtcKindInstanceCreated_WritesUtcTimestamp(DateTimeKind kind)
+    [InlineData(InstanceEventType.Saved, null, 17)]
+    [InlineData(InstanceEventType.Signed, null, 11)]
+    [InlineData(InstanceEventType.Deleted, null, 3)]
+    [InlineData(InstanceEventType.Created, null, 11)]
+    [InlineData(InstanceEventType.Created, "/storage/instances/1/data", 11)]
+    [InlineData(InstanceEventType.Created, "/storage/instances/1/mutations", 3)]
+    public void TryBuildMutationDelivery_PreservesPriorityDelaysAndHttpCreatedClassification(
+        InstanceEventType eventType,
+        string requestPath,
+        int expectedDelay
+    )
     {
-        Guid instanceGuid = Guid.NewGuid();
-        DateTime created = WithKind(kind, 1, 123, 1);
+        InstanceMutationOutboxDelivery delivery = CreateOutboxFactory(requestPath: requestPath)
+            .TryBuildMutationDelivery([new() { EventType = eventType.ToString() }]);
 
-        InstanceMutationCommit mutation = new(
-            [],
-            [],
-            [],
-            new InstanceInternal
+        Assert.Equal(expectedDelay, delivery.DelaySeconds);
+        Assert.Equal(eventType, delivery.EventType);
+        using JsonDocument document = JsonDocument.Parse(InstanceMutationJson.Serialize(delivery));
+        Assert.Equal(2, document.RootElement.EnumerateObject().Count());
+        Assert.Equal(expectedDelay, document.RootElement.GetProperty("DelaySeconds").GetInt32());
+        Assert.Equal((int)eventType, document.RootElement.GetProperty("EventType").GetInt32());
+    }
+
+    [Fact]
+    public void TryBuildMutationDelivery_WithoutEventsOrSending_ProducesNoDelivery()
+    {
+        Assert.Null(CreateOutboxFactory().TryBuildMutationDelivery([]));
+        Assert.Null(
+            CreateOutboxFactory(enableSending: false)
+                .TryBuildMutationDelivery([new() { EventType = "Saved" }])
+        );
+    }
+
+    [Theory]
+    [InlineData("create")]
+    [InlineData("event-id")]
+    [InlineData("event-identity")]
+    public async Task Apply_UnpreparedIdentity_RejectsBeforeDatabaseAccess(string missingIdentity)
+    {
+        InstanceMutationCommit mutation = new() { Stamp = new(DateTime.UtcNow, null) };
+        mutation = missingIdentity switch
+        {
+            "create" => mutation with { CreateDataElements = [new(new(), null)] },
+            "event-id" => mutation with
             {
-                Id = instanceGuid,
-                AppId = "ttd/app",
-                Org = "ttd",
-                InstanceOwner = new InstanceOwner { PartyId = "5000" },
-                Created = created,
+                InstanceEvents = [new() { InstanceId = "5000/instance" }],
             },
-            [],
-            null,
-            null,
-            [
-                new InstanceEvent
-                {
-                    EventType = InstanceEventType.Saved.ToString(),
-                    Created = created,
-                },
-            ]
+            _ => mutation with { InstanceEvents = [new() { Id = Guid.NewGuid() }] },
+        };
+        PgInstanceMutationRepository repository = new(null, CreateOutboxFactory());
+
+        ArgumentException exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            repository.Apply(Guid.NewGuid(), 1, mutation)
         );
 
-        string payload = InvokeOutboxPayload(instanceGuid, mutation);
-
-        using JsonDocument document = JsonDocument.Parse(payload);
-        AssertUtcJsonTimestamp(document.RootElement, "instancecreated", created);
+        Assert.Equal("mutation", exception.ParamName);
     }
 
     [Theory]
@@ -919,22 +601,31 @@ public class PgInstanceMutationRepositoryTests
         return exception;
     }
 
-    private static string InvokeOutboxPayload(Guid instanceGuid, InstanceMutationCommit mutation)
+    private static OutboxInsertRowFactory CreateOutboxFactory(
+        bool enableSending = true,
+        string requestPath = null
+    )
     {
-        OutboxInsertRowFactory outboxInsertRowFactory = new(
+        IHttpContextAccessor accessor = requestPath is null
+            ? null
+            : new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
+        if (accessor is not null)
+        {
+            accessor.HttpContext.Request.Path = requestPath;
+        }
+
+        return new OutboxInsertRowFactory(
             Options.Create(
                 new WolverineSettings
                 {
-                    EnableSending = true,
+                    EnableSending = enableSending,
                     UrgentPriorityDelaySecs = 3,
                     HighPriorityDelaySecs = 11,
                     LowPriorityDelaySecs = 17,
                 }
-            )
+            ),
+            accessor
         );
-        PgInstanceMutationRepository repository = new(null, outboxInsertRowFactory);
-
-        return repository.BuildOutboxPayload(instanceGuid, mutation);
     }
 
     private static JsonElement AssertSingleArrayItem(JsonElement root)
@@ -944,59 +635,18 @@ public class PgInstanceMutationRepositoryTests
         return root[0];
     }
 
-    private static JsonElement AssertObject(JsonElement root)
+    private static DateTime WithKind(DateTimeKind kind, int second, int millisecond, int ticks)
     {
-        Assert.Equal(JsonValueKind.Object, root.ValueKind);
-        return root;
+        return new DateTime(2026, 5, 6, 7, 8, second, millisecond, kind).AddTicks(ticks);
     }
 
-    private static JsonElement AssertObjectProperty(JsonElement element, string propertyName)
+    private static void AssertProcessTimestamps(JsonElement process, DateTime written)
     {
-        JsonElement property = element.GetProperty(propertyName);
-        Assert.Equal(JsonValueKind.Object, property.ValueKind);
-        return property;
+        AssertUtcJsonTimestamp(process, "Started", written);
+        AssertUtcJsonTimestamp(process, "Ended", written);
+        AssertUtcJsonTimestamp(process.GetProperty("CurrentTask"), "Started", written);
+        AssertUtcJsonTimestamp(process.GetProperty("CurrentTask"), "Ended", written);
     }
-
-    private static void AssertSharedInstanceUpdateScalars(
-        JsonElement element,
-        string taskId,
-        bool confirmed
-    )
-    {
-        Assert.False(element.TryGetProperty("lastchanged", out _));
-        Assert.Equal(taskId, element.GetProperty("taskid").GetString());
-        Assert.Equal(confirmed, element.GetProperty("confirmed").GetBoolean());
-    }
-
-    private static DateTime UtcWithExtraTicks(
-        int year,
-        int month,
-        int day,
-        int hour,
-        int minute,
-        int second,
-        int millisecond,
-        int ticks
-    ) =>
-        new DateTime(
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-            millisecond,
-            DateTimeKind.Utc
-        ).AddTicks(ticks);
-
-    private static DateTime Normalize(DateTime value) =>
-        new(
-            (value.Ticks / TimeSpan.TicksPerMicrosecond) * TimeSpan.TicksPerMicrosecond,
-            DateTimeKind.Utc
-        );
-
-    private static DateTime WithKind(DateTimeKind kind, int second, int millisecond, int ticks) =>
-        new DateTime(2026, 5, 6, 7, 8, second, millisecond, kind).AddTicks(ticks);
 
     private static void AssertUtcJsonTimestamp(
         JsonElement element,
@@ -1006,12 +656,6 @@ public class PgInstanceMutationRepositoryTests
     {
         JsonElement property = element.GetProperty(propertyName);
         Assert.EndsWith("Z", property.GetString(), StringComparison.Ordinal);
-
-        DateTime expected = Normalize(
-            written.Kind == DateTimeKind.Local
-                ? written.ToUniversalTime()
-                : DateTime.SpecifyKind(written, DateTimeKind.Utc)
-        );
-        Assert.Equal(expected, property.GetDateTime());
+        Assert.Equal(MutationTimestamp.NormalizeForPostgres(written), property.GetDateTime());
     }
 }

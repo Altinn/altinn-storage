@@ -58,8 +58,10 @@ public class InstanceEventServiceTests
         );
     }
 
-    [Fact]
-    public void BuildInstanceEvent_ForDataElement_CreatesEventWithoutDispatching()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void BuildInstanceEvent_CreatesPreparedEventWithoutDispatching(bool forDataElement)
     {
         // Arrange
         const InstanceEventType eventType = InstanceEventType.Deleted;
@@ -90,12 +92,16 @@ public class InstanceEventServiceTests
         DataElementInternal dataElement = new() { Id = Guid.NewGuid() };
 
         // Act
-        InstanceEvent result = target.BuildInstanceEvent(eventType, instance, dataElement);
+        InstanceEvent result = forDataElement
+            ? target.BuildInstanceEvent(eventType, instance, dataElement)
+            : target.BuildInstanceEvent(eventType, instance);
 
         // Assert
+        Assert.NotNull(result.Id);
+        Assert.NotEqual(Guid.Empty, result.Id.Value);
         Assert.Equal(InstanceEventType.Deleted.ToString(), result.EventType);
         Assert.Equal($"{instance.InstanceOwner.PartyId}/{instance.Id}", result.InstanceId);
-        Assert.Equal(dataElement.Id.ToString(), result.DataId);
+        Assert.Equal(forDataElement ? dataElement.Id.ToString() : null, result.DataId);
         Assert.Equal(123456, result.User.UserId);
         Assert.Equal(3, result.User.AuthenticationLevel);
         instanceEventRepositoryMock.Verify(

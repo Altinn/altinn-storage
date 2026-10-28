@@ -399,16 +399,10 @@ public class DomainModelContractTests
     }
 
     [Fact]
-    public void InstanceMutationCommit_UsesDomainAggregateValues()
+    public void InstanceMutationCommit_DoesNotUseApiModels()
     {
         Assert.Equal(
-            typeof(InstanceInternal),
-            typeof(InstanceMutationCommit)
-                .GetProperty(nameof(InstanceMutationCommit.InstanceUpdates))!
-                .PropertyType
-        );
-        Assert.Equal(
-            typeof(IReadOnlyList<DataElementInternal>),
+            typeof(IReadOnlyList<DataElementCreation>),
             typeof(InstanceMutationCommit)
                 .GetProperty(nameof(InstanceMutationCommit.CreateDataElements))!
                 .PropertyType
