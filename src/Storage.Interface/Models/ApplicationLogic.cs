@@ -12,7 +12,7 @@ public class ApplicationLogic
 {
     /// <summary>
     /// Gets or sets a value indicating whether the app-backend will attempt to automatically create (or prefill)
-    /// this data type when the task referred by taskId starts.
+    /// this data type when a task that the data type belongs to starts (see <see cref="DataType.TaskIds"/>).
     /// </summary>
     [JsonProperty(PropertyName = "autoCreate")]
     public bool? AutoCreate { get; set; }

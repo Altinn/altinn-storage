@@ -1,0 +1,29 @@
+{
+  "id": "ttd/task-ids",
+  "org": "ttd",
+  "title": {
+    "nb": "task-ids"
+  },
+  "dataTypes": [
+    {
+      "id": "taskids-only",
+      "taskIds": ["Task_1", "Task_2"]
+    },
+    {
+      "id": "taskids-and-taskid",
+      "taskId": "Task_1",
+      "taskIds": ["Task_2", "Task_3"]
+    },
+    {
+      "id": "empty-taskids-and-taskid",
+      "taskId": "Task_1",
+      "taskIds": []
+    }
+  ],
+  "partyTypesAllowed": {
+    "bankruptcyEstate": false,
+    "organisation": true,
+    "person": true,
+    "subUnit": false
+  }
+}
