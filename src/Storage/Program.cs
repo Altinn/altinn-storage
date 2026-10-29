@@ -237,7 +237,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString);
     }
 
-    services.AddControllersWithViews().AddNewtonsoftJson();
+    services
+        .AddControllersWithViews(options =>
+            options.Filters.Add<PdpDecisionUnavailableExceptionFilter>()
+        )
+        .AddNewtonsoftJson();
     services.AddMemoryCache();
     services.AddHealthChecks().AddCheck<HealthCheck>("storage_health_check");
 
