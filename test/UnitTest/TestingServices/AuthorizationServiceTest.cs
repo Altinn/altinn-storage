@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Configuration;
@@ -16,6 +17,8 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using AltinnCore.Authentication.Constants;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -45,12 +48,14 @@ public class AuthorizationServiceTest
         var generalSettings = new GeneralSettings { AuthorizeA2ListInstancesDelete = true };
         var options = Options.Create(generalSettings);
         _authzService = new AuthorizationService(
+            Mock.Of<IHttpContextAccessor>(),
             _pdpMockSI,
             _claimsPrincipalProviderMock.Object,
             Mock.Of<ILogger<AuthorizationService>>(),
             options,
             Mock.Of<IMemoryCache>(),
-            Options.Create(new PepSettings())
+            Options.Create(new PepSettings()),
+            _instanceRepository.Object
         );
     }
 
@@ -70,12 +75,14 @@ public class AuthorizationServiceTest
         var options = Options.Create(generalSettings);
 
         var sut = new AuthorizationService(
+            Mock.Of<IHttpContextAccessor>(),
             _pdpSimpleMock.Object,
             _claimsPrincipalProviderMock.Object,
             Mock.Of<ILogger<AuthorizationService>>(),
             options,
             Mock.Of<IMemoryCache>(),
-            Options.Create(new PepSettings())
+            Options.Create(new PepSettings()),
+            _instanceRepository.Object
         );
         await sut.GetDecisionForRequest(new XacmlJsonRequestRoot());
 
@@ -161,6 +168,46 @@ public class AuthorizationServiceTest
 
         // Assert
         Assert.False(actual);
+    }
+
+    [Fact]
+    public void UserHasRequiredScope_EmptyRequiredScope_ReturnsFalse()
+    {
+        // Arrange - a user that actually has a scope claim
+        var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+        identity.AddClaim(
+            new Claim(
+                "urn:altinn:scope",
+                "altinn:some.scope",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
+        _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(new ClaimsPrincipal(identity));
+
+        // Act & Assert - an empty required scope must not match every scope
+        Assert.False(_authzService.UserHasRequiredScope(new List<string> { string.Empty }));
+        Assert.False(_authzService.UserHasRequiredScope(string.Empty));
+    }
+
+    [Fact]
+    public void UserHasRequiredScope_NullRequiredScope_ReturnsFalse()
+    {
+        // Arrange - a user that actually has a scope claim
+        var identity = new ClaimsIdentity("AuthenticationTypes.Federation");
+        identity.AddClaim(
+            new Claim(
+                "urn:altinn:scope",
+                "altinn:some.scope",
+                ClaimValueTypes.String,
+                "maskinporten"
+            )
+        );
+        _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(new ClaimsPrincipal(identity));
+
+        // Act & Assert - a null required scope must not throw and must not match
+        Assert.False(_authzService.UserHasRequiredScope(new List<string> { null }));
+        Assert.False(_authzService.UserHasRequiredScope((string)null));
     }
 
     /// <summary>
@@ -465,15 +512,14 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_ProcessEnd_IncludesEndEvent()
+    public async Task AuthorizeInstanceRequest_ProcessEnd_IncludesEndEvent()
     {
         InstanceInternal instance = CreateDomainInstance();
         instance.Process.CurrentTask = null;
         instance.Process.EndEvent = "EndEvent_1";
         List<XacmlJsonRequestRoot> requests = [];
 
-        await CreateRequestCapturingService(requests)
-            .AuthorizeEnrichedInstanceAction(instance, "read");
+        await CreateRequestCapturingService(requests).AuthorizeInstanceRequest(instance, "read");
 
         Assert.Contains(
             requests[0].Request.Resource.SelectMany(category => category.Attribute),
@@ -483,15 +529,14 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_MigratedDataValues_PreservesApprovedRequestShape()
+    public async Task AuthorizeInstanceRequest_MigratedDataValues_PreservesApprovedRequestShape()
     {
         InstanceInternal instance = CreateDomainInstance();
         instance.Process = null;
         instance.DataValues = new Dictionary<string, string> { ["A2ArchRef"] = "12345" };
         List<XacmlJsonRequestRoot> requests = [];
 
-        await CreateRequestCapturingService(requests)
-            .AuthorizeEnrichedInstanceAction(instance, "read");
+        await CreateRequestCapturingService(requests).AuthorizeInstanceRequest(instance, "read");
 
         Assert.DoesNotContain(
             requests[0].Request.Resource.SelectMany(category => category.Attribute),
@@ -501,7 +546,7 @@ public class AuthorizationServiceTest
     }
 
     [Fact]
-    public async Task AuthorizeEnrichedInstanceAction_EquivalentInputsShareCacheEntry()
+    public async Task AuthorizeInstanceRequest_EquivalentInputsShareCacheEntry()
     {
         Guid instanceGuid = Guid.NewGuid();
         InstanceInternal first = CreateDomainInstance(instanceGuid);
@@ -511,8 +556,8 @@ public class AuthorizationServiceTest
         using MemoryCache cache = new(new MemoryCacheOptions());
         AuthorizationService service = CreateRequestCapturingService(requests, pdp, cache);
 
-        await service.AuthorizeEnrichedInstanceAction(first, "read");
-        await service.AuthorizeEnrichedInstanceAction(second, "read");
+        await service.AuthorizeInstanceRequest(first, "read");
+        await service.AuthorizeInstanceRequest(second, "read");
 
         Assert.Single(requests);
         pdp.Verify(
@@ -557,6 +602,466 @@ public class AuthorizationServiceTest
         );
     }
 
+    [Theory]
+    [InlineData("read")]
+    [InlineData("write")]
+    [InlineData("delete")]
+    public async Task AuthorizeInstanceRequest_SyncAdapterScope_ReadWriteDelete_ReturnsTrueWithoutCallingPdp(
+        string action
+    )
+    {
+        // Arrange
+        Mock<IPDP> pdp = new();
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
+
+        // Assert - the sync adapter bypasses the PDP entirely
+        Assert.True(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
+    }
+
+    [Theory]
+    [InlineData("complete")]
+    [InlineData("sign")]
+    public async Task AuthorizeInstanceRequest_SyncAdapterScope_OtherAction_DoesNotBypass(
+        string action
+    )
+    {
+        // Arrange - the bypass is limited to read/write/delete, so complete/sign
+        // must still be evaluated by the PDP even with the sync adapter scope.
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(CreatePdpResponse("Deny"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
+
+        // Assert
+        Assert.False(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NullInstance_MissingInstanceGuid_DeniesWithoutPdp()
+    {
+        // Arrange - no instance and no instance guid in the route: fail closed.
+        Mock<IPDP> pdp = new();
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<IHttpContextAccessor>()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+
+        // Assert
+        Assert.False(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NullInstance_MissingPartyId_CallsPdpWithoutInstanceAttributes()
+    {
+        // Arrange - a guid-only route still asks the PDP, with no party or instance-id attribute.
+        Mock<IPDP> pdp = new();
+        XacmlJsonRequestRoot captured = null;
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(request => captured = request)
+            .ReturnsAsync(CreatePdpResponse("Deny"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor(instanceOwnerPartyId: null)
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+
+        // Assert
+        Assert.False(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        Assert.DoesNotContain(
+            captured.Request.Resource.SelectMany(category => category.Attribute),
+            attribute =>
+                attribute.AttributeId == "urn:altinn:partyid"
+                || attribute.AttributeId == "urn:altinn:instance-id"
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NoSyncAdapterScope_ReadWriteDeleteAction_CallsPdp()
+    {
+        // Arrange - a read/write/delete action without the sync adapter scope
+        // must not bypass; the decision comes from the PDP.
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(CreatePdpResponse("Permit"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "write");
+
+        // Assert
+        Assert.True(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_PdpReturnsDeny_ReturnsFalse()
+    {
+        // Arrange
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(CreatePdpResponse("Deny"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_PdpReturnsNull_ReturnsFalse()
+    {
+        // Arrange - a null response from the PDP is treated as "not authorized".
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync((XacmlJsonResponse)null);
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NullInstance_CallsPdpWithRouteResource()
+    {
+        // Arrange - endpoints such as InstanceEvents pass a null instance, which
+        // skips enrichment/caching and sends the route-identified resource to the PDP.
+        Mock<IPDP> pdp = new();
+        XacmlJsonRequestRoot captured = null;
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(request => captured = request)
+            .ReturnsAsync(CreatePdpResponse("Permit"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        string instanceGuid = Guid.NewGuid().ToString();
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor("1000", instanceGuid)
+        );
+
+        // Act
+        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+
+        // Assert
+        Assert.True(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+        XacmlJsonCategory resource = Assert.Single(captured.Request.Resource);
+        Assert.Equal(
+            [("urn:altinn:partyid", "1000"), ("urn:altinn:instance-id", $"1000/{instanceGuid}")],
+            resource.Attribute.Select(attribute => (attribute.AttributeId, attribute.Value))
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeInstanceRequest_NullPdpResponse_IsNotCached()
+    {
+        // Arrange - a null response must not poison the cache.
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync((XacmlJsonResponse)null);
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            CreateHttpContextAccessor()
+        );
+        InstanceInternal instance = CreateDomainInstance();
+
+        // Act
+        await sut.AuthorizeInstanceRequest(instance, "read");
+        await sut.AuthorizeInstanceRequest(instance, "read");
+
+        // Assert - not cached, so the PDP is hit on every call
+        pdp.Verify(
+            m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Fact]
+    public async Task GetAuthorizedInstance_InstanceExistsAndPdpPermits_ReturnsInstance()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = CreateDomainInstance(instanceGuid);
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(r => r.GetOne(instanceGuid, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(instance);
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(CreatePdpResponse("Permit"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<IHttpContextAccessor>(),
+            instanceRepository: instanceRepository.Object
+        );
+
+        // Act
+        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+            1000,
+            instanceGuid,
+            "read",
+            true,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(isAuthorized);
+        Assert.Same(instance, result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task GetAuthorizedInstance_PdpDenies_WithholdsInstance()
+    {
+        // Arrange - a denied caller must not receive the instance even though it exists.
+        Guid instanceGuid = Guid.NewGuid();
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(r => r.GetOne(instanceGuid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDomainInstance(instanceGuid));
+        Mock<IPDP> pdp = new();
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(CreatePdpResponse("Deny"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<IHttpContextAccessor>(),
+            instanceRepository: instanceRepository.Object
+        );
+
+        // Act
+        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+            1000,
+            instanceGuid,
+            "write",
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.False(isAuthorized);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedInstance_MissingInstance_AuthorizesAgainstIdsWithoutRouteData()
+    {
+        // Arrange - no instance in storage and no route data: the identifiers given by the
+        // caller form the resource, so existence is not revealed before the decision.
+        Guid instanceGuid = Guid.NewGuid();
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(r => r.GetOne(instanceGuid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InstanceInternal)null);
+        Mock<IPDP> pdp = new();
+        XacmlJsonRequestRoot captured = null;
+        pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .Callback<XacmlJsonRequestRoot>(request => captured = request)
+            .ReturnsAsync(CreatePdpResponse("Permit"));
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:some.other.scope"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<IHttpContextAccessor>(),
+            instanceRepository: instanceRepository.Object
+        );
+
+        // Act
+        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+            1000,
+            instanceGuid,
+            "read",
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.True(isAuthorized);
+        Assert.Null(result);
+        XacmlJsonCategory resource = Assert.Single(captured.Request.Resource);
+        Assert.Equal(
+            [("urn:altinn:partyid", "1000"), ("urn:altinn:instance-id", $"1000/{instanceGuid}")],
+            resource.Attribute.Select(attribute => (attribute.AttributeId, attribute.Value))
+        );
+    }
+
+    [Fact]
+    public async Task GetAuthorizedInstance_MissingInstanceSyncAdapterScope_AuthorizesWithoutPdp()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(r => r.GetOne(instanceGuid, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InstanceInternal)null);
+        Mock<IPDP> pdp = new();
+        _claimsPrincipalProviderMock
+            .Setup(c => c.GetUser())
+            .Returns(CreateUserWithScope("altinn:storage/instances.syncadapter"));
+        AuthorizationService sut = CreateAuthorizationService(
+            pdp.Object,
+            _claimsPrincipalProviderMock.Object,
+            Mock.Of<IHttpContextAccessor>(),
+            instanceRepository: instanceRepository.Object
+        );
+
+        // Act
+        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+            1000,
+            instanceGuid,
+            "delete",
+            false,
+            CancellationToken.None
+        );
+
+        // Assert - authorized but missing, which lets the endpoint answer 404 rather than 403
+        Assert.True(isAuthorized);
+        Assert.Null(result);
+        pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
+    }
+
+    private static AuthorizationService CreateAuthorizationService(
+        IPDP pdp,
+        IClaimsPrincipalProvider claimsPrincipalProvider,
+        IHttpContextAccessor httpContextAccessor,
+        IMemoryCache memoryCache = null,
+        IInstanceRepository instanceRepository = null
+    )
+    {
+        return new AuthorizationService(
+            httpContextAccessor,
+            pdp,
+            claimsPrincipalProvider,
+            Mock.Of<ILogger<AuthorizationService>>(),
+            Options.Create(
+                new GeneralSettings
+                {
+                    InstanceSyncAdapterScope = "altinn:storage/instances.syncadapter",
+                }
+            ),
+            memoryCache ?? new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 }),
+            instanceRepository ?? Mock.Of<IInstanceRepository>()
+        );
+    }
+
+    private static IHttpContextAccessor CreateHttpContextAccessor(
+        string instanceOwnerPartyId = "1000",
+        string instanceGuid = null
+    )
+    {
+        RouteData routeData = new();
+        routeData.Values["instanceOwnerPartyId"] = instanceOwnerPartyId;
+        routeData.Values["instanceGuid"] = instanceGuid ?? Guid.NewGuid().ToString();
+
+        DefaultHttpContext httpContext = new();
+        httpContext.Features.Set<IRoutingFeature>(new TestRoutingFeature { RouteData = routeData });
+
+        Mock<IHttpContextAccessor> accessor = new();
+        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        return accessor.Object;
+    }
+
+    private static ClaimsPrincipal CreateUserWithScope(string scope)
+    {
+        ClaimsIdentity identity = new("AuthenticationTypes.Federation");
+        identity.AddClaim(
+            new Claim("urn:altinn:scope", scope, ClaimValueTypes.String, "maskinporten")
+        );
+        identity.AddClaim(new Claim(UrnAuthLv, "3", ClaimValueTypes.Integer32, "maskinporten"));
+        return new ClaimsPrincipal(identity);
+    }
+
+    private static XacmlJsonResponse CreatePdpResponse(string decision)
+    {
+        return new XacmlJsonResponse
+        {
+            Response = new List<XacmlJsonResult> { new() { Decision = decision } },
+        };
+    }
+
+    private sealed class TestRoutingFeature : IRoutingFeature
+    {
+        public RouteData RouteData { get; set; }
+    }
+
     private AuthorizationService CreateRequestCapturingService(
         List<XacmlJsonRequestRoot> requests,
         Mock<IPDP> pdp = null,
@@ -573,12 +1078,14 @@ public class AuthorizationServiceTest
             .Returns(CreateUserClaims(1));
 
         return new AuthorizationService(
+            Mock.Of<IHttpContextAccessor>(),
             pdp.Object,
             _claimsPrincipalProviderMock.Object,
             Mock.Of<ILogger<AuthorizationService>>(),
             Options.Create(new GeneralSettings()),
             memoryCache ?? new MemoryCache(new MemoryCacheOptions()),
-            Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 })
+            Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 }),
+            _instanceRepository.Object
         );
     }
 

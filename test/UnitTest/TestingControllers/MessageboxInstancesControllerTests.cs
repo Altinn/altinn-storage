@@ -253,8 +253,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -279,8 +280,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -400,8 +402,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -425,8 +428,9 @@ public class MessageBoxInstancesControllerTests(
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -1698,7 +1702,7 @@ public class MessageBoxInstancesControllerTests(
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
         // Arrange
-        string[] extepctedEventTypes =
+        string[] expectedEventTypes =
         {
             "Created",
             "Deleted",
@@ -1715,19 +1719,23 @@ public class MessageBoxInstancesControllerTests(
             .Setup(rm =>
                 rm.ListInstanceEvents(
                     It.IsAny<Guid>(),
-                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.Is<string[]>(eventTypes => !expectedEventTypes.Except(eventTypes).Any()),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
                 )
             )
             .ReturnsAsync(new List<InstanceEvent>());
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1782,12 +1790,16 @@ public class MessageBoxInstancesControllerTests(
             )
             .ReturnsAsync(eventList);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1836,12 +1848,16 @@ public class MessageBoxInstancesControllerTests(
             )
             .ReturnsAsync(largeNumberOfEvents);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1902,7 +1918,7 @@ public class MessageBoxInstancesControllerTests(
             instanceEventRepository.Object,
             Mock.Of<ITextRepository>(),
             Mock.Of<IApplicationRepository>(),
-            Mock.Of<IAuthorization>(),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             applicationService.Object,
             NullLogger<MessageBoxInstancesController>.Instance
         )
