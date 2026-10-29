@@ -1,0 +1,18 @@
+﻿{
+  "Id": "ttd-contract-app-nb",
+  "Org": "ttd",
+  "Language": "nb",
+  "Resources": [
+    {
+      "Id": "appName",
+      "Value": "Kontrakt {0}",
+      "Variables": [
+        {
+          "Key": "Skjema.Tittel",
+          "DataSource": "dataModel.model",
+          "DefaultValue": "uten tittel"
+        }
+      ]
+    }
+  ]
+}
