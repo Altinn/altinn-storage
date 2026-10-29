@@ -112,9 +112,11 @@ public class ApplicationsController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
     [HttpPost]
     [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Produces("application/json")]
+    [ProducesResponseType<Application>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Application>> Post(
         string appId,
         [FromBody] Application application
@@ -122,7 +124,10 @@ public class ApplicationsController : ControllerBase
     {
         if (!IsValidAppId(appId))
         {
-            return BadRequest("AppId is not valid.");
+            return Problem(
+                detail: "AppId is not valid.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         string org = appId.Split("/")[0];
@@ -138,10 +143,9 @@ public class ApplicationsController : ControllerBase
         application.LastChanged = creationTime;
         application.DataTypes ??= new();
 
-        if (application.ValidFrom == null)
-        {
-            application.ValidFrom = creationTime;
-        }
+        application.ValidFrom =
+            DateTimeHelper.ConvertToUniversalTime(application.ValidFrom) ?? creationTime;
+        application.ValidTo = DateTimeHelper.ConvertToUniversalTime(application.ValidTo);
 
         Application result = await repository.Create(application);
 
@@ -160,10 +164,15 @@ public class ApplicationsController : ControllerBase
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
     [HttpPut("{org}/{app}")]
     [Consumes("application/json")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Produces("application/json")]
+    [ProducesResponseType<Application>(StatusCodes.Status200OK, "application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Application>> Put(
         string org,
         string app,
@@ -174,18 +183,25 @@ public class ApplicationsController : ControllerBase
 
         if (!IsValidAppId(appId))
         {
-            return BadRequest($"Illegal appId {appId}");
+            return Problem(
+                detail: $"Illegal appId {appId}",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         if (application.Id == null || !application.Id.Equals(appId))
         {
-            return BadRequest("appId in path does not match id in attached object");
+            return Problem(
+                detail: "appId in path does not match id in attached object",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         if (application.Org == null || !application.Org.Equals(org))
         {
-            return BadRequest(
-                "Org (application owner id) from path is not matching attached object"
+            return Problem(
+                detail: "Org (application owner id) from path is not matching attached object",
+                statusCode: StatusCodes.Status400BadRequest
             );
         }
 
@@ -195,7 +211,10 @@ public class ApplicationsController : ControllerBase
 
         if (existingApplication == null)
         {
-            return NotFound($"Cannot find application {appId}");
+            return Problem(
+                detail: $"Cannot find application {appId}",
+                statusCode: StatusCodes.Status404NotFound
+            );
         }
 
         application.Id = appId;
@@ -203,6 +222,8 @@ public class ApplicationsController : ControllerBase
         application.LastChangedBy = GetUserId();
         application.LastChanged = DateTime.UtcNow;
         application.PartyTypesAllowed ??= new();
+        application.ValidFrom = DateTimeHelper.ConvertToUniversalTime(application.ValidFrom);
+        application.ValidTo = DateTimeHelper.ConvertToUniversalTime(application.ValidTo);
         application.StorageAccountNumber = existingApplication.StorageAccountNumber; // ?
 
         Application result = await repository.Update(application);
