@@ -41,6 +41,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Npgsql;
+using OpenTelemetry;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -203,7 +204,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services
         .AddOpenTelemetry()
-        .ConfigureResource(resourceBuilder => resourceBuilder.AddAttributes(attributes))
+        // The environment variable detector comes last so that OTEL_SERVICE_NAME and
+        // OTEL_RESOURCE_ATTRIBUTES take precedence over the attributes above.
+        .ConfigureResource(resourceBuilder =>
+            resourceBuilder.AddAttributes(attributes).AddEnvironmentVariableDetector()
+        )
         .WithMetrics(metrics =>
         {
             metrics.AddAspNetCoreInstrumentation();
@@ -235,6 +240,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     if (!string.IsNullOrEmpty(applicationInsightsConnectionString))
     {
         AddAzureMonitorTelemetryExporters(services, applicationInsightsConnectionString);
+    }
+
+    if (!string.IsNullOrWhiteSpace(config["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    {
+        services.AddOpenTelemetry().UseOtlpExporter();
     }
 
     services.AddControllersWithViews().AddNewtonsoftJson();
