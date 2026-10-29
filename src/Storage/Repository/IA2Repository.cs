@@ -1,9 +1,7 @@
 #nullable disable
 
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -25,30 +23,6 @@ public interface IA2Repository
     );
 
     /// <summary>
-    /// Insert a stylesheet for a data element (a2 sub/main form page)
-    /// </summary>
-    Task CreateXsl(
-        string org,
-        string app,
-        int lformId,
-        string language,
-        int pageNumber,
-        string xsl,
-        int xslType,
-        bool isPortrait
-    );
-
-    /// <summary>
-    /// Insert an a2 codelist
-    /// </summary>
-    Task CreateCodelist(string name, string language, int version, string codelist);
-
-    /// <summary>
-    /// Insert an a2 image
-    /// </summary>
-    Task CreateImage(string name, byte[] image);
-
-    /// <summary>
     /// Get an a2 codelist
     /// </summary>
     /// <returns>Codelist</returns>
@@ -59,51 +33,4 @@ public interface IA2Repository
     /// </summary>
     /// <returns>Image</returns>
     Task<byte[]> GetImage(string name);
-
-    /// <summary>
-    /// Create an a1 migration state
-    /// </summary>
-    Task CreateA1MigrationState(int a1ArchiveReference);
-
-    /// <summary>
-    /// Create an a2 migration state
-    /// </summary>
-    Task CreateA2MigrationState(int a2ArchiveReference);
-
-    /// <summary>
-    /// Update an a1 migration state
-    /// </summary>
-    Task UpdateStartA1MigrationState(int a1ArchiveReference, Guid instanceGuid);
-
-    /// <summary>
-    /// Update an a2 migration state
-    /// </summary>
-    Task UpdateStartA2MigrationState(int a2ArchiveReference, Guid instanceGuid);
-
-    /// <summary>
-    /// Update an a1/a2 migration state
-    /// </summary>
-    Task UpdateCompleteMigrationState(InstanceInternal instance);
-
-    /// <summary>
-    /// Update dialogporten with deleted instance
-    /// </summary>
-    Task SendDeleteToDialogporten(InstanceInternal instance);
-
-    /// <summary>
-    /// Delete an a1/a2 migration state
-    /// </summary>
-    Task DeleteMigrationState(Guid instanceGuid);
-
-    /// <summary>
-    /// Get the instance id of the migration
-    /// </summary>
-    /// <returns>The instance id of the migration</returns>
-    Task<Guid?> GetA1MigrationInstanceId(int a1ArchiveReference);
-
-    /// <summary>
-    /// Get the instance id of the migration
-    /// </summary>
-    /// <returns>The instance id of the migration</returns>
-    Task<Guid?> GetA2MigrationInstanceId(int a2ArchiveReference);
 }

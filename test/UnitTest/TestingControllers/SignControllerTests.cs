@@ -23,7 +23,6 @@ using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
-using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
@@ -427,10 +426,6 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
 
                     services.AddMockRepositories();
                     services.AddSingleton(keyVaultWrapper.Object);
-                    services.AddSingleton<
-                        IPartiesWithInstancesClient,
-                        PartiesWithInstancesClientMock
-                    >();
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<
                         IPostConfigureOptions<JwtCookieOptions>,
