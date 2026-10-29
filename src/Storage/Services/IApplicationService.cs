@@ -14,14 +14,12 @@ public interface IApplicationService
     /// <summary>
     /// Check if a datatype is valid for given app
     /// </summary>
-    /// <param name="org">The application owner id.</param>
-    /// <param name="appId">The id of the application.</param>
+    /// <param name="application">The application metadata to validate against.</param>
     /// <param name="dataType">The data type identifier for the data being uploaded.</param>
     /// <param name="currentTask">The task info of the currentTask of an ongoing process.</param>
     /// <returns>Result of validation. If the result (IsValid) is false, it will be described in ServiceError</returns>
-    Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(
-        string org,
-        string appId,
+    (bool IsValid, ServiceError ServiceError) ValidateDataTypeForApp(
+        Application application,
         string dataType,
         string currentTask
     );
