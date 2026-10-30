@@ -106,6 +106,7 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Delete(
         int instanceOwnerPartyId,
@@ -183,6 +184,14 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (
+            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is
+            { } taskBindingConflict
+        )
+        {
+            return Conflict(taskBindingConflict);
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -686,6 +695,14 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        if (
+            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
+            { } taskBindingConflict
+        )
+        {
+            return Conflict(taskBindingConflict);
+        }
+
         DateTime creationTime = DateTime.UtcNow;
         (Stream stream, string contentType, string contentFileName, _) =
             await DataElementHelper.GetStream(
@@ -856,6 +873,14 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (
+            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
+            { } taskBindingConflict
+        )
+        {
+            return Conflict(taskBindingConflict);
         }
 
         if (dataElement.Locked)
@@ -1131,9 +1156,21 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
+        (DataElementInternal storedDataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
+        if (storedDataElement == null)
+        {
+            return dataElementError;
+        }
+
+        if (dataElement.DataType != storedDataElement.DataType)
+        {
+            return BadRequest("Mismatch between stored data type and dataElement content");
+        }
+
         (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
             instance,
-            dataElement.DataType,
+            storedDataElement.DataType,
             cancellationToken: cancellationToken
         );
         if (dataTypeDefinition is null)
@@ -1144,6 +1181,14 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (
+            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
+            { } taskBindingConflict
+        )
+        {
+            return Conflict(taskBindingConflict);
         }
 
         Dictionary<string, object> propertyList = new()
