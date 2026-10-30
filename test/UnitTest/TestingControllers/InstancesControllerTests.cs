@@ -1571,7 +1571,7 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
                 },
             ],
         };
-        expected.SetPlatformSelfLinks("at22.altinn.cloud/storage/api/v1/");
+        new GeneralSettings { Hostname = "at22.altinn.cloud" }.SetPlatformSelfLinks(expected);
         Assert.True(
             JToken.DeepEquals(JToken.Parse(JsonConvert.SerializeObject(expected)), publicInstance)
         );
@@ -2145,6 +2145,67 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("continuationToken=thisIsTheFirstToken", queryResponse.Self);
+    }
+
+    [Fact]
+    public async Task GetMany_NextPage_LinksStartWithPlatformHostByDefault()
+    {
+        // Arrange
+        HttpClient client = GetTestClient(RepositoryReturningNextPage());
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+
+        // Act
+        QueryResponse<Instance> queryResponse = await GetQueryResponse(
+            client,
+            $"{BasePath}?instanceOwner.partyId=1337"
+        );
+
+        // Assert
+        Assert.Equal(
+            "https://platform.at22.altinn.cloud/storage/api/v1/instances?instanceOwner.partyId=1337",
+            queryResponse.Self
+        );
+        Assert.Equal(
+            "https://platform.at22.altinn.cloud/storage/api/v1/instances?instanceOwner.partyId=1337&continuationToken=next-token",
+            queryResponse.Next
+        );
+    }
+
+    [Theory]
+    [InlineData("http://local.altinn.cloud:8000")]
+    [InlineData("http://local.altinn.cloud:8000/")]
+    public async Task GetMany_NextPage_LinksStartWithConfiguredPlatformBaseUrl(
+        string platformBaseUrl
+    )
+    {
+        // Arrange
+        HttpClient client = GetTestClient(
+            RepositoryReturningNextPage(),
+            platformBaseUrl: platformBaseUrl
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            PrincipalUtil.GetToken(3, 1337)
+        );
+
+        // Act
+        QueryResponse<Instance> queryResponse = await GetQueryResponse(
+            client,
+            $"{BasePath}?instanceOwner.partyId=1337"
+        );
+
+        // Assert
+        Assert.Equal(
+            "http://local.altinn.cloud:8000/storage/api/v1/instances?instanceOwner.partyId=1337",
+            queryResponse.Self
+        );
+        Assert.Equal(
+            "http://local.altinn.cloud:8000/storage/api/v1/instances?instanceOwner.partyId=1337&continuationToken=next-token",
+            queryResponse.Next
+        );
     }
 
     /// <summary>
@@ -3498,6 +3559,34 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         return (result, instanceEventService);
     }
 
+    private static Mock<IInstanceRepository> RepositoryReturningNextPage()
+    {
+        Mock<IInstanceRepository> repository = new();
+        repository
+            .Setup(r =>
+                r.GetInstancesFromQuery(
+                    It.IsAny<InstanceQueryParameters>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new InstanceQueryResult { Instances = [], ContinuationToken = "next-token" }
+            );
+        return repository;
+    }
+
+    private static async Task<QueryResponse<Instance>> GetQueryResponse(
+        HttpClient client,
+        string requestUri
+    )
+    {
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return JsonConvert.DeserializeObject<QueryResponse<Instance>>(
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
     private TestTelemetry _testTelemetry;
 
     private HttpClient GetTestClient(
@@ -3507,7 +3596,8 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
         Mock<IAuthorization> authorizationService = null,
         Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = null,
         Mock<IPDP> pdpMock = null,
-        Mock<ILogger<InstancesController>> loggerMock = null
+        Mock<ILogger<InstancesController>> loggerMock = null,
+        string platformBaseUrl = null
     )
     {
         // No setup required for these services. They are not in use by the InstanceController
@@ -3516,6 +3606,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         var factory = _factory.WithWebHostBuilder(builder =>
         {
+            if (platformBaseUrl != null)
+            {
+                builder.UseSetting("GeneralSettings:PlatformBaseUrl", platformBaseUrl);
+            }
+
             builder.ConfigureTestServices(services =>
             {
                 services.AddMockRepositories();

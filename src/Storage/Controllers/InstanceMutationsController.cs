@@ -1285,7 +1285,7 @@ public class InstanceMutationsController(
     )
     {
         Instance updatedInstance = updatedInstanceInternal.ToApiModel();
-        updatedInstance.SetPlatformSelfLinks($"{generalSettings.Value.Hostname}/storage/api/v1/");
+        generalSettings.Value.SetPlatformSelfLinks(updatedInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstanceInternal);
 
         return Ok(
