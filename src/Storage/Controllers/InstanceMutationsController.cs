@@ -77,11 +77,12 @@ public class InstanceMutationsController(
     /// </summary>
     /// <remarks>
     /// After the endpoint's outer <c>InstanceWrite</c> policy admits the request, idempotent replay
-    /// is checked before process-state, presentation-text, data-value, per-data-type write,
+    /// is checked before process-state, presentation-text, data-value, substatus, per-data-type write,
     /// complete-confirmation, and delete-instance authorization. A complete confirmation is
     /// additionally subject to the <c>InstanceComplete</c> policy and is recorded for the calling
     /// organisation only; an organisation that already has a confirmation keeps the one it has, and
-    /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
+    /// the remaining operations commit either way. Only the instance's own organisation can set the
+    /// substatus. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
     /// from that snapshot are rejected by later plan validation. A mutation that sets the process state
@@ -184,6 +185,12 @@ public class InstanceMutationsController(
             return BadRequest(
                 "processState.state cannot be combined with data element creates, updates or deletes."
             );
+        }
+
+        BadRequestObjectResult substatusError = ValidateSubstatus(mutationRequest);
+        if (substatusError is not null)
+        {
+            return substatusError;
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -423,6 +430,11 @@ public class InstanceMutationsController(
         if (completeConfirmationAuthorizationError is not null)
         {
             return completeConfirmationAuthorizationError;
+        }
+
+        if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
+        {
+            return Forbid();
         }
 
         if (
@@ -879,6 +891,13 @@ public class InstanceMutationsController(
             instanceUpdateProperties.Add(nameof(InstanceInternal.CompleteConfirmations));
         }
 
+        if (mutationRequest.Substatus is not null)
+        {
+            instanceStatus ??= new InstanceStatus();
+            instanceStatus.Substatus = mutationRequest.Substatus;
+            instanceUpdateProperties.Add(nameof(InstanceStatus.Substatus));
+        }
+
         InstanceInternal instanceUpdates = new()
         {
             Id = instance.Id,
@@ -907,6 +926,16 @@ public class InstanceMutationsController(
             instanceEvents.Add(
                 instanceEventService.BuildInstanceEvent(
                     InstanceEventType.ConfirmedComplete,
+                    instanceUpdates
+                )
+            );
+        }
+
+        if (mutationRequest.Substatus is not null)
+        {
+            instanceEvents.Add(
+                instanceEventService.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
                     instanceUpdates
                 )
             );
@@ -1614,6 +1643,7 @@ public class InstanceMutationsController(
         || request.DataValues?.Count > 0
         || request.PresentationTexts?.Count > 0
         || request.AddCompleteConfirmation
+        || request.Substatus is not null
         || request.ProcessState?.State is not null
         || request.ProcessState?.Events?.Count > 0;
 
@@ -1638,7 +1668,8 @@ public class InstanceMutationsController(
             || request.UpdateDataElements?.Count > 0
             || request.DataValues?.Count > 0
             || request.PresentationTexts?.Count > 0
-            || request.AddCompleteConfirmation;
+            || request.AddCompleteConfirmation
+            || request.Substatus is not null;
         bool isStandaloneDelete =
             !hasUnrelatedMutationOperations
             && request.DeleteDataElements?.Count is not > 0
@@ -1653,6 +1684,16 @@ public class InstanceMutationsController(
             return BadRequest(
                 "deleteInstance cannot be combined with other aggregate mutation operations."
             );
+        }
+
+        return null;
+    }
+
+    private BadRequestObjectResult ValidateSubstatus(InstanceMutationRequest request)
+    {
+        if (request.Substatus is not null && string.IsNullOrEmpty(request.Substatus.Label))
+        {
+            return BadRequest("substatus.label is required.");
         }
 
         return null;
