@@ -17,7 +17,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:16@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+        image: postgres:18@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
         env:
           PGHOST: localhost
           POSTGRES_USER: platform_storage_admin
