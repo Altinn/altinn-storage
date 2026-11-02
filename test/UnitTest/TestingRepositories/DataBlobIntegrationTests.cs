@@ -18,8 +18,10 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.Constants;
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -70,7 +72,8 @@ public class DataBlobIntegrationTests
         DataService dataService = new(
             fileScanQueueClientMock.Object,
             _dataElementFixture.DataRepo,
-            _blobFixture.Repository
+            _blobFixture.Repository,
+            CreateResolver()
         );
         Guid dataElementId = Guid.NewGuid();
         string content = $"integration-content-{Guid.NewGuid():N}";
@@ -85,13 +88,13 @@ public class DataBlobIntegrationTests
         };
 
         // Act
-        (DataElementInternal createdDataElement, DateTimeOffset blobTimestamp, _) =
+        (DataElementInternal createdDataElement, DateTimeOffset blobTimestamp, _, _) =
             await dataService.UploadDataAndCreateDataElement(
                 _instanceInternal,
                 new MemoryStream(Encoding.UTF8.GetBytes(content)),
                 options,
                 _instanceInternalId,
-                null,
+                new Application(),
                 cancellationToken: CancellationToken.None
             );
 
@@ -112,9 +115,8 @@ public class DataBlobIntegrationTests
         Assert.Equal(createdDataElement.BlobVersionId, readDataElement.BlobVersionId);
 
         using Stream readBlob = await _blobFixture.Repository.ReadBlob(
-            _instanceInternal.Org,
+            _blobFixture.Account,
             createdDataElement.BlobStoragePath,
-            null,
             CancellationToken.None
         );
         using StreamReader reader = new(readBlob, Encoding.UTF8);
@@ -155,7 +157,7 @@ public class DataBlobIntegrationTests
         await dataService.CleanupDeletedDataElementBlobs(
             _instanceInternal,
             createdDataElement,
-            null,
+            StorageAccountNaming.DefaultStorageAccountNumber,
             CancellationToken.None
         );
 
@@ -181,10 +183,12 @@ public class DataBlobIntegrationTests
     public async Task CommitAggregateDelete_RetainsVersionBytesForServiceOwnerAndRemovesLegacyBlob()
     {
         // Arrange
+        IStorageAccountResolver resolver = CreateResolver();
         DataService dataService = new(
             Mock.Of<IFileScanQueueClient>(),
             _dataElementFixture.DataRepo,
-            _blobFixture.Repository
+            _blobFixture.Repository,
+            resolver
         );
         Guid dataElementId = Guid.NewGuid();
         byte[] originalContent = "original version content"u8.ToArray();
@@ -202,7 +206,7 @@ public class DataBlobIntegrationTests
                 CreatedBy = "ttd",
             },
             _instanceInternalId,
-            null,
+            new Application(),
             cancellationToken: CancellationToken.None
         );
         string originalVersionId = upload.DataElement.BlobVersionId;
@@ -281,7 +285,8 @@ public class DataBlobIntegrationTests
             settings,
             authorization.Object,
             Mock.Of<IAuthorizationService>(),
-            Mock.Of<IProcessAuthorizer>()
+            Mock.Of<IProcessAuthorizer>(),
+            resolver
         )
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
@@ -296,7 +301,8 @@ public class DataBlobIntegrationTests
             eventService.Object,
             settings,
             null,
-            authorization.Object
+            authorization.Object,
+            resolver
         )
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
@@ -326,6 +332,241 @@ public class DataBlobIntegrationTests
         using MemoryStream retainedContent = new();
         await retainedStream.CopyToAsync(retainedContent);
         Assert.Equal(originalContent, retainedContent.ToArray());
+    }
+
+    [Fact]
+    public async Task WritableAccountRow_RoutesNewUploadsAndReadsFollowEachVersion()
+    {
+        // Arrange
+        string org = $"acc{Guid.NewGuid():N}"[..12];
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Id = Guid.NewGuid();
+        instance.Org = org;
+        instance.AppId = $"{org}/test-applikasjon-1";
+        InstanceInternal created = await _dataElementFixture.InstanceRepo.Create(
+            instance,
+            CancellationToken.None
+        );
+        instance = await _dataElementFixture.InstanceRepo.GetOne(
+            created.Id,
+            false,
+            CancellationToken.None
+        );
+        int partyId = int.Parse(instance.InstanceOwner.PartyId);
+        string patternContainerName = string.Format(
+            _blobFixture.Configuration.OrgStorageContainer,
+            org
+        );
+        string namedContainerName = $"named-{Guid.NewGuid():N}";
+        BlobContainerClient patternContainer = await BlobRepositoryAzuriteFixture.CreateContainer(
+            patternContainerName
+        );
+        BlobContainerClient namedContainer = await BlobRepositoryAzuriteFixture.CreateContainer(
+            namedContainerName
+        );
+        Application application = new()
+        {
+            Id = instance.AppId,
+            Org = org,
+            DataTypes = [new DataType { Id = "default" }],
+        };
+        PgStorageAccountRepository accountRepository = new(_dataElementFixture.DataSource);
+
+        try
+        {
+            DataUploadResult before = await Upload(
+                CreateResolver(),
+                instance,
+                application,
+                "before the row"
+            );
+
+            short accountId = await accountRepository.Insert(
+                BlobRepositoryAzuriteFixture.ProviderInfo(namedContainerName),
+                org,
+                StorageAccountNaming.DefaultStorageAccountNumber,
+                writable: true
+            );
+
+            // A new resolver stands in for the cache expiring after the row was inserted.
+            IStorageAccountResolver resolver = CreateResolver();
+
+            // Act
+            DataUploadResult after = await Upload(resolver, instance, application, "after the row");
+            DataController dataController = CreateDataController(resolver, application, org);
+            ActionResult readBefore = await dataController.Get(
+                partyId,
+                instance.Id,
+                before.DataElement.Id,
+                CancellationToken.None
+            );
+            ActionResult readAfter = await dataController.Get(
+                partyId,
+                instance.Id,
+                after.DataElement.Id,
+                CancellationToken.None
+            );
+
+            // Assert
+            Assert.Null(before.StorageAccount.Id);
+            Assert.Equal(accountId, after.StorageAccount.Id);
+            Assert.True(
+                await patternContainer
+                    .GetBlobClient(before.DataElement.BlobStoragePath)
+                    .ExistsAsync()
+            );
+            Assert.False(
+                await namedContainer.GetBlobClient(before.DataElement.BlobStoragePath).ExistsAsync()
+            );
+            Assert.True(
+                await namedContainer.GetBlobClient(after.DataElement.BlobStoragePath).ExistsAsync()
+            );
+            Assert.False(
+                await patternContainer
+                    .GetBlobClient(after.DataElement.BlobStoragePath)
+                    .ExistsAsync()
+            );
+
+            DataElementInternal readElementBefore = await _dataElementFixture.DataRepo.Read(
+                instance.Id,
+                before.DataElement.Id
+            );
+            DataElementInternal readElementAfter = await _dataElementFixture.DataRepo.Read(
+                instance.Id,
+                after.DataElement.Id
+            );
+            Assert.Null(readElementBefore.StorageAccountId);
+            Assert.Equal(accountId, readElementAfter.StorageAccountId);
+
+            Assert.Equal("before the row", await ReadContent(readBefore));
+            Assert.Equal("after the row", await ReadContent(readAfter));
+
+            InstanceQueryResult listed =
+                await _dataElementFixture.InstanceRepo.GetInstancesFromQuery(
+                    new InstanceQueryParameters
+                    {
+                        Size = 100,
+                        AppId = instance.AppId,
+                        IncludeDataElements = true,
+                    },
+                    CancellationToken.None
+                );
+            DataElementInternal listedElement = Assert.Single(
+                Assert.Single(listed.Instances).Data,
+                element => element.Id == after.DataElement.Id
+            );
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                resolver.ForElement(
+                    listedElement,
+                    org,
+                    StorageAccountNaming.DefaultStorageAccountNumber
+                )
+            );
+        }
+        finally
+        {
+            await patternContainer.DeleteIfExistsAsync();
+            await namedContainer.DeleteIfExistsAsync();
+        }
+    }
+
+    private IStorageAccountResolver CreateResolver() =>
+        TestStorageAccounts.CreateResolver(
+            new PgStorageAccountRepository(_dataElementFixture.DataSource),
+            _blobFixture.Configuration
+        );
+
+    private async Task<DataUploadResult> Upload(
+        IStorageAccountResolver resolver,
+        InstanceInternal instance,
+        Application application,
+        string content
+    )
+    {
+        DataService dataService = new(
+            Mock.Of<IFileScanQueueClient>(),
+            _dataElementFixture.DataRepo,
+            _blobFixture.Repository,
+            resolver
+        );
+        return await dataService.UploadDataAndCreateDataElement(
+            instance,
+            new MemoryStream(Encoding.UTF8.GetBytes(content)),
+            new DataElementCreateOptions
+            {
+                DataElementId = Guid.NewGuid(),
+                DataType = "default",
+                ContentType = "text/plain",
+                Filename = "content.txt",
+                Created = DateTime.UtcNow,
+                CreatedBy = instance.Org,
+                IsRead = true,
+            },
+            instance.InternalId,
+            application,
+            cancellationToken: CancellationToken.None
+        );
+    }
+
+    private DataController CreateDataController(
+        IStorageAccountResolver resolver,
+        Application application,
+        string org
+    )
+    {
+        Mock<IApplicationRepository> applicationRepository = new();
+        applicationRepository
+            .Setup(repository =>
+                repository.FindOne(application.Id, application.Org, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(application);
+        Mock<IAuthorization> authorization = new();
+        authorization
+            .Setup(service =>
+                service.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), "read")
+            )
+            .ReturnsAsync(true);
+        DefaultHttpContext httpContext = new()
+        {
+            User = new ClaimsPrincipal(
+                new ClaimsIdentity(
+                    [
+                        new Claim(AltinnCoreClaimTypes.Org, org),
+                        new Claim(AltinnCoreClaimTypes.OrgNumber, "111111111"),
+                    ],
+                    "test"
+                )
+            ),
+        };
+        DataService dataService = new(
+            Mock.Of<IFileScanQueueClient>(),
+            _dataElementFixture.DataRepo,
+            _blobFixture.Repository,
+            resolver
+        );
+        return new DataController(
+            _dataElementFixture.DataRepo,
+            _blobFixture.Repository,
+            _dataElementFixture.InstanceRepo,
+            _dataElementFixture.InstanceMutationRepo,
+            applicationRepository.Object,
+            dataService,
+            Mock.Of<IInstanceEventService>(),
+            Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
+            null,
+            authorization.Object,
+            resolver
+        )
+        {
+            ControllerContext = new ControllerContext { HttpContext = httpContext },
+        };
+    }
+
+    private static async Task<string> ReadContent(ActionResult result)
+    {
+        FileStreamResult file = Assert.IsType<FileStreamResult>(result);
+        using StreamReader reader = new(file.FileStream, Encoding.UTF8);
+        return await reader.ReadToEndAsync();
     }
 
     private static Task<int> CountInstanceEvents(Guid instanceGuid, InstanceEventType eventType) =>

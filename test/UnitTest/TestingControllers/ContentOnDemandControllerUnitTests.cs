@@ -12,6 +12,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -60,9 +61,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -99,9 +99,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedFallbackPath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -149,9 +148,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -199,9 +197,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -334,7 +331,8 @@ public class ContentOnDemandControllerUnitTests
             appRepoMock.Object,
             settings,
             formattingMock.Object,
-            pdfMock.Object
+            pdfMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
     }
 
@@ -410,9 +408,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock
             .Setup(r =>
                 r.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -432,7 +429,8 @@ public class ContentOnDemandControllerUnitTests
             appRepoMock.Object,
             settings,
             formattingMock.Object,
-            pdfMock.Object
+            pdfMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         return (controller, blobRepoMock);

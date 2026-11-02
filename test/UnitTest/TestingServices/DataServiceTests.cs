@@ -11,6 +11,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Npgsql;
@@ -31,7 +32,8 @@ public class DataServiceTests
         DataService target = new DataService(
             fileScanMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         InstanceInternal instance = new();
@@ -45,7 +47,8 @@ public class DataServiceTests
             dataType,
             dataElement,
             blobTimestamp,
-            null,
+            new Application(),
+            TestStorageAccounts.PatternDefault("ttd"),
             CancellationToken.None
         );
 
@@ -67,7 +70,8 @@ public class DataServiceTests
         DataService target = new DataService(
             fileScanMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         InstanceInternal instance = new()
@@ -89,7 +93,8 @@ public class DataServiceTests
             dataType,
             dataElement,
             blobTimestamp,
-            null,
+            new Application(),
+            TestStorageAccounts.PatternDefault("ttd"),
             CancellationToken.None
         );
 
@@ -110,6 +115,54 @@ public class DataServiceTests
                 ),
             Times.Once()
         );
+    }
+
+    [Fact]
+    public async Task StartFileScan_QueuesMessageWithProviderInfoOfTheWriteAccount()
+    {
+        // Arrange
+        Mock<IFileScanQueueClient> fileScanMock = new();
+        string queuedMessage = null!;
+        fileScanMock
+            .Setup(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((content, _) => queuedMessage = content)
+            .Returns(Task.CompletedTask);
+        DataService target = new(
+            fileScanMock.Object,
+            Mock.Of<IDataRepository>(),
+            Mock.Of<IBlobRepository>(),
+            new PatternDefaultStorageAccountResolver()
+        );
+        InstanceInternal instance = new()
+        {
+            Id = Guid.NewGuid(),
+            Org = "ttd",
+            InstanceOwner = new InstanceOwner { PartyId = "343243" },
+        };
+        StorageAccount account = new(
+            4,
+            new AzureBlobProviderInfo("ttdnamedaccount", "ttd-named-container")
+        );
+
+        // Act
+        await target.StartFileScan(
+            instance,
+            new DataType { EnableFileScan = true },
+            new DataElementInternal { Id = Guid.NewGuid(), BlobVersionId = "blob-version-id" },
+            DateTimeOffset.UtcNow,
+            new Application { StorageAccountNumber = 2 },
+            account,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Contains(
+            "\"providerInfo\":{\"provider\":\"azure-blob\",\"accountName\":\"ttdnamedaccount\",\"container\":\"ttd-named-container\"}",
+            queuedMessage
+        );
+        Assert.Contains("\"storageAccountId\":4", queuedMessage);
+        Assert.Contains("\"org\":\"ttd\"", queuedMessage);
+        Assert.Contains("\"storageAccountNumber\":2", queuedMessage);
     }
 
     [Fact]
@@ -142,9 +195,8 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     blobStoragePath,
-                    null,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -153,7 +205,8 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         // Act
@@ -161,7 +214,7 @@ public class DataServiceTests
             "ttd",
             Guid.NewGuid(),
             id,
-            null
+            new Application()
         );
 
         // Assert
@@ -170,7 +223,11 @@ public class DataServiceTests
         dataRepositoryMock.VerifyAll();
         blobRepositoryMock.Verify(
             repository =>
-                repository.ReadBlob("ttd", blobStoragePath, null, It.IsAny<CancellationToken>()),
+                repository.ReadBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    blobStoragePath,
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
     }
@@ -186,7 +243,8 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         // Act
@@ -194,7 +252,7 @@ public class DataServiceTests
             "ttd",
             Guid.NewGuid(),
             Guid.NewGuid(),
-            null
+            new Application()
         );
 
         // Assert
@@ -225,7 +283,8 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         // Act
@@ -233,7 +292,7 @@ public class DataServiceTests
             "ttd",
             Guid.NewGuid(),
             Guid.NewGuid(),
-            null
+            new Application()
         );
 
         // Assert
@@ -253,12 +312,7 @@ public class DataServiceTests
 
         blobRepositoryMock
             .Setup(drm =>
-                drm.WriteBlob(
-                    It.IsAny<string>(),
-                    It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
-                )
+                drm.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>())
             )
             .ReturnsAsync((expectedBlobSize, DateTimeOffset.Now));
 
@@ -310,16 +364,17 @@ public class DataServiceTests
         DataService dataService = new DataService(
             fileScanQueueClientMock.Object,
             dataRepositoryMock.Object,
-            blobRepositoryMock.Object
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
 
         // Act
-        (DataElementInternal created, _, _) = await dataService.UploadDataAndCreateDataElement(
+        (DataElementInternal created, _, _, _) = await dataService.UploadDataAndCreateDataElement(
             instance,
             new MemoryStream(Encoding.UTF8.GetBytes("whatever")),
             options,
             0,
-            null,
+            new Application(),
             cancellationToken: CancellationToken.None
         );
 
@@ -387,16 +442,18 @@ public class DataServiceTests
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    instance.Org,
+                    TestStorageAccounts.PatternDefault(instance.Org),
                     It.IsAny<Stream>(),
-                    expectedBlobStoragePath,
-                    storageAccountNumber
+                    expectedBlobStoragePath
                 )
             )
             .ThrowsAsync(new InvalidOperationException("blob write failed"));
         blobRepository
             .Setup(repository =>
-                repository.DeleteBlob(instance.Org, expectedBlobStoragePath, storageAccountNumber)
+                repository.DeleteBlob(
+                    TestStorageAccounts.PatternDefault(instance.Org),
+                    expectedBlobStoragePath
+                )
             )
             .Callback(() => cleanupCalls.Add("blob"))
             .ReturnsAsync(true);
@@ -409,7 +466,7 @@ public class DataServiceTests
                     new MemoryStream("content"u8.ToArray()),
                     CreateOptions(dataElementId),
                     0,
-                    storageAccountNumber,
+                    new Application { StorageAccountNumber = storageAccountNumber },
                     cancellationToken: CancellationToken.None
                 )
         );
@@ -465,16 +522,15 @@ public class DataServiceTests
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 )
             )
             .ReturnsAsync((0L, DateTimeOffset.UtcNow));
         blobRepository
             .Setup(repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())
+                repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>())
             )
             .Callback(() => cleanupCalls.Add("blob"))
             .ReturnsAsync(true);
@@ -486,7 +542,7 @@ public class DataServiceTests
                 new MemoryStream("content"u8.ToArray()),
                 CreateOptions(dataElementId),
                 0,
-                null,
+                new Application(),
                 cancellationToken: CancellationToken.None
             )
         );
@@ -542,10 +598,9 @@ public class DataServiceTests
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 )
             )
             .ReturnsAsync((123L, DateTimeOffset.UtcNow));
@@ -557,7 +612,7 @@ public class DataServiceTests
                 new MemoryStream("content"u8.ToArray()),
                 CreateOptions(dataElementId),
                 0,
-                null,
+                new Application(),
                 cancellationToken: CancellationToken.None
             )
         );
@@ -566,11 +621,8 @@ public class DataServiceTests
         blobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    "ttd",
-                    It.Is<string>(path =>
-                        path.EndsWith($"/data-elements/{allocatedBlobVersionId}")
-                    ),
-                    null
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    It.Is<string>(path => path.EndsWith($"/data-elements/{allocatedBlobVersionId}"))
                 ),
             Times.Once
         );
@@ -619,10 +671,9 @@ public class DataServiceTests
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 )
             )
             .ReturnsAsync((123L, DateTimeOffset.UtcNow));
@@ -634,15 +685,14 @@ public class DataServiceTests
                 new MemoryStream("content"u8.ToArray()),
                 CreateOptions(dataElementId),
                 0,
-                null,
+                new Application(),
                 cancellationToken: CancellationToken.None
             )
         );
 
         Assert.Equal("commit outcome unknown", exception.Message);
         blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
         dataRepository.Verify(
@@ -666,10 +716,9 @@ public class DataServiceTests
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 )
             )
             .ReturnsAsync((666, DateTimeOffset.Now));
@@ -707,7 +756,7 @@ public class DataServiceTests
                     new MemoryStream(Encoding.UTF8.GetBytes("whatever")),
                     CreateOptions(Guid.NewGuid()),
                     0,
-                    null,
+                    new Application(),
                     cancellationToken: CancellationToken.None
                 )
         );
@@ -728,7 +777,7 @@ public class DataServiceTests
             .ReturnsAsync([]);
 
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(drm => drm.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("cleanup failed"));
 
         DataService dataService = CreateDataService(dataRepositoryMock, blobRepositoryMock);
@@ -750,11 +799,15 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(null),
-            null
+            1
         );
 
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob("ttd", dataElement.BlobStoragePath, null),
+            drm =>
+                drm.DeleteBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    dataElement.BlobStoragePath
+                ),
             Times.Once
         );
     }
@@ -775,7 +828,9 @@ public class DataServiceTests
             )
             .ReturnsAsync([]);
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob("ttd", currentBlobStoragePath, null))
+            .Setup(drm =>
+                drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), currentBlobStoragePath)
+            )
             .ReturnsAsync(true);
         DataService dataService = CreateDataService(dataRepositoryMock, blobRepositoryMock);
         Instance instance = new()
@@ -794,11 +849,12 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(null),
-            null
+            1
         );
 
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob("ttd", currentBlobStoragePath, null),
+            drm =>
+                drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), currentBlobStoragePath),
             Times.Once
         );
     }
@@ -836,11 +892,11 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(null),
-            null
+            1
         );
 
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            drm => drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), legacyBlobStoragePath),
             Times.Once
         );
     }
@@ -881,14 +937,13 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
-                (_, blobStoragePaths, _, _) =>
+            .Callback<StorageAccount, IReadOnlyList<string>, CancellationToken>(
+                (_, blobStoragePaths, _) =>
                 {
                     Assert.Equal([firstBlobStoragePath, secondBlobStoragePath], blobStoragePaths);
                     callOrder.Add("blob-batch");
@@ -896,7 +951,9 @@ public class DataServiceTests
             )
             .ReturnsAsync([true, true]);
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null))
+            .Setup(drm =>
+                drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), legacyBlobStoragePath)
+            )
             .ReturnsAsync(true);
         dataRepositoryMock
             .Setup(drm =>
@@ -931,15 +988,14 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(secondBlobVersionId),
-            null
+            1
         );
 
         blobRepositoryMock.Verify(
             drm =>
                 drm.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -965,7 +1021,7 @@ public class DataServiceTests
             Times.Never
         );
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            drm => drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), legacyBlobStoragePath),
             Times.Once
         );
     }
@@ -1027,14 +1083,13 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "first-storage-org",
+                    TestStorageAccounts.PatternDefault("first-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    7,
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
-                (_, blobStoragePaths, _, _) =>
+            .Callback<StorageAccount, IReadOnlyList<string>, CancellationToken>(
+                (_, blobStoragePaths, _) =>
                 {
                     Assert.Equal(
                         [
@@ -1051,14 +1106,13 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "second-storage-org",
+                    TestStorageAccounts.PatternDefault("second-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    8,
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
-                (_, blobStoragePaths, _, _) =>
+            .Callback<StorageAccount, IReadOnlyList<string>, CancellationToken>(
+                (_, blobStoragePaths, _) =>
                 {
                     Assert.Equal([secondGroupBlobStoragePath], blobStoragePaths);
                     callOrder.Add("second-storage");
@@ -1082,7 +1136,7 @@ public class DataServiceTests
             )
             .ReturnsAsync(4);
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(drm => drm.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ReturnsAsync(true);
         DataService dataService = CreateDataService(dataRepositoryMock, blobRepositoryMock);
         Instance instance = new()
@@ -1101,7 +1155,7 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(duplicateBlobVersionId),
-            null
+            1
         );
 
         Assert.Equal(["first-storage", "second-storage", "metadata"], callOrder);
@@ -1159,7 +1213,7 @@ public class DataServiceTests
             dataService.CleanupDeletedDataElementBlobs(
                 instance.FromApiModel(),
                 dataElement.FromApiModel(blobVersionId),
-                null,
+                1,
                 cancellationTokenSource.Token
             )
         );
@@ -1167,9 +1221,8 @@ public class DataServiceTests
         blobRepositoryMock.Verify(
             drm =>
                 drm.DeleteBlobsIfExists(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<IReadOnlyList<string>>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -1184,7 +1237,7 @@ public class DataServiceTests
             Times.Never
         );
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            drm => drm.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -1226,9 +1279,8 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "first-storage-org",
+                    TestStorageAccounts.PatternDefault("first-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    7,
                     cancellationTokenSource.Token
                 )
             )
@@ -1237,9 +1289,8 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "second-storage-org",
+                    TestStorageAccounts.PatternDefault("second-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    8,
                     cancellationTokenSource.Token
                 )
             )
@@ -1254,7 +1305,7 @@ public class DataServiceTests
             )
             .ReturnsAsync(2);
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(drm => drm.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ReturnsAsync(true);
         DataService dataService = CreateDataService(dataRepositoryMock, blobRepositoryMock);
         DataElementInternal dataElement = new()
@@ -1267,7 +1318,7 @@ public class DataServiceTests
             dataService.CleanupDeletedDataElementBlobs(
                 instance,
                 dataElement,
-                null,
+                1,
                 cancellationTokenSource.Token
             )
         );
@@ -1275,9 +1326,8 @@ public class DataServiceTests
         blobRepositoryMock.Verify(
             drm =>
                 drm.DeleteBlobsIfExists(
-                    "first-storage-org",
+                    TestStorageAccounts.PatternDefault("first-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    7,
                     cancellationTokenSource.Token
                 ),
             Times.Once
@@ -1285,9 +1335,8 @@ public class DataServiceTests
         blobRepositoryMock.Verify(
             drm =>
                 drm.DeleteBlobsIfExists(
-                    "second-storage-org",
+                    TestStorageAccounts.PatternDefault("second-storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    8,
                     cancellationTokenSource.Token
                 ),
             Times.Never
@@ -1302,7 +1351,7 @@ public class DataServiceTests
             Times.Never
         );
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            drm => drm.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -1341,14 +1390,13 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<string, IReadOnlyList<string>, int?, CancellationToken>(
-                (_, blobStoragePaths, _, _) =>
+            .Callback<StorageAccount, IReadOnlyList<string>, CancellationToken>(
+                (_, blobStoragePaths, _) =>
                     Assert.Equal(
                         [failedBlobStoragePath, successfulBlobStoragePath],
                         blobStoragePaths
@@ -1357,7 +1405,10 @@ public class DataServiceTests
             .ReturnsAsync([false, true]);
         blobRepositoryMock
             .Setup(drm =>
-                drm.DeleteBlob("ttd", $"ttd/app/{instanceGuid}/data/{dataElementId}", null)
+                drm.DeleteBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    $"ttd/app/{instanceGuid}/data/{dataElementId}"
+                )
             )
             .ReturnsAsync(true);
         dataRepositoryMock
@@ -1389,7 +1440,7 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(successfulBlobVersionId),
-            null
+            1
         );
 
         Assert.Equal([successfulBlobVersionId], deletedMetadataIds);
@@ -1443,16 +1494,18 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
             .ThrowsAsync(batchException);
         blobRepositoryMock
             .Setup(drm =>
-                drm.DeleteBlob("ttd", $"ttd/app/{instanceGuid}/data/{dataElementId}", null)
+                drm.DeleteBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    $"ttd/app/{instanceGuid}/data/{dataElementId}"
+                )
             )
             .ReturnsAsync(true);
         DataService dataService = CreateDataService(
@@ -1476,7 +1529,7 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(blobVersionId),
-            null
+            1
         );
 
         dataRepositoryMock.Verify(
@@ -1542,15 +1595,16 @@ public class DataServiceTests
         blobRepositoryMock
             .Setup(drm =>
                 drm.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.IsAny<IReadOnlyList<string>>(),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync([true]);
         blobRepositoryMock
-            .Setup(drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null))
+            .Setup(drm =>
+                drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), legacyBlobStoragePath)
+            )
             .ReturnsAsync(true);
         dataRepositoryMock
             .Setup(drm =>
@@ -1582,11 +1636,11 @@ public class DataServiceTests
         await dataService.CleanupDeletedDataElementBlobs(
             instance.FromApiModel(),
             dataElement.FromApiModel(blobVersionId),
-            null
+            1
         );
 
         blobRepositoryMock.Verify(
-            drm => drm.DeleteBlob("ttd", legacyBlobStoragePath, null),
+            drm => drm.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), legacyBlobStoragePath),
             Times.Once
         );
         loggerMock.Verify(
@@ -1690,6 +1744,7 @@ public class DataServiceTests
             Mock.Of<IFileScanQueueClient>(),
             dataRepository.Object,
             blobRepository.Object,
+            new PatternDefaultStorageAccountResolver(),
             logger?.Object!
         );
 

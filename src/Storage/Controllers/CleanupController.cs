@@ -11,6 +11,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="instanceMutationRepository">the instance mutation repository handler</param>
 /// <param name="cleanupSettings">the cleanup settings</param>
 /// <param name="logger">the logger</param>
+/// <param name="storageAccountResolver">Resolves the storage accounts blobs are deleted from.</param>
 [Route("storage/api/v1/cleanup")]
 [ApiController]
 public class CleanupController(
@@ -42,7 +44,8 @@ public class CleanupController(
     IInstanceEventRepository instanceEventRepository,
     IInstanceMutationRepository instanceMutationRepository,
     IOptions<StorageCleanupSettings> cleanupSettings,
-    ILogger<CleanupController> logger
+    ILogger<CleanupController> logger,
+    IStorageAccountResolver storageAccountResolver
 ) : ControllerBase
 {
     private readonly ILogger<CleanupController> _logger = logger;
@@ -270,9 +273,11 @@ public class CleanupController(
                 if (
                     !hasBlobVersions
                     && !await blobRepository.DeleteBlob(
-                        currentBlobStoragePath.Split('/')[0],
-                        currentBlobStoragePath,
-                        app.StorageAccountNumber
+                        storageAccountResolver.PatternDefault(
+                            currentBlobStoragePath.Split('/')[0],
+                            StorageAccountNaming.NumberOf(app)
+                        ),
+                        currentBlobStoragePath
                     )
                 )
                 {
@@ -300,10 +305,13 @@ public class CleanupController(
                             ),
                         ];
 
+                        StorageAccount storageAccount = await storageAccountResolver.ForVersion(
+                            blobVersion,
+                            cancellationToken
+                        );
                         bool[] blobsDeleted = await blobRepository.DeleteBlobsIfExists(
-                            blobVersion.BlobStorageOrg,
+                            storageAccount,
                             versionedBlobStoragePaths,
-                            blobVersion.StorageAccountNumber,
                             cancellationToken
                         );
                         if (!blobsDeleted.All(deleted => deleted))
@@ -321,9 +329,12 @@ public class CleanupController(
                             dataElement.Id
                         );
                         await blobRepository.DeleteBlob(
-                            blobVersion.BlobStorageOrg,
-                            legacyBlobStoragePath,
-                            blobVersion.StorageAccountNumber
+                            storageAccountResolver.PatternDefault(
+                                blobVersion.BlobStorageOrg,
+                                blobVersion.StorageAccountNumber
+                                    ?? StorageAccountNaming.DefaultStorageAccountNumber
+                            ),
+                            legacyBlobStoragePath
                         );
                     }
                 }
@@ -398,33 +409,34 @@ public class CleanupController(
 
     private async Task<bool> DeleteVersionedInstanceBlobPrefixesInternal(
         Guid instanceGuid,
-        (string BlobStorageOrg, string AppId, int? StorageAccountNumber) currentContext,
+        (StorageAccount Account, string AppId) currentContext,
         CancellationToken cancellationToken
     )
     {
         List<BlobVersionReferencesInternal> blobVersions =
             await instanceRepository.GetBlobVersionsForInstance(instanceGuid, cancellationToken);
 
+        HashSet<(StorageAccount Account, string AppId)> contexts = [currentContext];
         foreach (
-            var (blobStorageOrg, appId, storageAccountNumber) in blobVersions
-                .Where(blobVersion => blobVersion.BlobVersionIds.Count > 0)
-                .Select(blobVersion =>
-                    (
-                        blobVersion.BlobStorageOrg,
-                        blobVersion.AppId,
-                        blobVersion.StorageAccountNumber
-                    )
-                )
-                .Distinct()
-                .Where(context => context != currentContext)
+            BlobVersionReferencesInternal blobVersion in blobVersions.Where(blobVersion =>
+                blobVersion.BlobVersionIds.Count > 0
+            )
         )
         {
+            StorageAccount account = await storageAccountResolver.ForVersion(
+                blobVersion,
+                cancellationToken
+            );
+            if (!contexts.Add((account, blobVersion.AppId)))
+            {
+                continue;
+            }
+
             if (
                 !await blobRepository.DeleteDataBlobs(
-                    blobStorageOrg,
-                    appId,
+                    account,
+                    blobVersion.AppId,
                     instanceGuid,
-                    storageAccountNumber,
                     cancellationToken
                 )
             )
@@ -432,8 +444,8 @@ public class CleanupController(
                 _logger.LogError(
                     "CleanupController // CleanupInstancesInternal // Error deleting blobs for instance {InstanceGuid} in blob storage org {BlobStorageOrg} with app id {AppId}",
                     instanceGuid,
-                    blobStorageOrg,
-                    appId
+                    blobVersion.BlobStorageOrg,
+                    blobVersion.AppId
                 );
                 return false;
             }
@@ -461,10 +473,13 @@ public class CleanupController(
                 ),
             ];
 
+            StorageAccount storageAccount = await storageAccountResolver.ForVersion(
+                orphanBlobVersion,
+                cancellationToken
+            );
             bool[] blobsDeleted = await blobRepository.DeleteBlobsIfExists(
-                orphanBlobVersion.BlobStorageOrg,
+                storageAccount,
                 versionedBlobStoragePaths,
-                orphanBlobVersion.StorageAccountNumber,
                 cancellationToken
             );
 
@@ -514,11 +529,14 @@ public class CleanupController(
                 Application app = await applicationRepository.FindOne(instance.AppId, instance.Org);
                 if (deleteBlobs)
                 {
-                    blobsNoException = await blobRepository.DeleteDataBlobs(
+                    StorageAccount patternDefault = storageAccountResolver.PatternDefault(
                         instance.Org,
+                        StorageAccountNaming.NumberOf(app)
+                    );
+                    blobsNoException = await blobRepository.DeleteDataBlobs(
+                        patternDefault,
                         instance.AppId,
                         instance.Id,
-                        app.StorageAccountNumber,
                         CancellationToken.None
                     );
 
@@ -526,7 +544,7 @@ public class CleanupController(
                     {
                         blobsNoException = await DeleteVersionedInstanceBlobPrefixesInternal(
                             instance.Id,
-                            (instance.Org, instance.AppId, app.StorageAccountNumber),
+                            (patternDefault, instance.AppId),
                             cancellationToken
                         );
                     }

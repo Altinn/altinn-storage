@@ -44,10 +44,9 @@ internal static class InstanceMutationAsserts
         blobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Once
         );
@@ -61,8 +60,7 @@ internal static class InstanceMutationAsserts
             Times.Once
         );
         blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
     }
@@ -75,10 +73,9 @@ internal static class InstanceMutationAsserts
         blobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Once
         );
@@ -92,8 +89,7 @@ internal static class InstanceMutationAsserts
             Times.Never
         );
         blobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }

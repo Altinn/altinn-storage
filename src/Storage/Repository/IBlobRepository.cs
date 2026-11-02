@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Models;
 
 namespace Altinn.Platform.Storage.Repository;
 
@@ -16,30 +17,26 @@ public interface IBlobRepository
     /// <summary>
     /// Create a new file in blob storage.
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="account">The storage account to write to.</param>
     /// <param name="stream">Data to be written to blob storage.</param>
     /// <param name="blobStoragePath">Path to save the stream to in blob storage.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <returns>The size of the blob and last modified timestamp.</returns>
     Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-        string org,
+        StorageAccount account,
         Stream stream,
-        string blobStoragePath,
-        int? storageAccountNumber
+        string blobStoragePath
     );
 
     /// <summary>
     /// Reads a data file from blob storage
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="account">The storage account holding the blob.</param>
     /// <param name="blobStoragePath">Path to the file to read from blob storage.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The stream with the file</returns>
+    /// <returns>The stream with the file, or null when the blob does not exist.</returns>
     Task<Stream> ReadBlob(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     );
 
@@ -49,59 +46,52 @@ public interface IBlobRepository
     /// <remarks>
     /// Explicit blob versions are represented as path suffixes and should be included in <paramref name="blobStoragePath"/> by the caller.
     /// </remarks>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="account">The storage account holding the blob.</param>
     /// <param name="blobStoragePath">Path to the file to delete.</param>
-    /// <param name="storageAccountNumber">Alternate number to append to container name</param>
     /// <returns>A value indicating whether the delete was successful.</returns>
-    Task<bool> DeleteBlob(string org, string blobStoragePath, int? storageAccountNumber);
+    Task<bool> DeleteBlob(StorageAccount account, string blobStoragePath);
 
     /// <summary>
     /// Deletes multiple concrete blob paths if they exist.
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="account">The storage account holding the blobs.</param>
     /// <param name="blobStoragePaths">The blob paths to delete.</param>
-    /// <param name="storageAccountNumber">Alternate number to append to container name</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>
     /// An array matching <paramref name="blobStoragePaths"/> by index. A true value means the blob was deleted or already missing.
     /// </returns>
     Task<bool[]> DeleteBlobsIfExists(
-        string org,
+        StorageAccount account,
         IReadOnlyList<string> blobStoragePaths,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     );
 
     /// <summary>
     /// Deletes blobs under an explicit instance prefix in blob storage.
     /// </summary>
-    /// <param name="org">The blob storage owner id.</param>
+    /// <param name="account">The storage account holding the blobs.</param>
     /// <param name="appId">The application id used as the blob path prefix.</param>
     /// <param name="instanceGuid">The instance guid used as the blob path prefix.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A value indicating whether the delete was successful.</returns>
     Task<bool> DeleteDataBlobs(
-        string org,
+        StorageAccount account,
         string appId,
         Guid instanceGuid,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     );
 
     /// <summary>
     /// Creates a URL that reads one blob, and nothing else, until it expires.
     /// </summary>
-    /// <param name="org">The application owner id.</param>
+    /// <param name="account">The storage account holding the blob.</param>
     /// <param name="blobStoragePath">Path to the blob.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="lifetime">How long the URL stays valid.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The URL and when it expires.</returns>
     Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         TimeSpan lifetime,
         CancellationToken cancellationToken = default
     );
