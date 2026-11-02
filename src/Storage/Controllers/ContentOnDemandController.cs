@@ -140,7 +140,7 @@ public class ContentOnDemandController : Controller
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
-                GetPatternDefault(instance, application),
+                await GetStorageAccount(signatureElement, instance, application, cancellationToken),
                 signatureElement.BlobStoragePath,
                 cancellationToken
             ),
@@ -195,7 +195,7 @@ public class ContentOnDemandController : Controller
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
-                GetPatternDefault(instance, application),
+                await GetStorageAccount(paymentElement, instance, application, cancellationToken),
                 paymentElement.BlobStoragePath,
                 cancellationToken
             ),
@@ -518,7 +518,7 @@ public class ContentOnDemandController : Controller
         views[^1].LastPage = true;
 
         Stream blob = await _blobRepository.ReadBlob(
-            GetPatternDefault(instance, application),
+            await GetStorageAccount(xmlElement, instance, application, cancellationToken),
             xmlElement.BlobStoragePath,
             cancellationToken
         );
@@ -526,11 +526,18 @@ public class ContentOnDemandController : Controller
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
     }
 
-    private StorageAccount GetPatternDefault(InstanceInternal instance, Application application)
+    private Task<StorageAccount> GetStorageAccount(
+        DataElementInternal element,
+        InstanceInternal instance,
+        Application application,
+        CancellationToken cancellationToken
+    )
     {
-        return _storageAccountResolver.PatternDefault(
+        return _storageAccountResolver.ForElement(
+            element,
             _generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org,
-            StorageAccountNaming.NumberOf(application)
+            StorageAccountNaming.NumberOf(application),
+            cancellationToken
         );
     }
 

@@ -321,6 +321,107 @@ public class StorageAccountTests(DataElementFixture fixture)
         AssertLegacy(result.Instance.Data.Single(d => d.Id == legacy.Id));
     }
 
+    [Fact]
+    public async Task GetOrphanBlobVersionsForCleanup_ReturnsStorageAccountIdPerGroup()
+    {
+        short accountId = await _repository.Insert(Azure("orphan"), _org, 1, writable: false);
+        Guid dataElementId = Guid.NewGuid();
+        string withId;
+        string withoutId;
+        await PostgresUtil.FreezeTime(DateTimeOffset.UtcNow.AddDays(-8));
+        try
+        {
+            withId = await fixture.DataRepo.CreateBlobVersionId(
+                _instance.Id,
+                dataElementId,
+                _instance.AppId,
+                _instance.Org,
+                1,
+                accountId
+            );
+            withoutId = await fixture.DataRepo.CreateBlobVersionId(
+                _instance.Id,
+                dataElementId,
+                _instance.AppId,
+                _instance.Org,
+                1,
+                null
+            );
+        }
+        finally
+        {
+            await PostgresUtil.UnfreezeTime();
+        }
+
+        List<BlobVersionReferencesInternal> orphans =
+            await fixture.InstanceRepo.GetOrphanBlobVersionsForCleanup(CancellationToken.None);
+
+        List<BlobVersionReferencesInternal> ours =
+        [
+            .. orphans.Where(refs => refs.InstanceGuid == _instance.Id),
+        ];
+        Assert.Equal(2, ours.Count);
+        Assert.Equal(
+            [withId],
+            Assert.Single(ours, refs => refs.StorageAccountId == accountId).BlobVersionIds
+        );
+        Assert.Equal(
+            [withoutId],
+            Assert.Single(ours, refs => refs.StorageAccountId is null).BlobVersionIds
+        );
+    }
+
+    [Fact]
+    public async Task GetHardDeletedDataElements_ReturnsStorageAccountIdOfAttachedVersions()
+    {
+        short accountId = await _repository.Insert(Azure("harddeleted"), _org, 1, writable: false);
+        Instance apiInstance = TestData.Instance_1_1.Clone();
+        apiInstance.Id = $"{apiInstance.InstanceOwner.PartyId}/{Guid.NewGuid()}";
+        InstanceInternal instance = apiInstance.FromApiModel();
+        instance.CompleteConfirmations =
+        [
+            new CompleteConfirmation
+            {
+                StakeholderId = instance.Org,
+                ConfirmedOn = DateTime.UtcNow.AddDays(-8),
+            },
+        ];
+        instance = await fixture.InstanceRepo.Create(instance, CancellationToken.None);
+        instance = await fixture.InstanceRepo.GetOne(instance.Id, false, CancellationToken.None);
+        DataElementInternal element = NewElement(_dataElementTemplate2);
+        element.InstanceGuid = instance.Id;
+        element.DeleteStatus = new DeleteStatus
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.UtcNow.AddDays(-8),
+        };
+        element.BlobVersionId = await fixture.DataRepo.CreateBlobVersionId(
+            instance.Id,
+            element.Id,
+            instance.AppId,
+            instance.Org,
+            1,
+            accountId
+        );
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
+            instance.AppId,
+            instance.Id,
+            element.BlobVersionId
+        );
+        await fixture.DataRepo.Create(element, instance.InternalId);
+
+        List<DeletedDataElementInternal> deleted =
+            await fixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
+
+        DeletedDataElementInternal ours = Assert.Single(
+            deleted,
+            candidate => candidate.DataElement.Id == element.Id
+        );
+        BlobVersionReferencesInternal refs = Assert.Single(ours.BlobVersions);
+        Assert.Equal(accountId, refs.StorageAccountId);
+        Assert.Equal([element.BlobVersionId], refs.BlobVersionIds);
+    }
+
     private static AzureBlobProviderInfo Azure(string container) => new("account", container);
 
     private static void AssertLocation(
