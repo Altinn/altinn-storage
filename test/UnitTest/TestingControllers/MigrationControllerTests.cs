@@ -15,6 +15,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Extensions;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.TestingRepositories;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
@@ -194,15 +195,19 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         blobRepository
             .Setup(repository =>
                 repository.WriteBlob(
-                    instance.Org,
+                    TestStorageAccounts.PatternDefault(instance.Org),
                     It.IsAny<Stream>(),
-                    expectedBlobStoragePath,
-                    null
+                    expectedBlobStoragePath
                 )
             )
             .ReturnsAsync((3L, DateTimeOffset.UtcNow));
         blobRepository
-            .Setup(repository => repository.DeleteBlob(instance.Org, expectedBlobStoragePath, null))
+            .Setup(repository =>
+                repository.DeleteBlob(
+                    TestStorageAccounts.PatternDefault(instance.Org),
+                    expectedBlobStoragePath
+                )
+            )
             .ReturnsAsync(true);
         using MemoryCache memoryCache = new(new MemoryCacheOptions());
         MigrationController controller = CreateController(
@@ -265,7 +270,8 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
             Options.Create(new AzureStorageConfiguration()),
             Options.Create(settings),
             new HttpClient(),
-            memoryCache
+            memoryCache,
+            new PatternDefaultStorageAccountResolver()
         );
     }
 }

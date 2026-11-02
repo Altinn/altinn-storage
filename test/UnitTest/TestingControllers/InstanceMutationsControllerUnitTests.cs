@@ -21,6 +21,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.Constants;
 using Microsoft.AspNetCore.Authorization;
@@ -686,10 +687,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -754,13 +754,12 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
@@ -966,26 +965,24 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         createdBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         updatedBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
@@ -1073,13 +1070,12 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
@@ -1108,7 +1104,8 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -1790,7 +1787,7 @@ public class InstanceMutationsControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -2812,7 +2809,8 @@ public class InstanceMutationsControllerUnitTests
                         && element.BlobStoragePath != "legacy/path"
                     ),
                     It.IsAny<DateTimeOffset>(),
-                    7,
+                    It.Is<Application>(app => app.StorageAccountNumber == 7),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -3122,10 +3120,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -4216,13 +4213,12 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
@@ -4251,7 +4247,8 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -4299,13 +4296,12 @@ public class InstanceMutationsControllerUnitTests
         fixture
             .BlobRepository.Setup(repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         allocatedBlobVersionId
-                    ),
-                    7
+                    )
                 )
             )
             .Callback(() => deleteBlobOrder = ++order)
@@ -4357,7 +4353,8 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -4407,7 +4404,11 @@ public class InstanceMutationsControllerUnitTests
             .ReturnsAsync(secondBlobVersionId);
         fixture
             .BlobRepository.SetupSequence(repository =>
-                repository.WriteBlob(_org, It.IsAny<Stream>(), It.IsAny<string>(), 7)
+                repository.WriteBlob(
+                    TestStorageAccounts.PatternDefault(_org),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>()
+                )
             )
             .ReturnsAsync((42L, DateTimeOffset.UtcNow))
             .ThrowsAsync(new InvalidOperationException("second blob write failed"));
@@ -4419,26 +4420,20 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
-                    DataElementHelper.GetVersionedBlobPath(
-                        _appId,
-                        instanceGuid,
-                        firstBlobVersionId
-                    ),
-                    7
+                    TestStorageAccounts.PatternDefault(_org),
+                    DataElementHelper.GetVersionedBlobPath(_appId, instanceGuid, firstBlobVersionId)
                 ),
             Times.Once
         );
         fixture.BlobRepository.Verify(
             repository =>
                 repository.DeleteBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     DataElementHelper.GetVersionedBlobPath(
                         _appId,
                         instanceGuid,
                         secondBlobVersionId
-                    ),
-                    7
+                    )
                 ),
             Times.Once
         );
@@ -4504,10 +4499,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -4547,10 +4541,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -4624,16 +4617,14 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Once
         );
         fixture.BlobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
     }
@@ -4681,16 +4672,14 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Once
         );
         fixture.BlobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
     }
@@ -4734,10 +4723,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );
@@ -4774,8 +4762,7 @@ public class InstanceMutationsControllerUnitTests
             Assert.IsType<UnprocessableEntityObjectResult>(result.Result);
         Assert.Equal("Could not process attached file", unprocessable.Value);
         fixture.BlobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         fixture.DataRepository.Verify(
@@ -4935,10 +4922,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Exactly(2)
         );
@@ -5043,7 +5029,7 @@ public class InstanceMutationsControllerUnitTests
                 service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int>()
                 )
             )
             .Callback(() => postCommitBlobCleanupRan = true)
@@ -5251,7 +5237,7 @@ public class InstanceMutationsControllerUnitTests
                 service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int>()
                 ),
             Times.Never
         );
@@ -5301,14 +5287,13 @@ public class InstanceMutationsControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 )
             )
-            .Returns<string, Stream, string, int?>(
-                (org, stream, path, accountNumber) =>
+            .Returns<StorageAccount, Stream, string>(
+                (account, stream, path) =>
                 {
                     using MemoryStream memoryStream = new();
                     stream.CopyTo(memoryStream);
@@ -5318,7 +5303,7 @@ public class InstanceMutationsControllerUnitTests
             );
         blobRepositoryMock
             .Setup(repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>())
+                repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
         dataServiceMock
@@ -5328,7 +5313,8 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -5338,7 +5324,7 @@ public class InstanceMutationsControllerUnitTests
                 service.DeleteLegacyDataElementBlob(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
+                    It.IsAny<int>()
                 )
             )
             .Returns(Task.CompletedTask);
@@ -5415,7 +5401,8 @@ public class InstanceMutationsControllerUnitTests
             Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
             authorizationServiceMock.Object,
             policyAuthorizationServiceMock.Object,
-            processAuthorizerMock.Object
+            processAuthorizerMock.Object,
+            new PatternDefaultStorageAccountResolver()
         )
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },

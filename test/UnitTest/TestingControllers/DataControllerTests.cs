@@ -614,15 +614,14 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         blobRepositoryMock
             .Setup(b =>
                 b.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
                     It.Is<string>(blobStoragePath =>
                         blobStoragePath.StartsWith(
                             $"tdd/endring-av-navn/{VersionedBlobElement.InstanceGuid}/data-elements/"
                         )
                         && blobStoragePath != VersionedBlobElement.BlobStoragePath
-                    ),
-                    It.IsAny<int?>()
+                    )
                 )
             )
             .ReturnsAsync((37, DateTimeOffset.UtcNow))
@@ -1044,7 +1043,7 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
             .ReturnsAsync(de.FromApiModel());
 
         blobRepositoryMock
-            .Setup(dr => dr.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(dr => dr.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
         dataRepositoryMock
@@ -1345,17 +1344,12 @@ public class DataControllerTests : IClassFixture<TestApplicationFactory<DataCont
         Mock<IBlobRepository> repoMock = new();
         repoMock
             .Setup(r =>
-                r.WriteBlob(
-                    It.IsAny<string>(),
-                    It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
-                )
+                r.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>())
             )
             .ReturnsAsync((0, DateTime.UtcNow));
 
         repoMock
-            .Setup(r => r.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(r => r.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
         string token = PrincipalUtil.GetToken(1337, 1337, 3);

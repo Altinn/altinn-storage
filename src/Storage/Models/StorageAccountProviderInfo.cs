@@ -44,7 +44,7 @@ public abstract record StorageAccountProviderInfo
 public sealed record AzureBlobProviderInfo(
     string AccountName,
     string Container,
-    Uri? Endpoint = null
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Uri? Endpoint = null
 ) : StorageAccountProviderInfo
 {
     /// <summary>

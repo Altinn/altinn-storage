@@ -41,6 +41,7 @@ public class DataController : ControllerBase
 
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
+    private readonly IStorageAccountResolver _storageAccountResolver;
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceMutationRepository _instanceMutationRepository;
     private readonly IApplicationRepository _applicationRepository;
@@ -64,6 +65,7 @@ public class DataController : ControllerBase
     /// <param name="generalSettings">the general settings.</param>
     /// <param name="onDemandClient">the ondemand client</param>
     /// <param name="authorizationService">The authorization service</param>
+    /// <param name="storageAccountResolver">Resolves the storage accounts blobs are read from and written to.</param>
     public DataController(
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
@@ -74,11 +76,13 @@ public class DataController : ControllerBase
         IInstanceEventService instanceEventService,
         IOptions<GeneralSettings> generalSettings,
         IOnDemandClient onDemandClient,
-        IAuthorization authorizationService
+        IAuthorization authorizationService,
+        IStorageAccountResolver storageAccountResolver
     )
     {
         _dataRepository = dataRepository;
         _blobRepository = blobRepository;
+        _storageAccountResolver = storageAccountResolver;
         _instanceRepository = instanceRepository;
         _instanceMutationRepository = instanceMutationRepository;
         _applicationRepository = applicationRepository;
@@ -238,7 +242,7 @@ public class DataController : ControllerBase
             await _dataService.CleanupDeletedDataElementBlobs(
                 instance,
                 dataElement,
-                application.StorageAccountNumber,
+                StorageAccountNaming.NumberOf(application),
                 CancellationToken.None
             );
 
@@ -406,10 +410,15 @@ public class DataController : ControllerBase
 
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
 
-        Stream dataStream = await _blobRepository.ReadBlob(
+        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
+            dataElement,
             instance.Org,
+            StorageAccountNaming.NumberOf(application),
+            cancellationToken
+        );
+        Stream dataStream = await _blobRepository.ReadBlob(
+            storageAccount,
             dataElement.BlobStoragePath,
-            application.StorageAccountNumber,
             cancellationToken
         );
 
@@ -532,10 +541,13 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        StorageAccount storageAccount = await _storageAccountResolver.ForVersion(
+            blobVersion,
+            cancellationToken
+        );
         Stream dataStream = await _blobRepository.ReadBlob(
-            blobVersion.BlobStorageOrg,
+            storageAccount,
             DataElementHelper.GetVersionedBlobPath(blobVersion.AppId, instanceGuid, blobVersionId),
-            blobVersion.StorageAccountNumber,
             cancellationToken
         );
         if (dataStream is null)
@@ -719,6 +731,7 @@ public class DataController : ControllerBase
         DataElementInternal dataElement;
         DateTimeOffset blobTimestamp;
         StorageVersions versions;
+        StorageAccount storageAccount;
         try
         {
             DataUploadResult uploadResult = await _dataService.UploadDataAndCreateDataElement(
@@ -726,7 +739,7 @@ public class DataController : ControllerBase
                 stream,
                 createOptions,
                 instance.InternalId,
-                application.StorageAccountNumber,
+                application,
                 preconditions.InstanceVersion,
                 preconditions.ProcessStateVersion,
                 cancellationToken
@@ -735,6 +748,7 @@ public class DataController : ControllerBase
             dataElement = uploadResult.DataElement;
             blobTimestamp = uploadResult.BlobTimestamp;
             versions = uploadResult.Versions;
+            storageAccount = uploadResult.StorageAccount;
         }
         catch (InvalidDataException exception)
         {
@@ -754,7 +768,8 @@ public class DataController : ControllerBase
             dataTypeDefinition,
             dataElement,
             blobTimestamp,
-            application.StorageAccountNumber,
+            application,
+            storageAccount,
             CancellationToken.None
         );
 
@@ -898,13 +913,19 @@ public class DataController : ControllerBase
 
         DateTime changedTime = DateTime.UtcNow;
 
+        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
+        StorageAccount storageAccount = await _storageAccountResolver.ForWrite(
+            instance.Org,
+            storageAccountNumber,
+            cancellationToken
+        );
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
             instanceGuid,
             dataGuid,
             instance.AppId,
             instance.Org,
-            StorageAccountNaming.NumberOf(application),
-            null,
+            storageAccountNumber,
+            storageAccount.Id,
             cancellationToken
         );
         string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -918,10 +939,9 @@ public class DataController : ControllerBase
         try
         {
             (blobSize, blobTimestamp) = await _blobRepository.WriteBlob(
-                instance.Org,
+                storageAccount,
                 stream,
-                versionedBlobStoragePath,
-                application.StorageAccountNumber
+                versionedBlobStoragePath
             );
 
             if (blobSize == 0)
@@ -929,11 +949,10 @@ public class DataController : ControllerBase
                 await DataService.DeleteAllocatedBlobVersion(
                     _blobRepository,
                     _dataRepository,
-                    instance.Org,
+                    storageAccount,
                     dataGuid,
                     versionedBlobStoragePath,
-                    blobVersionId,
-                    application.StorageAccountNumber
+                    blobVersionId
                 );
                 return UnprocessableEntity("Could not process attached file");
             }
@@ -943,11 +962,10 @@ public class DataController : ControllerBase
             await DataService.DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 dataGuid,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             throw;
         }
@@ -998,11 +1016,10 @@ public class DataController : ControllerBase
             await DataService.DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 dataGuid,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             return VersionPreconditionHelper.VersionMismatch(Response, exception);
         }
@@ -1011,11 +1028,10 @@ public class DataController : ControllerBase
             await DataService.DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 dataGuid,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             return StatusCode(StatusCodes.Status412PreconditionFailed, exception.Message);
         }
@@ -1025,11 +1041,10 @@ public class DataController : ControllerBase
             await DataService.DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 dataGuid,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             return Conflict(exception.Message);
         }
@@ -1039,11 +1054,10 @@ public class DataController : ControllerBase
             await DataService.DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 dataGuid,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             return NotFound(exception.Message);
         }
@@ -1057,7 +1071,8 @@ public class DataController : ControllerBase
             dataTypeDefinition,
             updatedElement,
             blobTimestamp,
-            application.StorageAccountNumber,
+            application,
+            storageAccount,
             CancellationToken.None
         );
 

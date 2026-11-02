@@ -41,6 +41,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="authorizationService">The authorization service</param>
 /// <param name="policyAuthorizationService">The ASP.NET Core policy authorization service.</param>
 /// <param name="processAuthorizer">The process-state authorizer.</param>
+/// <param name="storageAccountResolver">Resolves the storage accounts blobs are written to.</param>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/mutations")]
 [ApiController]
 public class InstanceMutationsController(
@@ -54,7 +55,8 @@ public class InstanceMutationsController(
     IOptions<GeneralSettings> generalSettings,
     IAuthorization authorizationService,
     IAuthorizationService policyAuthorizationService,
-    IProcessAuthorizer processAuthorizer
+    IProcessAuthorizer processAuthorizer,
+    IStorageAccountResolver storageAccountResolver
 ) : ControllerBase
 {
     private const long _requestSizeLimit = 2000 * 1024 * 1024;
@@ -885,7 +887,8 @@ public class InstanceMutationsController(
                 fileScanCandidate.DataType,
                 fileScanCandidate.DataElement,
                 fileScanCandidate.BlobTimestamp,
-                application.StorageAccountNumber,
+                application,
+                fileScanCandidate.StorageAccount,
                 CancellationToken.None
             );
         }
@@ -898,7 +901,7 @@ public class InstanceMutationsController(
             await dataService.DeleteLegacyDataElementBlob(
                 updatedInstanceInternal,
                 dataElementInternal,
-                application.StorageAccountNumber
+                StorageAccountNaming.NumberOf(application)
             );
         }
     }
@@ -1005,7 +1008,12 @@ public class InstanceMutationsController(
                 BlobVersionId = staged.BlobVersionId,
             };
 
-            work.AddCreatedDataElement(dataElement, plannedCreate.DataType, staged.BlobTimestamp);
+            work.AddCreatedDataElement(
+                dataElement,
+                plannedCreate.DataType,
+                staged.BlobTimestamp,
+                staged.StorageAccount
+            );
         }
     }
 
@@ -1182,7 +1190,12 @@ public class InstanceMutationsController(
             staged.BlobStoragePath
         );
         scanElement.BlobVersionId = staged.BlobVersionId;
-        work.AddUpdatedContent(scanElement, plannedUpdate.DataType, staged.BlobTimestamp);
+        work.AddUpdatedContent(
+            scanElement,
+            plannedUpdate.DataType,
+            staged.BlobTimestamp,
+            staged.StorageAccount
+        );
     }
 
     private async Task<ActionResult> ValidateDeleteDataElements(
@@ -1502,6 +1515,7 @@ public class InstanceMutationsController(
                     string blobStoragePath,
                     long size,
                     DateTimeOffset blobTimestamp,
+                    StorageAccount storageAccount,
                     ActionResult stageError
                 ) = await StageBlob(
                     instance,
@@ -1522,6 +1536,7 @@ public class InstanceMutationsController(
                     blobStoragePath,
                     size,
                     blobTimestamp,
+                    storageAccount,
                     section.ContentType,
                     fileName
                 );
@@ -1725,11 +1740,10 @@ public class InstanceMutationsController(
             DataService.DeleteAllocatedBlobVersion(
                 blobRepository,
                 dataRepository,
-                stagedBlob.Org,
+                stagedBlob.StorageAccount,
                 stagedBlob.DataElementId,
                 stagedBlob.BlobStoragePath,
-                stagedBlob.BlobVersionId,
-                stagedBlob.StorageAccountNumber
+                stagedBlob.BlobVersionId
             )
         );
     }
@@ -1739,6 +1753,7 @@ public class InstanceMutationsController(
         string BlobStoragePath,
         long Size,
         DateTimeOffset BlobTimestamp,
+        StorageAccount StorageAccount,
         ActionResult Error
     )> StageBlob(
         InstanceInternal instance,
@@ -1749,13 +1764,19 @@ public class InstanceMutationsController(
         CancellationToken cancellationToken
     )
     {
+        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
+        StorageAccount storageAccount = await storageAccountResolver.ForWrite(
+            instance.Org,
+            storageAccountNumber,
+            cancellationToken
+        );
         string blobVersionId = await dataRepository.CreateBlobVersionId(
             instance.Id,
             dataElementId,
             instance.AppId,
             instance.Org,
-            StorageAccountNaming.NumberOf(application),
-            null,
+            storageAccountNumber,
+            storageAccount.Id,
             cancellationToken
         );
         string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -1767,10 +1788,9 @@ public class InstanceMutationsController(
         try
         {
             (long blobSize, DateTimeOffset blobTimestamp) = await blobRepository.WriteBlob(
-                instance.Org,
+                storageAccount,
                 content,
-                versionedBlobStoragePath,
-                application.StorageAccountNumber
+                versionedBlobStoragePath
             );
 
             if (blobSize == 0)
@@ -1778,42 +1798,47 @@ public class InstanceMutationsController(
                 await DataService.DeleteAllocatedBlobVersion(
                     blobRepository,
                     dataRepository,
-                    instance.Org,
+                    storageAccount,
                     dataElementId,
                     versionedBlobStoragePath,
-                    blobVersionId,
-                    application.StorageAccountNumber
+                    blobVersionId
                 );
                 return (
                     null,
                     null,
                     0,
                     default,
+                    null,
                     UnprocessableEntity("Could not process attached file")
                 );
             }
 
             blobStaging.Track(
                 new StagedBlob(
-                    instance.Org,
+                    storageAccount,
                     dataElementId,
                     blobVersionId,
-                    versionedBlobStoragePath,
-                    application.StorageAccountNumber
+                    versionedBlobStoragePath
                 )
             );
-            return (blobVersionId, versionedBlobStoragePath, blobSize, blobTimestamp, null);
+            return (
+                blobVersionId,
+                versionedBlobStoragePath,
+                blobSize,
+                blobTimestamp,
+                storageAccount,
+                null
+            );
         }
         catch
         {
             await DataService.DeleteAllocatedBlobVersion(
                 blobRepository,
                 dataRepository,
-                instance.Org,
+                storageAccount,
                 dataElementId,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             throw;
         }
@@ -2015,11 +2040,10 @@ public class InstanceMutationsController(
     }
 
     private sealed record StagedBlob(
-        string Org,
+        StorageAccount StorageAccount,
         Guid DataElementId,
         string BlobVersionId,
-        string BlobStoragePath,
-        int? StorageAccountNumber
+        string BlobStoragePath
     );
 
     private sealed class BlobStagingScope
@@ -2071,6 +2095,7 @@ public class InstanceMutationsController(
         string BlobStoragePath,
         long Size,
         DateTimeOffset BlobTimestamp,
+        StorageAccount StorageAccount,
         string ContentType,
         string FileName
     );
@@ -2119,11 +2144,14 @@ public class InstanceMutationsController(
         public void AddCreatedDataElement(
             DataElementInternal dataElement,
             DataType dataType,
-            DateTimeOffset blobTimestamp
+            DateTimeOffset blobTimestamp,
+            StorageAccount storageAccount
         )
         {
             _createDataElements.Add(dataElement);
-            _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
+            _fileScanCandidates.Add(
+                new FileScanCandidate(dataElement, dataType, blobTimestamp, storageAccount)
+            );
             _transactionalEvents.Add((InstanceEventType.Created, dataElement));
         }
 
@@ -2133,10 +2161,13 @@ public class InstanceMutationsController(
         public void AddUpdatedContent(
             DataElementInternal dataElement,
             DataType dataType,
-            DateTimeOffset blobTimestamp
+            DateTimeOffset blobTimestamp,
+            StorageAccount storageAccount
         )
         {
-            _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
+            _fileScanCandidates.Add(
+                new FileScanCandidate(dataElement, dataType, blobTimestamp, storageAccount)
+            );
             _transactionalEvents.Add((InstanceEventType.Saved, dataElement));
         }
 
@@ -2193,6 +2224,7 @@ public class InstanceMutationsController(
     private sealed record FileScanCandidate(
         DataElementInternal DataElement,
         DataType DataType,
-        DateTimeOffset BlobTimestamp
+        DateTimeOffset BlobTimestamp,
+        StorageAccount StorageAccount
     );
 }
