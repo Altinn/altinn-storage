@@ -46,6 +46,7 @@ public class CleanupControllerUnitTests
             "stored/app",
             "storage-org",
             blobStorageAccountNumber,
+            null,
             [firstBlobVersionId, secondBlobVersionId]
         );
         BlobVersionReferencesInternal alreadyDeletedByCurrentContext = new(
@@ -53,6 +54,7 @@ public class CleanupControllerUnitTests
             instance.AppId,
             instance.Org,
             storageAccountNumber,
+            null,
             [thirdBlobVersionId]
         );
 
@@ -182,6 +184,7 @@ public class CleanupControllerUnitTests
             "stored/app",
             "storage-org",
             blobStorageAccountNumber,
+            null,
             [blobVersionId]
         );
 
@@ -429,6 +432,7 @@ public class CleanupControllerUnitTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [firstBlobVersionId, secondBlobVersionId]
                 ),
             ]
@@ -612,6 +616,7 @@ public class CleanupControllerUnitTests
             "ttd/app",
             "storage-org",
             storageAccountNumber,
+            null,
             [firstBlobVersionId, secondBlobVersionId]
         );
         string[] expectedBlobStoragePaths =

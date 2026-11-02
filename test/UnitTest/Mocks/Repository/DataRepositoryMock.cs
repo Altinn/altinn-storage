@@ -293,7 +293,8 @@ public class DataRepositoryMock : IDataRepository
         Guid dataElementId,
         string appId,
         string blobStorageOrg,
-        int? storageAccountNumber,
+        int storageAccountNumber,
+        short? storageAccountId,
         CancellationToken cancellationToken = default
     )
     {
@@ -311,6 +312,7 @@ public class DataRepositoryMock : IDataRepository
                     AppId = appId,
                     BlobStorageOrg = blobStorageOrg,
                     StorageAccountNumber = storageAccountNumber,
+                    StorageAccountId = storageAccountId,
                     Created = created,
                     DetachedAt = created,
                 }
@@ -434,7 +436,8 @@ public class DataRepositoryMock : IDataRepository
                         version.InstanceGuid,
                         version.AppId,
                         version.BlobStorageOrg,
-                        version.StorageAccountNumber
+                        version.StorageAccountNumber,
+                        version.StorageAccountId
                     )
                 )
                 .Select(group => new BlobVersionReferencesInternal(
@@ -442,6 +445,7 @@ public class DataRepositoryMock : IDataRepository
                     group.Key.AppId,
                     group.Key.BlobStorageOrg,
                     group.Key.StorageAccountNumber,
+                    group.Key.StorageAccountId,
                     [.. group.Select(version => BlobVersionId.Encode(version.Id))]
                 )),
         ];

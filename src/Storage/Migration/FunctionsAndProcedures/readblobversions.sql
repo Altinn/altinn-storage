@@ -18,3 +18,25 @@ BEGIN
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
 $BODY$;
+
+CREATE OR REPLACE FUNCTION storage.readblobversions_v2(_instanceguid UUID, _dataelementid UUID)
+    RETURNS TABLE (instanceguid UUID, appid TEXT, blobstorageorg TEXT, storageaccountnumber INT, storageaccountid SMALLINT, blobversions UUID[])
+    LANGUAGE 'plpgsql'
+AS $BODY$
+BEGIN
+    RETURN QUERY
+        SELECT
+            bv.instanceguid,
+            bv.appid,
+            bv.blobstorageorg,
+            bv.storageaccountnumber,
+            bv.storageaccountid,
+            array_agg(bv.id ORDER BY bv.created, bv.id) AS blobversions
+        FROM storage.dataelementblobversions bv
+        WHERE bv.instanceguid = _instanceguid
+            AND bv.dataelementid = _dataelementid
+            AND bv.detachedat IS NULL
+        GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber, bv.storageaccountid
+        ORDER BY min(bv.created), min(bv.id::TEXT);
+END;
+$BODY$;

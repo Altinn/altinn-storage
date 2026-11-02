@@ -550,6 +550,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             dataElementId,
             instance.AppId,
             instance.Org,
+            1,
             null,
             CancellationToken.None
         );
