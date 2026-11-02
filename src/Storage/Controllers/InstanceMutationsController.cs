@@ -1754,7 +1754,8 @@ public class InstanceMutationsController(
             dataElementId,
             instance.AppId,
             instance.Org,
-            application.StorageAccountNumber,
+            StorageAccountNaming.NumberOf(application),
+            null,
             cancellationToken
         );
         string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
