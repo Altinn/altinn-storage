@@ -1,6 +1,7 @@
 CREATE OR REPLACE FUNCTION storage.readstorageaccounts()
     RETURNS TABLE (
         id SMALLINT,
+        provider TEXT,
         providerinfo JSONB,
         org TEXT,
         storageaccountnumber INT,
@@ -13,6 +14,7 @@ BEGIN
     RETURN QUERY
         SELECT
             sa.id,
+            sa.provider,
             sa.providerinfo,
             sa.org,
             sa.storageaccountnumber,

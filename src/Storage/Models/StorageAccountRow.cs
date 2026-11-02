@@ -18,4 +18,10 @@ public sealed record StorageAccountRow(
     int StorageAccountNumber,
     bool Writable,
     DateTimeOffset Created
-);
+)
+{
+    /// <summary>
+    /// Gets the provider stored in the row's provider column.
+    /// </summary>
+    public string Provider => ProviderInfo.Provider;
+}

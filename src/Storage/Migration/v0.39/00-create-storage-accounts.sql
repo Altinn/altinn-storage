@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS storage.storageaccounts (
     id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    providerinfo JSONB NOT NULL,        -- provider-specific document, discriminated by "provider"
+    provider TEXT NOT NULL,             -- 'azure-blob', 'file-system', ...; selects the C# type
+    providerinfo JSONB NOT NULL,        -- that provider's own properties, no discriminator inside
     org TEXT NOT NULL,                  -- blob storage org
     storageaccountnumber INT NOT NULL,  -- Application.StorageAccountNumber, default 1 when the app has none
     writable BOOLEAN NOT NULL DEFAULT true, -- target for new blob versions of (org, number)

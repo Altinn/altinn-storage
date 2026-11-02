@@ -372,6 +372,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSwaggerGen(SwaggerExtensions.StorageSwaggerGen);
     services.AddSwaggerGenNewtonsoftSupport();
 
+    builder.Services.AddHostedService<StorageAccountStartupCheck>();
     builder.Services.AddHostedService<OutboxService>();
 }
 
