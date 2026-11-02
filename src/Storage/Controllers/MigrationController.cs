@@ -276,9 +276,10 @@ public class MigrationController : ControllerBase
             hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
             string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
             int storageAccountNumber = StorageAccountNaming.NumberOf(app);
-            blobStorageAccount = _storageAccountResolver.PatternDefault(
+            blobStorageAccount = await _storageAccountResolver.ForWrite(
                 blobOrg,
-                storageAccountNumber
+                storageAccountNumber,
+                cancellationToken
             );
             if (hasBlob)
             {
@@ -773,20 +774,34 @@ public class MigrationController : ControllerBase
             cancellationToken
         );
 
-        if (_generalSettings.A2UseTtdAsServiceOwner)
+        string blobOrg = _generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org;
+        HashSet<(StorageAccount Account, string AppId)> contexts =
+        [
+            (
+                _storageAccountResolver.PatternDefault(blobOrg, StorageAccountNaming.NumberOf(app)),
+                instance.AppId
+            ),
+        ];
+        foreach (
+            BlobVersionReferencesInternal blobVersion in await _instanceRepository.GetBlobVersionsForInstance(
+                instanceGuid,
+                cancellationToken
+            )
+        )
         {
-            instance.Org = "ttd";
+            contexts.Add(
+                (
+                    await _storageAccountResolver.ForVersion(blobVersion, cancellationToken),
+                    blobVersion.AppId
+                )
+            );
         }
 
-        await _blobRepository.DeleteDataBlobs(
-            _storageAccountResolver.PatternDefault(
-                instance.Org,
-                StorageAccountNaming.NumberOf(app)
-            ),
-            instance.AppId,
-            instanceGuid,
-            cancellationToken
-        );
+        foreach ((StorageAccount account, string appId) in contexts)
+        {
+            await _blobRepository.DeleteDataBlobs(account, appId, instanceGuid, cancellationToken);
+        }
+
         await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);
         await _instanceEventRepository.DeleteAllInstanceEvents(instanceGuid);
         await _instanceRepository.Delete(instanceGuid, cancellationToken);

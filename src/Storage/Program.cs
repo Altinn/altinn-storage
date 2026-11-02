@@ -38,6 +38,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Npgsql;
@@ -257,7 +258,14 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
     services.Configure<StorageCleanupSettings>(config.GetSection("StorageCleanupSettings"));
     services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
-    services.Configure<StorageAccountSettings>(config.GetSection("StorageAccounts"));
+    services
+        .AddOptions<StorageAccountSettings>()
+        .Bind(config.GetSection("StorageAccounts"))
+        .ValidateOnStart();
+    services.AddSingleton<
+        IValidateOptions<StorageAccountSettings>,
+        StorageAccountSettingsValidator
+    >();
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
