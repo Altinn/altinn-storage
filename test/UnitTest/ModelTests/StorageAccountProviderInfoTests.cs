@@ -8,24 +8,23 @@ namespace Altinn.Platform.Storage.UnitTest.ModelTests;
 public class StorageAccountProviderInfoTests
 {
     [Fact]
-    public void AzureBlob_RoundTripsWithDiscriminatorAndOmitsNullEndpoint()
+    public void AzureBlob_SerializesWithoutDiscriminatorAndOmitsNullEndpoint()
     {
         StorageAccountProviderInfo info = new AzureBlobProviderInfo(
             "ttdaltinnprodstrg01",
             "ttd-prod-appsdata-blob-db"
         );
 
-        string json = Serialize(info);
-
+        Assert.Equal(StorageAccountProviderInfo.AzureBlob, info.Provider);
         Assert.Equal(
-            """{"provider":"azure-blob","accountName":"ttdaltinnprodstrg01","container":"ttd-prod-appsdata-blob-db"}""",
-            json
+            """{"accountName":"ttdaltinnprodstrg01","container":"ttd-prod-appsdata-blob-db"}""",
+            info.Serialize()
         );
-        Assert.Equal(info, Deserialize(json));
+        Assert.Equal(info, StorageAccountProviderInfo.Deserialize(info.Provider, info.Serialize()));
     }
 
     [Fact]
-    public void AzureBlob_WithEndpoint_RoundTrips()
+    public void AzureBlob_WithEndpoint_SerializesWithoutDiscriminator()
     {
         StorageAccountProviderInfo info = new AzureBlobProviderInfo(
             "devstoreaccount1",
@@ -33,38 +32,59 @@ public class StorageAccountProviderInfoTests
             new Uri("http://127.0.0.1:10000/devstoreaccount1")
         );
 
-        string json = Serialize(info);
-
         Assert.Equal(
-            """{"provider":"azure-blob","accountName":"devstoreaccount1","container":"ttd-dev-appsdata-blob-db","endpoint":"http://127.0.0.1:10000/devstoreaccount1"}""",
-            json
+            """{"accountName":"devstoreaccount1","container":"ttd-dev-appsdata-blob-db","endpoint":"http://127.0.0.1:10000/devstoreaccount1"}""",
+            info.Serialize()
         );
-        Assert.Equal(info, Deserialize(json));
+        Assert.Equal(info.Serialize(), info.SerializeToElement().GetRawText());
     }
 
     [Fact]
-    public void FileSystem_RoundTripsWithDiscriminator()
+    public void FileSystem_SerializesWithoutDiscriminator()
     {
         StorageAccountProviderInfo info = new FileSystemProviderInfo("/data/blobs/ttd");
 
-        string json = Serialize(info);
-
-        Assert.Equal("""{"provider":"file-system","directory":"/data/blobs/ttd"}""", json);
-        Assert.Equal(info, Deserialize(json));
+        Assert.Equal(StorageAccountProviderInfo.FileSystem, info.Provider);
+        Assert.Equal("""{"directory":"/data/blobs/ttd"}""", info.Serialize());
     }
 
-    [Fact]
-    public void Deserialize_DiscriminatorAfterOtherProperties_Succeeds()
-    {
-        // jsonb stores keys ordered by length, so "endpoint" is read back before "provider".
-        StorageAccountProviderInfo? info = Deserialize(
-            """{"endpoint":"http://127.0.0.1:10000/devstoreaccount1","provider":"azure-blob","container":"c","accountName":"a"}"""
-        );
+    public static TheoryData<string, string, StorageAccountProviderInfo> ReorderedDocuments =>
+        new()
+        {
+            {
+                StorageAccountProviderInfo.AzureBlob,
+                """{"endpoint":"http://127.0.0.1:10000/devstoreaccount1","container":"c","accountName":"a"}""",
+                new AzureBlobProviderInfo(
+                    "a",
+                    "c",
+                    new Uri("http://127.0.0.1:10000/devstoreaccount1")
+                )
+            },
+            {
+                StorageAccountProviderInfo.AzureBlob,
+                """{"container":"c","accountName":"a"}""",
+                new AzureBlobProviderInfo("a", "c")
+            },
+            {
+                StorageAccountProviderInfo.FileSystem,
+                """{"directory":"/data/blobs/ttd"}""",
+                new FileSystemProviderInfo("/data/blobs/ttd")
+            },
+        };
 
-        Assert.Equal(
-            new AzureBlobProviderInfo("a", "c", new Uri("http://127.0.0.1:10000/devstoreaccount1")),
-            info
-        );
+    [Theory]
+    [MemberData(nameof(ReorderedDocuments))]
+    public void Deserialize_DocumentKeysInAnyOrder_ReturnsVariantOfProvider(
+        string provider,
+        string json,
+        StorageAccountProviderInfo expected
+    )
+    {
+        StorageAccountProviderInfo info = StorageAccountProviderInfo.Deserialize(provider, json);
+
+        Assert.Equal(expected, info);
+        Assert.Equal(provider, info.Provider);
+        Assert.Equal(info, StorageAccountProviderInfo.Deserialize(provider, info.Serialize()));
     }
 
     [Fact]
@@ -96,28 +116,27 @@ public class StorageAccountProviderInfoTests
         );
     }
 
-    [Theory]
-    [InlineData("""{"provider":"s3","bucket":"b"}""")]
-    [InlineData("""{"accountName":"a","container":"c"}""")]
-    [InlineData("""{"provider":"azure-blob","accountName":"a"}""")]
-    [InlineData("""{"provider":"azure-blob","accountName":null,"container":"c"}""")]
-    [InlineData("""{"provider":"file-system"}""")]
-    public void Deserialize_InvalidDocument_Throws(string json)
+    [Fact]
+    public void Deserialize_UnknownProvider_ThrowsNotSupported()
     {
-        Exception exception = Record.Exception(() => Deserialize(json));
-
-        Assert.True(
-            exception is JsonException or NotSupportedException,
-            $"Unexpected exception: {exception}"
+        NotSupportedException exception = Assert.Throws<NotSupportedException>(() =>
+            StorageAccountProviderInfo.Deserialize("s3", """{"bucket":"b"}""")
         );
+
+        Assert.Contains("'s3'", exception.Message);
     }
 
-    private static string Serialize(StorageAccountProviderInfo info) =>
-        JsonSerializer.Serialize(info, StorageAccountProviderInfo.JsonOptions);
-
-    private static StorageAccountProviderInfo? Deserialize(string json) =>
-        JsonSerializer.Deserialize<StorageAccountProviderInfo>(
-            json,
-            StorageAccountProviderInfo.JsonOptions
-        );
+    [Theory]
+    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
+    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":null,"container":"c"}""")]
+    [InlineData(StorageAccountProviderInfo.AzureBlob, "null")]
+    [InlineData(StorageAccountProviderInfo.FileSystem, "{}")]
+    [InlineData(StorageAccountProviderInfo.FileSystem, """{"accountName":"a","container":"c"}""")]
+    public void Deserialize_InvalidDocumentForProvider_ThrowsJsonException(
+        string provider,
+        string json
+    )
+    {
+        Assert.Throws<JsonException>(() => StorageAccountProviderInfo.Deserialize(provider, json));
+    }
 }

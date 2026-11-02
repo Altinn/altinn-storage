@@ -10,8 +10,10 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Xunit;
 
@@ -78,10 +80,23 @@ public class StorageAccountTests(DataElementFixture fixture)
         Assert.Equal(fileSystem, fileSystemRow.ProviderInfo);
         Assert.Equal(2, fileSystemRow.StorageAccountNumber);
         Assert.False(fileSystemRow.Writable);
+        Assert.Equal(StorageAccountProviderInfo.AzureBlob, azureRow.Provider);
+        Assert.Equal(StorageAccountProviderInfo.FileSystem, fileSystemRow.Provider);
         Assert.Equal(
-            "file-system",
+            StorageAccountProviderInfo.FileSystem,
             await PostgresUtil.RunQuery<string>(
-                $"select providerinfo->>'provider' from storage.storageaccounts where id = {fileSystemId}"
+                $"select provider from storage.storageaccounts where id = {fileSystemId}"
+            )
+        );
+        Assert.Equal(
+            "/data/blobs/ttd",
+            await PostgresUtil.RunQuery<string>(
+                $"select providerinfo->>'directory' from storage.storageaccounts where id = {fileSystemId}"
+            )
+        );
+        Assert.False(
+            await PostgresUtil.RunQuery<bool>(
+                $"select bool_or(jsonb_exists(providerinfo, 'provider')) from storage.storageaccounts where id in ({azureId}, {fileSystemId})"
             )
         );
     }
@@ -108,24 +123,49 @@ public class StorageAccountTests(DataElementFixture fixture)
         Assert.Equal(PostgresErrorCodes.UniqueViolation, exception.SqlState);
     }
 
-    [Fact]
-    public async Task ReadAll_UnknownProvider_ThrowsNamingRow()
+    [Theory]
+    [InlineData("unknown-provider", """{"accountName":"a","container":"c"}""")]
+    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
+    public async Task ReadAll_UnreadableRow_ThrowsNamingRow(string provider, string document)
     {
         short id = await PostgresUtil.RunQuery<short>(
-            $"select storage.insertstorageaccount('{{\"provider\":\"unknown-provider\"}}'::jsonb, '{_org}', 1, false)"
+            $"select storage.insertstorageaccount('{provider}', '{document}'::jsonb, '{_org}', 1, false)"
         );
 
         try
         {
             InvalidOperationException exception =
                 await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.ReadAll());
-            Assert.Contains($"Storage account {id}", exception.Message);
+            Assert.Contains($"Storage account {id} ", exception.Message);
+            Assert.Contains($"'{provider}'", exception.Message);
+
+            StorageAccountStartupCheck startupCheck = new(
+                _repository,
+                NullLogger<StorageAccountStartupCheck>.Instance
+            );
+            InvalidOperationException startupException =
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    startupCheck.StartAsync(CancellationToken.None)
+                );
+            Assert.Contains($"Storage account {id} ", startupException.Message);
         }
         finally
         {
             // The row would break every later read of the table.
             await PostgresUtil.RunSql($"delete from storage.storageaccounts where id = {id}");
         }
+    }
+
+    [Fact]
+    public async Task StartupCheck_ReadableRows_Succeeds()
+    {
+        await _repository.Insert(Azure("startup"), _org, 1, writable: false);
+        StorageAccountStartupCheck startupCheck = new(
+            _repository,
+            NullLogger<StorageAccountStartupCheck>.Instance
+        );
+
+        await startupCheck.StartAsync(CancellationToken.None);
     }
 
     [Fact]

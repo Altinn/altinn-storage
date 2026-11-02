@@ -76,7 +76,8 @@ public class DataService : IDataService
                 Filename = dataElement.Filename,
                 Org = instance.Org,
                 StorageAccountNumber = application.StorageAccountNumber,
-                ProviderInfo = storageAccount.ProviderInfo,
+                StorageAccountProvider = storageAccount.ProviderInfo.Provider,
+                StorageAccountProviderInfo = storageAccount.ProviderInfo.SerializeToElement(),
                 StorageAccountId = storageAccount.Id,
             };
 

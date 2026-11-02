@@ -1,4 +1,5 @@
 CREATE OR REPLACE FUNCTION storage.insertstorageaccount(
+    _provider TEXT,
     _providerinfo JSONB,
     _org TEXT,
     _storageaccountnumber INT,
@@ -18,8 +19,8 @@ BEGIN
             AND writable;
     END IF;
 
-    INSERT INTO storage.storageaccounts (providerinfo, org, storageaccountnumber, writable)
-    VALUES (_providerinfo, _org, _storageaccountnumber, _writable)
+    INSERT INTO storage.storageaccounts (provider, providerinfo, org, storageaccountnumber, writable)
+    VALUES (_provider, _providerinfo, _org, _storageaccountnumber, _writable)
     RETURNING id INTO _id;
 
     RETURN _id;

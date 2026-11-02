@@ -156,10 +156,12 @@ public class DataServiceTests
         );
 
         // Assert
+        Assert.Contains("\"storageAccountProvider\":\"azure-blob\"", queuedMessage);
         Assert.Contains(
-            "\"providerInfo\":{\"provider\":\"azure-blob\",\"accountName\":\"ttdnamedaccount\",\"container\":\"ttd-named-container\"}",
+            "\"storageAccountProviderInfo\":{\"accountName\":\"ttdnamedaccount\",\"container\":\"ttd-named-container\"}",
             queuedMessage
         );
+        Assert.DoesNotContain("\"provider\"", queuedMessage);
         Assert.Contains("\"storageAccountId\":4", queuedMessage);
         Assert.Contains("\"org\":\"ttd\"", queuedMessage);
         Assert.Contains("\"storageAccountNumber\":2", queuedMessage);
