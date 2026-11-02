@@ -39,7 +39,7 @@ public class PgInstanceRepository : IInstanceRepository
         + " @_completeconfirmations, @_presentationtexts, @_status, @_substatus, @_process, @_lastchanged, @_taskid, @_confirmed,"
         + " @_expectedinstanceversion, @_expectedprocessstateversion)";
 
-    private readonly string _readSql = "select * from storage.readinstance_v2 ($1)";
+    private readonly string _readSql = "select * from storage.readinstance_v3 ($1)";
     private const string _updateDataValuesSql =
         "select * from storage.updateinstance_datavalues ($1, $2, $3, $4)";
     private readonly string _updateReadStatusSql =
@@ -47,11 +47,11 @@ public class PgInstanceRepository : IInstanceRepository
     private readonly string _readSqlFiltered = _readSqlFilteredInitial;
     private readonly string _readDeletedSql = "select * from storage.readdeletedinstances ()";
     private readonly string _readHardDeletedDataElementsForCleanupSql =
-        "select * from storage.readharddeleteddataelementsforcleanup ()";
+        "select * from storage.readharddeleteddataelementsforcleanup_v2 ()";
     private readonly string _readBlobVersionsForInstanceSql =
-        "select * from storage.readblobversionsforinstance ($1)";
+        "select * from storage.readblobversionsforinstance_v2 ($1)";
     private readonly string _readOrphanBlobVersionsForCleanupSql =
-        "select * from storage.readorphanblobversionsforcleanup ()";
+        "select * from storage.readorphanblobversionsforcleanup_v2 ()";
     private readonly string _readSqlNoElements =
         "select * from storage.readinstancenoelements_v2 ($1)";
 
@@ -267,6 +267,7 @@ public class PgInstanceRepository : IInstanceRepository
                                 appIdColumn: "blobversionappid",
                                 blobStorageOrgColumn: "blobversionblobstorageorg",
                                 storageAccountNumberColumn: "blobversionstorageaccountnumber",
+                                storageAccountIdColumn: "blobversionstorageaccountid",
                                 cancellationToken: cancellationToken
                             )
                         );
@@ -524,7 +525,12 @@ public class PgInstanceRepository : IInstanceRepository
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
 
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
-        return await InstanceResultReader.ReadAsync(reader, includeElements, cancellationToken);
+        return await InstanceResultReader.ReadAsync(
+            reader,
+            includeElements,
+            cancellationToken,
+            includeBlobStorageLocation: includeElements
+        );
     }
 
     /// <inheritdoc/>

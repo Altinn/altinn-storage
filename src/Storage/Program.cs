@@ -252,6 +252,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<PostgreSqlSettings>(config.GetSection("PostgreSqlSettings"));
     services.Configure<StorageCleanupSettings>(config.GetSection("StorageCleanupSettings"));
     services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
+    services.Configure<StorageAccountSettings>(config.GetSection("StorageAccounts"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IAuthorizationHandler, PlatformAccessTokenAppHandler>();
@@ -367,6 +368,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IProcessAuthorizer, ProcessAuthorizer>();
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
+    services.AddSingleton<IStorageAccountResolver, StorageAccountResolver>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();

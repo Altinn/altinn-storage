@@ -30,7 +30,7 @@ public class DataRepositoryMockTests
             dataElementId,
             "other/app",
             "other",
-            null
+            1
         );
         string secondBlobVersionId = await AllocateBlobVersion(
             repository,
@@ -66,7 +66,7 @@ public class DataRepositoryMockTests
                 Assert.Equal(instanceGuid, otherContext.InstanceGuid);
                 Assert.Equal("other/app", otherContext.AppId);
                 Assert.Equal("other", otherContext.BlobStorageOrg);
-                Assert.Null(otherContext.StorageAccountNumber);
+                Assert.Equal(1, otherContext.StorageAccountNumber);
                 Assert.Equal([otherContextBlobVersionId], otherContext.BlobVersionIds);
             }
         );
@@ -90,7 +90,7 @@ public class DataRepositoryMockTests
             dataElementId,
             "other/app",
             "other",
-            null
+            1
         );
 
         await repository.Create(
@@ -639,7 +639,7 @@ public class DataRepositoryMockTests
             secondId,
             "other/app",
             "other",
-            null
+            1
         );
         string secondDetached = await AllocateBlobVersion(
             repo,
@@ -647,7 +647,7 @@ public class DataRepositoryMockTests
             secondId,
             "other/app",
             "other",
-            null
+            1
         );
         string lastDetached = await AllocateBlobVersion(repo, instance, detachedOnlyId);
         await repo.Create(CreateDataElement(instance, firstId, firstAttached));
@@ -741,13 +741,14 @@ public class DataRepositoryMockTests
         Guid dataElementId,
         string appId = "ttd/app",
         string blobStorageOrg = "ttd",
-        int? storageAccountNumber = 42
+        int storageAccountNumber = 42
     ) =>
         repository.CreateBlobVersionId(
             instanceGuid,
             dataElementId,
             appId,
             blobStorageOrg,
-            storageAccountNumber
+            storageAccountNumber,
+            null
         );
 }

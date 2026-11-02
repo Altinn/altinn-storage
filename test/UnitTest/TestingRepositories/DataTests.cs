@@ -1832,14 +1832,15 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
         Assert.NotNull(version);
         Assert.Null(version.DataType);
+        Assert.Null(version.StorageAccountId);
     }
 
     [Theory]
-    [InlineData(false, null)]
+    [InlineData(false, 1)]
     [InlineData(true, 42)]
     public async Task ReadBlobVersion_AfterAggregateDelete_PreservesStorageContextAndDetachTime(
         bool superseded,
-        int? storageAccountNumber
+        int storageAccountNumber
     )
     {
         // Arrange
@@ -8249,7 +8250,7 @@ public class DataTests(DataElementFixture dataElementFixture)
 
     private async Task<(DataElement DataElement, string BlobVersionId)> CreateVersionedDataElement(
         DataElement dataElement,
-        int? storageAccountNumber = null
+        int storageAccountNumber = StorageAccountNaming.DefaultStorageAccountNumber
     )
     {
         string blobVersionId = await CreateBlobVersionId(
@@ -8294,7 +8295,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     private Task<string> CreateBlobVersionId(
         Guid instanceGuid,
         string dataElementId = null,
-        int? storageAccountNumber = null
+        int storageAccountNumber = StorageAccountNaming.DefaultStorageAccountNumber
     )
     {
         return dataElementFixture.DataRepo.CreateBlobVersionId(
@@ -8302,7 +8303,8 @@ public class DataTests(DataElementFixture dataElementFixture)
             string.IsNullOrEmpty(dataElementId) ? Guid.NewGuid() : Guid.Parse(dataElementId),
             _instance.AppId,
             _instance.Org,
-            storageAccountNumber
+            storageAccountNumber,
+            null
         );
     }
 

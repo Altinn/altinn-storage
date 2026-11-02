@@ -123,4 +123,29 @@ public sealed class DataElementInternal
     /// </summary>
     [TextJson.JsonIgnore]
     public string BlobVersionId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the id of the storage account holding the current blob version, or null for the pattern default.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public short? StorageAccountId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the org recorded on the current blob version.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public string BlobStorageOrg { get; set; }
+
+    /// <summary>
+    /// Gets or sets the storage account number recorded on the current blob version.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public int? BlobStorageAccountNumber { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the storage location of the current blob version was read with the element.
+    /// Readers that do not join the blob version row leave this false.
+    /// </summary>
+    [TextJson.JsonIgnore]
+    public bool BlobStorageLoaded { get; set; }
 }

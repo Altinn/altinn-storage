@@ -1590,6 +1590,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             data.Id,
             input.AppId,
             input.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -1690,6 +1691,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             data1.Id,
             instance1.AppId,
             instance1.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -1698,6 +1700,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             data1.Id,
             instance1.AppId,
             instance1.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -1759,6 +1762,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.NewGuid(),
             instance.AppId,
             instance.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -1898,6 +1902,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.Parse(firstInsertedElement.Id),
             input.AppId,
             input.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -1921,6 +1926,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             Guid.Parse(secondInsertedElement.Id),
             input.AppId,
             input.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -2882,6 +2888,7 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             dataElementId,
             instance.AppId,
             instance.Org,
+            1,
             null,
             CancellationToken.None
         );

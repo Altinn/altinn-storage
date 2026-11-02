@@ -904,7 +904,8 @@ public class DataController : ControllerBase
             dataGuid,
             instance.AppId,
             instance.Org,
-            application.StorageAccountNumber,
+            StorageAccountNaming.NumberOf(application),
+            null,
             cancellationToken
         );
         string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(

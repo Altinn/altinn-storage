@@ -269,7 +269,8 @@ public class DataServiceTests
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -368,6 +369,7 @@ public class DataServiceTests
                     instance.AppId,
                     instance.Org,
                     storageAccountNumber,
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -444,7 +446,8 @@ public class DataServiceTests
                     dataElementId,
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -519,7 +522,8 @@ public class DataServiceTests
                     dataElementId,
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -595,7 +599,8 @@ public class DataServiceTests
                     dataElementId,
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -675,7 +680,8 @@ public class DataServiceTests
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
+                    It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -868,6 +874,7 @@ public class DataServiceTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [firstBlobVersionId, secondBlobVersionId]
                 ),
             ]);
@@ -997,6 +1004,7 @@ public class DataServiceTests
                     "first/app",
                     "first-storage-org",
                     7,
+                    null,
                     [duplicateBlobVersionId]
                 ),
                 new BlobVersionReferencesInternal(
@@ -1004,6 +1012,7 @@ public class DataServiceTests
                     "second/app",
                     "second-storage-org",
                     8,
+                    null,
                     [secondGroupBlobVersionId]
                 ),
                 new BlobVersionReferencesInternal(
@@ -1011,6 +1020,7 @@ public class DataServiceTests
                     "third/app",
                     "first-storage-org",
                     7,
+                    null,
                     [firstGroupBlobVersionId, duplicateBlobVersionId]
                 ),
             ]);
@@ -1127,6 +1137,7 @@ public class DataServiceTests
                     "stored/app",
                     "storage-org",
                     7,
+                    null,
                     [blobVersionId]
                 ),
             ]);
@@ -1200,6 +1211,7 @@ public class DataServiceTests
                     instance.AppId,
                     "first-storage-org",
                     7,
+                    null,
                     [firstBlobVersionId]
                 ),
                 new BlobVersionReferencesInternal(
@@ -1207,6 +1219,7 @@ public class DataServiceTests
                     "second/app",
                     "second-storage-org",
                     8,
+                    null,
                     [secondBlobVersionId]
                 ),
             ]);
@@ -1321,6 +1334,7 @@ public class DataServiceTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [failedBlobVersionId, successfulBlobVersionId]
                 ),
             ]);
@@ -1422,6 +1436,7 @@ public class DataServiceTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [blobVersionId]
                 ),
             ]);
@@ -1520,6 +1535,7 @@ public class DataServiceTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [blobVersionId]
                 ),
             ]);

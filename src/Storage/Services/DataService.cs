@@ -184,7 +184,8 @@ public class DataService : IDataService
             options.DataElementId,
             instance.AppId,
             instance.Org,
-            storageAccountNumber,
+            storageAccountNumber ?? StorageAccountNaming.DefaultStorageAccountNumber,
+            null,
             cancellationToken
         );
         string blobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -331,7 +332,7 @@ public class DataService : IDataService
         var blobVersionsByStorage = detachedBlobVersions
             .SelectMany(bv => bv.BlobVersionIds.Select(id => (bv, id)))
             .GroupBy(
-                x => (x.bv.BlobStorageOrg, x.bv.StorageAccountNumber),
+                x => (x.bv.BlobStorageOrg, x.bv.StorageAccountNumber, x.bv.StorageAccountId),
                 x =>
                     (
                         BlobVersionId: x.id,

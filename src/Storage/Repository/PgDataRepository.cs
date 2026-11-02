@@ -37,7 +37,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
 
     private readonly string _insertSql =
         "select * from storage.insertdataelement_v3 ($1, $2, $3, $4, $5, $6, $7)";
-    private readonly string _readSql = "select * from storage.readdataelement_v2($1)";
+    private readonly string _readSql = "select * from storage.readdataelement_v3($1)";
     private readonly string _deleteForCleanupSql =
         "select * from storage.deletedataelementforcleanup ($1, $2)";
     private readonly string _deleteForInstanceSql = "select * from storage.deletedataelements ($1)";
@@ -50,18 +50,19 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     private readonly string _updateFileScanStatusSql =
         "select * from storage.updatedataelement_filescanstatus ($1, $2, $3, $4)";
     private readonly string _createBlobVersionSql =
-        "select storage.createblobversion($1, $2, $3, $4, $5, $6)";
+        "select storage.createblobversion_v2($1, $2, $3, $4, $5, $6, $7)";
     private readonly string _deleteBlobVersionSql =
         "select * from storage.deleteblobversion($1, $2)";
     private readonly string _deleteBlobVersionsSql =
         "select * from storage.deleteblobversions($1, $2)";
     private readonly string _deleteOrphanBlobVersionsSql =
         "select * from storage.deleteorphanblobversions($1)";
-    private readonly string _readBlobVersionsSql = "select * from storage.readblobversions($1, $2)";
+    private readonly string _readBlobVersionsSql =
+        "select * from storage.readblobversions_v2($1, $2)";
     private readonly string _readBlobVersionSql =
-        "select * from storage.readblobversion($1, $2, $3)";
+        "select * from storage.readblobversion_v2($1, $2, $3)";
     private readonly string _readDetachedBlobVersionsSql =
-        "select * from storage.readdetachedblobversions($1)";
+        "select * from storage.readdetachedblobversions_v2($1)";
     private readonly string _existsSql = "select * from storage.readdataelementexists($1)";
 
     private readonly ILogger<PgDataRepository> _logger = logger;
@@ -195,6 +196,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         if (await reader.ReadAsync(cancellationToken))
         {
             dataElement = await ReadDataElementAsync(reader, "element", cancellationToken);
+            await BlobStorageLocationReader.ReadAsync(reader, dataElement, cancellationToken);
         }
 
         return dataElement;
@@ -646,7 +648,8 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         Guid dataElementId,
         string appId,
         string blobStorageOrg,
-        int? storageAccountNumber,
+        int storageAccountNumber,
+        short? storageAccountId,
         CancellationToken cancellationToken = default
     )
     {
@@ -658,9 +661,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, blobStorageOrg);
+        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, storageAccountNumber);
         pgcom.Parameters.AddWithValue(
-            NpgsqlDbType.Integer,
-            storageAccountNumber ?? (object)DBNull.Value
+            NpgsqlDbType.Smallint,
+            storageAccountId ?? (object)DBNull.Value
         );
 
         await pgcom.ExecuteNonQueryAsync(cancellationToken);
@@ -720,6 +724,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         int storageAccountOrdinal = reader.GetOrdinal("storageaccountnumber");
         int detachedAtOrdinal = reader.GetOrdinal("detachedat");
         int dataTypeOrdinal = reader.GetOrdinal("datatype");
+        int storageAccountIdOrdinal = reader.GetOrdinal("storageaccountid");
         return new DataElementBlobVersion
         {
             Id = blobVersion,
@@ -736,6 +741,15 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
             )
                 ? null
                 : await reader.GetFieldValueAsync<int>(storageAccountOrdinal, cancellationToken),
+            StorageAccountId = await reader.IsDBNullAsync(
+                storageAccountIdOrdinal,
+                cancellationToken
+            )
+                ? null
+                : await reader.GetFieldValueAsync<short>(
+                    storageAccountIdOrdinal,
+                    cancellationToken
+                ),
             Created = await reader.GetFieldValueAsync<DateTimeOffset>("created", cancellationToken),
             DetachedAt = await reader.IsDBNullAsync(detachedAtOrdinal, cancellationToken)
                 ? null
