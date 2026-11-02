@@ -11,6 +11,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -21,6 +22,11 @@ namespace Altinn.Platform.Storage.UnitTest.TestingServices;
 
 public class SigningServiceTest
 {
+    private static readonly StorageAccount _stagedAccount = new(
+        3,
+        new AzureBlobProviderInfo("orgnamedaccount", "org-named-container")
+    );
+
     private const string _signatureDataType = "sign-data-type";
 
     public static TheoryData<Signee> SigneeData =>
@@ -77,7 +83,7 @@ public class SigningServiceTest
                     fixture.Instance,
                     It.IsAny<Stream>(),
                     It.Is<DataElementCreateOptions>(options => options.Locked),
-                    7,
+                    It.Is<Application>(app => app.StorageAccountNumber == 7),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -348,7 +354,7 @@ public class SigningServiceTest
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -380,7 +386,7 @@ public class SigningServiceTest
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -468,7 +474,7 @@ public class SigningServiceTest
                     It.IsAny<string>(),
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
-                    It.IsAny<int?>()
+                    It.IsAny<Application>()
                 ),
             Times.Never
         );
@@ -485,7 +491,7 @@ public class SigningServiceTest
                     It.IsAny<string>(),
                     It.IsAny<Guid>(),
                     It.IsAny<Guid>(),
-                    It.IsAny<int?>()
+                    It.IsAny<Application>()
                 )
             )
             .ReturnsAsync((null, new ServiceError(404, "DataElement not found")));
@@ -507,7 +513,7 @@ public class SigningServiceTest
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -524,7 +530,7 @@ public class SigningServiceTest
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -633,17 +639,25 @@ public class SigningServiceTest
                     fixture.Instance,
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    7,
+                    It.Is<Application>(app => app.StorageAccountNumber == 7),
                     It.IsAny<CancellationToken>()
                 )
             )
             .Callback(() => stageOrder = ++order)
             .ReturnsAsync(
-                new StagedDataElementBlob(fixture.StagedDataElement, DateTimeOffset.UtcNow)
+                new StagedDataElementBlob(
+                    fixture.StagedDataElement,
+                    DateTimeOffset.UtcNow,
+                    _stagedAccount
+                )
             );
         fixture
             .DataService.Setup(service =>
-                service.DeleteStagedDataElementBlob(fixture.Instance, fixture.StagedDataElement, 7)
+                service.DeleteStagedDataElementBlob(
+                    fixture.Instance,
+                    fixture.StagedDataElement,
+                    _stagedAccount
+                )
             )
             .Callback(() => stagedBlobDeleteOrder = ++order)
             .Returns(Task.CompletedTask);
@@ -689,7 +703,7 @@ public class SigningServiceTest
                     fixture.Instance,
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    7,
+                    It.Is<Application>(app => app.StorageAccountNumber == 7),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -725,7 +739,11 @@ public class SigningServiceTest
     private static void VerifyStagedBlobDeleted(SigningFixture fixture, Times times) =>
         fixture.DataService.Verify(
             service =>
-                service.DeleteStagedDataElementBlob(fixture.Instance, fixture.StagedDataElement, 7),
+                service.DeleteStagedDataElementBlob(
+                    fixture.Instance,
+                    fixture.StagedDataElement,
+                    _stagedAccount
+                ),
             times
         );
 
@@ -736,14 +754,13 @@ public class SigningServiceTest
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
         fixture.BlobRepository.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -849,10 +866,19 @@ public class SigningServiceTest
             )
             .Returns((true, null));
         dataService
-            .Setup(service => service.GenerateSha256Hash("org", instanceGuid, It.IsAny<Guid>(), 7))
+            .Setup(service =>
+                service.GenerateSha256Hash(
+                    "org",
+                    instanceGuid,
+                    It.IsAny<Guid>(),
+                    It.Is<Application>(app => app.StorageAccountNumber == 7)
+                )
+            )
             .ReturnsAsync((Guid.NewGuid().ToString(), null));
         dataService
-            .Setup(service => service.DeleteStagedDataElementBlob(instance, stagedDataElement, 7))
+            .Setup(service =>
+                service.DeleteStagedDataElementBlob(instance, stagedDataElement, _stagedAccount)
+            )
             .Returns(Task.CompletedTask);
         instanceEventService
             .Setup(service => service.BuildInstanceEvent(InstanceEventType.Signed, instance))
@@ -879,14 +905,20 @@ public class SigningServiceTest
                     instance,
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
-                    7,
+                    It.Is<Application>(app => app.StorageAccountNumber == 7),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<InstanceInternal, Stream, DataElementCreateOptions, int?, CancellationToken>(
-                (_, _, options, _, _) => fixture.CapturedCreateOptions = options
-            )
-            .ReturnsAsync(new StagedDataElementBlob(stagedDataElement, DateTimeOffset.UtcNow));
+            .Callback<
+                InstanceInternal,
+                Stream,
+                DataElementCreateOptions,
+                Application,
+                CancellationToken
+            >((_, _, options, _, _) => fixture.CapturedCreateOptions = options)
+            .ReturnsAsync(
+                new StagedDataElementBlob(stagedDataElement, DateTimeOffset.UtcNow, _stagedAccount)
+            );
 
         mutationRepository
             .Setup(repository =>
@@ -914,9 +946,8 @@ public class SigningServiceTest
             blobRepository
                 .Setup(repository =>
                     repository.ReadBlob(
-                        "org",
+                        TestStorageAccounts.PatternDefault("org"),
                         oldSignatureDataElement.BlobStoragePath,
-                        7,
                         It.IsAny<CancellationToken>()
                     )
                 )
@@ -956,6 +987,7 @@ public class SigningServiceTest
             mutationRepository.Object,
             applicationRepository.Object,
             blobRepository.Object,
+            new PatternDefaultStorageAccountResolver(),
             Mock.Of<ILogger<SigningService>>()
         );
         return fixture;

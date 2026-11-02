@@ -5,25 +5,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 
 public class BlobRepositoryMock : IBlobRepository
 {
-    public async Task<bool> DeleteBlob(
-        string org,
-        string blobStoragePath,
-        int? storageAccountNumber
-    )
+    public async Task<bool> DeleteBlob(StorageAccount account, string blobStoragePath)
     {
         return await Task.FromResult(true);
     }
 
     public Task<bool[]> DeleteBlobsIfExists(
-        string org,
+        StorageAccount account,
         IReadOnlyList<string> blobStoragePaths,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
@@ -34,9 +30,8 @@ public class BlobRepositoryMock : IBlobRepository
     }
 
     public async Task<Stream> ReadBlob(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
@@ -47,10 +42,9 @@ public class BlobRepositoryMock : IBlobRepository
     }
 
     public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-        string org,
+        StorageAccount account,
         Stream stream,
-        string blobStoragePath,
-        int? storageAccountNumber
+        string blobStoragePath
     )
     {
         MemoryStream memoryStream = new MemoryStream();
@@ -67,23 +61,21 @@ public class BlobRepositoryMock : IBlobRepository
     }
 
     public Task<bool> DeleteDataBlobs(
-        string org,
+        StorageAccount account,
         string appId,
         Guid instanceGuid,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     ) => throw new NotImplementedException();
 
     public Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         TimeSpan lifetime,
         CancellationToken cancellationToken = default
     ) =>
         Task.FromResult(
             (
-                new Uri($"https://{org}.blob.example/{blobStoragePath}?sig=test"),
+                new Uri($"https://blob.example/{blobStoragePath}?sig=test"),
                 DateTimeOffset.UtcNow.Add(lifetime)
             )
         );

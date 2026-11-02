@@ -32,6 +32,7 @@ public class DataService : IDataService
     private readonly IFileScanQueueClient _fileScanQueueClient;
     private readonly IDataRepository _dataRepository;
     private readonly IBlobRepository _blobRepository;
+    private readonly IStorageAccountResolver _storageAccountResolver;
     private readonly ILogger<DataService> _logger;
 
     /// <summary>
@@ -41,12 +42,14 @@ public class DataService : IDataService
         IFileScanQueueClient fileScanQueueClient,
         IDataRepository dataRepository,
         IBlobRepository blobRepository,
+        IStorageAccountResolver storageAccountResolver,
         ILogger<DataService> logger = null
     )
     {
         _fileScanQueueClient = fileScanQueueClient;
         _dataRepository = dataRepository;
         _blobRepository = blobRepository;
+        _storageAccountResolver = storageAccountResolver;
         _logger = logger ?? NullLogger<DataService>.Instance;
     }
 
@@ -56,7 +59,8 @@ public class DataService : IDataService
         DataType dataType,
         DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
-        int? storageAccountNumber,
+        Application application,
+        StorageAccount storageAccount,
         CancellationToken ct
     )
     {
@@ -71,7 +75,9 @@ public class DataService : IDataService
                 BlobVersionId = dataElement.BlobVersionId,
                 Filename = dataElement.Filename,
                 Org = instance.Org,
-                StorageAccountNumber = storageAccountNumber,
+                StorageAccountNumber = application.StorageAccountNumber,
+                ProviderInfo = storageAccount.ProviderInfo,
+                StorageAccountId = storageAccount.Id,
             };
 
             string serialisedRequest = JsonSerializer.Serialize(
@@ -88,7 +94,7 @@ public class DataService : IDataService
         string org,
         Guid instanceGuid,
         Guid dataElementId,
-        int? storageAccountNumber
+        Application application
     )
     {
         DataElementInternal dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
@@ -100,10 +106,14 @@ public class DataService : IDataService
             );
         }
 
-        Stream filestream = await _blobRepository.ReadBlob(
+        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
+            dataElement,
             org,
-            dataElement.BlobStoragePath,
-            storageAccountNumber
+            StorageAccountNaming.NumberOf(application)
+        );
+        Stream filestream = await _blobRepository.ReadBlob(
+            storageAccount,
+            dataElement.BlobStoragePath
         );
         if (filestream == null || !filestream.CanRead)
         {
@@ -124,7 +134,7 @@ public class DataService : IDataService
         Stream stream,
         DataElementCreateOptions options,
         long instanceInternalId,
-        int? storageAccountNumber,
+        Application application,
         int? expectedInstanceVersion = null,
         int? expectedProcessStateVersion = null,
         CancellationToken cancellationToken = default
@@ -134,7 +144,7 @@ public class DataService : IDataService
             instance,
             stream,
             options,
-            storageAccountNumber,
+            application,
             cancellationToken
         );
 
@@ -156,7 +166,7 @@ public class DataService : IDataService
                 await DeleteStagedDataElementBlob(
                     instance,
                     stagedDataElement.DataElement,
-                    storageAccountNumber
+                    stagedDataElement.StorageAccount
                 );
             }
 
@@ -166,7 +176,8 @@ public class DataService : IDataService
         return new DataUploadResult(
             createdDataElement.DataElement,
             stagedDataElement.BlobTimestamp,
-            createdDataElement.Versions
+            createdDataElement.Versions,
+            stagedDataElement.StorageAccount
         );
     }
 
@@ -175,17 +186,23 @@ public class DataService : IDataService
         InstanceInternal instance,
         Stream stream,
         DataElementCreateOptions options,
-        int? storageAccountNumber,
+        Application application,
         CancellationToken cancellationToken = default
     )
     {
+        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
+        StorageAccount storageAccount = await _storageAccountResolver.ForWrite(
+            instance.Org,
+            storageAccountNumber,
+            cancellationToken
+        );
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
             instance.Id,
             options.DataElementId,
             instance.AppId,
             instance.Org,
-            storageAccountNumber ?? StorageAccountNaming.DefaultStorageAccountNumber,
-            null,
+            storageAccountNumber,
+            storageAccount.Id,
             cancellationToken
         );
         string blobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -199,10 +216,9 @@ public class DataService : IDataService
         try
         {
             (length, blobTimestamp) = await _blobRepository.WriteBlob(
-                instance.Org,
+                storageAccount,
                 stream,
-                blobStoragePath,
-                storageAccountNumber
+                blobStoragePath
             );
 
             if (length == 0L)
@@ -215,11 +231,10 @@ public class DataService : IDataService
             await DeleteAllocatedBlobVersion(
                 _blobRepository,
                 _dataRepository,
-                instance.Org,
+                storageAccount,
                 options.DataElementId,
                 blobStoragePath,
-                blobVersionId,
-                storageAccountNumber
+                blobVersionId
             );
             throw;
         }
@@ -245,24 +260,23 @@ public class DataService : IDataService
             BlobVersionId = blobVersionId,
         };
 
-        return new StagedDataElementBlob(dataElement, blobTimestamp);
+        return new StagedDataElementBlob(dataElement, blobTimestamp, storageAccount);
     }
 
     /// <inheritdoc/>
     public Task DeleteStagedDataElementBlob(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber
+        StorageAccount storageAccount
     )
     {
         return DeleteAllocatedBlobVersion(
             _blobRepository,
             _dataRepository,
-            instance.Org,
+            storageAccount,
             dataElement.Id,
             dataElement.BlobStoragePath,
-            dataElement.BlobVersionId,
-            storageAccountNumber
+            dataElement.BlobVersionId
         );
     }
 
@@ -270,7 +284,7 @@ public class DataService : IDataService
     public async Task CleanupDeletedDataElementBlobs(
         InstanceInternal instance,
         DataElementInternal dataElement,
-        int? storageAccountNumber,
+        int storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
@@ -335,6 +349,7 @@ public class DataService : IDataService
                 x => (x.bv.BlobStorageOrg, x.bv.StorageAccountNumber, x.bv.StorageAccountId),
                 x =>
                     (
+                        References: x.bv,
                         BlobVersionId: x.id,
                         BlobStoragePath: DataElementHelper.GetVersionedBlobPath(
                             x.bv.AppId,
@@ -356,10 +371,13 @@ public class DataService : IDataService
             bool[] deletedBlobs;
             try
             {
+                StorageAccount storageAccount = await _storageAccountResolver.ForVersion(
+                    blobVersions[0].References,
+                    cancellationToken
+                );
                 deletedBlobs = await _blobRepository.DeleteBlobsIfExists(
-                    blobStorageGroup.Key.BlobStorageOrg,
+                    storageAccount,
                     blobStoragePaths,
-                    blobStorageGroup.Key.StorageAccountNumber,
                     cancellationToken
                 );
             }
@@ -410,7 +428,7 @@ public class DataService : IDataService
     public async Task DeleteLegacyDataElementBlob(
         InstanceInternal instance,
         DataElementInternal dataElementInternal,
-        int? storageAccountNumber
+        int storageAccountNumber
     )
     {
         string legacyBlobStoragePath =
@@ -431,9 +449,8 @@ public class DataService : IDataService
         try
         {
             await _blobRepository.DeleteBlob(
-                instance.Org,
-                legacyBlobStoragePath,
-                storageAccountNumber
+                _storageAccountResolver.PatternDefault(instance.Org, storageAccountNumber),
+                legacyBlobStoragePath
             );
         }
         catch (Exception exception)
@@ -483,11 +500,10 @@ public class DataService : IDataService
     internal static async Task DeleteAllocatedBlobVersion(
         IBlobRepository blobRepository,
         IDataRepository dataRepository,
-        string org,
+        StorageAccount storageAccount,
         Guid dataElementId,
         string blobStoragePath,
-        string blobVersionId,
-        int? storageAccountNumber
+        string blobVersionId
     )
     {
         if (string.IsNullOrEmpty(blobVersionId))
@@ -499,7 +515,7 @@ public class DataService : IDataService
         {
             try
             {
-                await blobRepository.DeleteBlob(org, blobStoragePath, storageAccountNumber);
+                await blobRepository.DeleteBlob(storageAccount, blobStoragePath);
             }
             catch
             {

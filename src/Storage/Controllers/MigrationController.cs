@@ -55,6 +55,7 @@ public class MigrationController : ControllerBase
     private readonly AzureStorageConfiguration _azureStorageSettings;
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _memoryCache;
+    private readonly IStorageAccountResolver _storageAccountResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MigrationController"/> class
@@ -72,6 +73,7 @@ public class MigrationController : ControllerBase
     /// <param name="generalSettings">Settings with endpoint uri</param>
     /// <param name="httpClient">The HttpClient to use in communication with the PDF generator service.</param>
     /// <param name="memoryCache">the memory cache</param>
+    /// <param name="storageAccountResolver">Resolves the storage accounts blobs are written to.</param>
     public MigrationController(
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
@@ -85,7 +87,8 @@ public class MigrationController : ControllerBase
         IOptions<AzureStorageConfiguration> azureStorageSettings,
         IOptions<GeneralSettings> generalSettings,
         HttpClient httpClient,
-        IMemoryCache memoryCache
+        IMemoryCache memoryCache,
+        IStorageAccountResolver storageAccountResolver
     )
     {
         _instanceRepository = instanceRepository;
@@ -101,6 +104,7 @@ public class MigrationController : ControllerBase
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri(generalSettings.Value.PdfGeneratorEndpoint);
         _memoryCache = memoryCache;
+        _storageAccountResolver = storageAccountResolver;
     }
 
     /// <summary>
@@ -264,13 +268,18 @@ public class MigrationController : ControllerBase
 
         Guid dataElementId = Guid.NewGuid();
         bool hasBlob = false;
-        string blobOrg = null;
+        StorageAccount blobStorageAccount = null;
         string blobVersionId = null;
         string blobStoragePath = null;
         try
         {
             hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
-            blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            int storageAccountNumber = StorageAccountNaming.NumberOf(app);
+            blobStorageAccount = _storageAccountResolver.PatternDefault(
+                blobOrg,
+                storageAccountNumber
+            );
             if (hasBlob)
             {
                 blobVersionId = await _dataRepository.CreateBlobVersionId(
@@ -278,8 +287,8 @@ public class MigrationController : ControllerBase
                     dataElementId,
                     instance.AppId,
                     blobOrg,
-                    StorageAccountNaming.NumberOf(app),
-                    null,
+                    storageAccountNumber,
+                    blobStorageAccount.Id,
                     cancellationToken
                 );
                 blobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -352,10 +361,9 @@ public class MigrationController : ControllerBase
                 try
                 {
                     (dataElement.Size, _) = await _blobRepository.WriteBlob(
-                        blobOrg,
+                        blobStorageAccount,
                         theStream,
-                        blobStoragePath,
-                        app.StorageAccountNumber
+                        blobStoragePath
                     );
                 }
                 catch
@@ -363,11 +371,10 @@ public class MigrationController : ControllerBase
                     await DataService.DeleteAllocatedBlobVersion(
                         _blobRepository,
                         _dataRepository,
-                        blobOrg,
+                        blobStorageAccount,
                         dataElementId,
                         blobStoragePath,
-                        blobVersionId,
-                        app.StorageAccountNumber
+                        blobVersionId
                     );
                     throw;
                 }
@@ -388,11 +395,10 @@ public class MigrationController : ControllerBase
                 await DataService.DeleteAllocatedBlobVersion(
                     _blobRepository,
                     _dataRepository,
-                    blobOrg,
+                    blobStorageAccount,
                     dataElementId,
                     blobStoragePath,
-                    blobVersionId,
-                    app.StorageAccountNumber
+                    blobVersionId
                 );
             }
 
@@ -773,10 +779,12 @@ public class MigrationController : ControllerBase
         }
 
         await _blobRepository.DeleteDataBlobs(
-            instance.Org,
+            _storageAccountResolver.PatternDefault(
+                instance.Org,
+                StorageAccountNaming.NumberOf(app)
+            ),
             instance.AppId,
             instanceGuid,
-            app.StorageAccountNumber,
             cancellationToken
         );
         await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);

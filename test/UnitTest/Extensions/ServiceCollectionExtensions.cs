@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IInstanceMutationRepository, PgInstanceMutationRepository>()
             .AddSingleton<IBlobRepository, BlobRepository>()
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
-            .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>();
+            .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
+            .AddSingleton<IStorageAccountRepository, PgStorageAccountRepository>();
     }
 }

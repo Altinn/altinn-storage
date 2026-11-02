@@ -22,6 +22,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.Constants;
 using Microsoft.AspNetCore.Http;
@@ -219,7 +220,7 @@ public class DataControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -258,7 +259,7 @@ public class DataControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -305,7 +306,7 @@ public class DataControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -346,7 +347,7 @@ public class DataControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -384,7 +385,7 @@ public class DataControllerUnitTests
                 service.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -546,9 +547,8 @@ public class DataControllerUnitTests
         blobRepositoryMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -609,7 +609,11 @@ public class DataControllerUnitTests
         );
         fixture
             .BlobRepository.Setup(b =>
-                b.ReadBlob("blob-org", blobPath, 3, It.IsAny<CancellationToken>())
+                b.ReadBlob(
+                    TestStorageAccounts.PatternDefault("blob-org"),
+                    blobPath,
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync(content);
 
@@ -627,7 +631,12 @@ public class DataControllerUnitTests
         Assert.Equal("application/octet-stream", file.ContentType);
         Assert.Same(content, file.FileStream);
         fixture.BlobRepository.Verify(
-            b => b.ReadBlob("blob-org", blobPath, 3, It.IsAny<CancellationToken>()),
+            b =>
+                b.ReadBlob(
+                    TestStorageAccounts.PatternDefault("blob-org"),
+                    blobPath,
+                    It.IsAny<CancellationToken>()
+                ),
             Times.Once
         );
         fixture.DataRepository.Verify(
@@ -687,7 +696,11 @@ public class DataControllerUnitTests
         );
         fixture
             .BlobRepository.Setup(b =>
-                b.ReadBlob("ttd", blobPath, null, It.IsAny<CancellationToken>())
+                b.ReadBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    blobPath,
+                    It.IsAny<CancellationToken>()
+                )
             )
             .ReturnsAsync(content);
 
@@ -802,9 +815,8 @@ public class DataControllerUnitTests
         fixture
             .BlobRepository.Setup(b =>
                 b.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -923,9 +935,8 @@ public class DataControllerUnitTests
         blobRepositoryMock
             .Setup(b =>
                 b.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1325,13 +1336,7 @@ public class DataControllerUnitTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal("If-Match ETag value must be a blob version id.", badRequest.Value);
         blobRepositoryMock.Verify(
-            b =>
-                b.WriteBlob(
-                    It.IsAny<string>(),
-                    It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
-                ),
+            b => b.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>()),
             Times.Never
         );
         dataRepositoryMock.Verify(
@@ -1399,7 +1404,8 @@ public class DataControllerUnitTests
                             It.IsAny<DataType>(),
                             It.IsAny<DataElementInternal>(),
                             It.IsAny<DateTimeOffset>(),
-                            It.IsAny<int?>(),
+                            It.IsAny<Application>(),
+                            It.IsAny<StorageAccount>(),
                             It.IsAny<CancellationToken>()
                         )
                     )
@@ -1510,7 +1516,8 @@ public class DataControllerUnitTests
                     It.IsAny<DataType>(),
                     It.Is<DataElementInternal>(de => de.BlobVersionId == allocatedBlobVersionId),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -1541,9 +1548,8 @@ public class DataControllerUnitTests
         blobRepositoryMock.Verify(
             b =>
                 b.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -1573,13 +1579,7 @@ public class DataControllerUnitTests
         );
 
         blobRepositoryMock.Verify(
-            b =>
-                b.WriteBlob(
-                    It.IsAny<string>(),
-                    It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
-                ),
+            b => b.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -2102,9 +2102,8 @@ public class DataControllerUnitTests
         blobRepositoryMock.Verify(
             b =>
                 b.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -2172,7 +2171,7 @@ public class DataControllerUnitTests
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     null,
                     null,
                     It.IsAny<CancellationToken>()
@@ -2180,7 +2179,7 @@ public class DataControllerUnitTests
             Times.Once
         );
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -2230,7 +2229,7 @@ public class DataControllerUnitTests
                         && options.Filename == "filename.jpg"
                     ),
                     It.IsAny<long>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     null,
                     null,
                     It.IsAny<CancellationToken>()
@@ -2244,7 +2243,8 @@ public class DataControllerUnitTests
                     It.IsAny<DataType>(),
                     It.Is<DataElementInternal>(de => de.BlobVersionId == allocatedBlobVersionId),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -2266,7 +2266,7 @@ public class DataControllerUnitTests
                             It.IsAny<Stream>(),
                             It.IsAny<DataElementCreateOptions>(),
                             It.IsAny<long>(),
-                            It.IsAny<int?>(),
+                            It.IsAny<Application>(),
                             It.IsAny<int?>(),
                             It.IsAny<int?>(),
                             It.IsAny<CancellationToken>()
@@ -2323,17 +2323,11 @@ public class DataControllerUnitTests
         );
 
         blobRepositoryMock.Verify(
-            b =>
-                b.WriteBlob(
-                    It.IsAny<string>(),
-                    It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
-                ),
+            b => b.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>()),
             Times.Once
         );
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
         dataRepositoryMock.Verify(
@@ -2380,7 +2374,7 @@ public class DataControllerUnitTests
         // Assert
         Assert.IsType<ConflictObjectResult>(result.Result);
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2429,8 +2423,7 @@ public class DataControllerUnitTests
             StringComparison.Ordinal
         );
         blobRepositoryMock.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2486,7 +2479,7 @@ public class DataControllerUnitTests
         var preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2533,7 +2526,7 @@ public class DataControllerUnitTests
         // Assert
         Assert.IsType<NotFoundObjectResult>(result.Result);
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2576,7 +2569,7 @@ public class DataControllerUnitTests
         );
 
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2631,7 +2624,7 @@ public class DataControllerUnitTests
         var unprocessable = Assert.IsType<UnprocessableEntityObjectResult>(result.Result);
         Assert.Equal("Could not process attached file", unprocessable.Value);
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Once
         );
         dataRepositoryMock.Verify(
@@ -2674,7 +2667,7 @@ public class DataControllerUnitTests
                                 It.IsAny<Stream>(),
                                 It.IsAny<DataElementCreateOptions>(),
                                 It.IsAny<long>(),
-                                It.IsAny<int?>(),
+                                It.IsAny<Application>(),
                                 null,
                                 null,
                                 It.IsAny<CancellationToken>()
@@ -2703,7 +2696,7 @@ public class DataControllerUnitTests
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     null,
                     null,
                     It.IsAny<CancellationToken>()
@@ -2711,7 +2704,7 @@ public class DataControllerUnitTests
             Times.Once
         );
         blobRepositoryMock.Verify(
-            b => b.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            b => b.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
     }
@@ -2782,9 +2775,8 @@ public class DataControllerUnitTests
         blobRepositoryMock.Verify(
             repository =>
                 repository.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -2990,21 +2982,15 @@ public class DataControllerUnitTests
         blobRepositoryMock
             .Setup(d =>
                 d.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
             .ReturnsAsync(new MemoryStream(Encoding.UTF8.GetBytes("whatever")));
 
         var writeBlobSetup = blobRepositoryMock.Setup(d =>
-            d.WriteBlob(
-                It.IsAny<string>(),
-                It.IsAny<Stream>(),
-                It.IsAny<string>(),
-                It.IsAny<int?>()
-            )
+            d.WriteBlob(It.IsAny<StorageAccount>(), It.IsAny<Stream>(), It.IsAny<string>())
         );
 
         if (throwOnWriteBlob)
@@ -3017,7 +3003,7 @@ public class DataControllerUnitTests
         }
 
         blobRepositoryMock
-            .Setup(d => d.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .Setup(d => d.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()))
             .ReturnsAsync(true);
 
         instanceRepositoryMock
@@ -3067,7 +3053,8 @@ public class DataControllerUnitTests
                 It.IsAny<DataType>(),
                 It.IsAny<DataElementInternal>(),
                 It.IsAny<DateTimeOffset>(),
-                It.IsAny<int?>(),
+                It.IsAny<Application>(),
+                It.IsAny<StorageAccount>(),
                 It.IsAny<CancellationToken>()
             )
         );
@@ -3077,7 +3064,7 @@ public class DataControllerUnitTests
                 It.IsAny<Stream>(),
                 It.IsAny<DataElementCreateOptions>(),
                 It.IsAny<long>(),
-                It.IsAny<int?>(),
+                It.IsAny<Application>(),
                 null,
                 null,
                 It.IsAny<CancellationToken>()
@@ -3227,7 +3214,8 @@ public class DataControllerUnitTests
             instanceEventServiceMock.Object,
             generalSettings,
             onDemandClient,
-            authorizationServiceMock.Object
+            authorizationServiceMock.Object,
+            new PatternDefaultStorageAccountResolver()
         )
         {
             ControllerContext = controllerContext,
@@ -3307,7 +3295,8 @@ public class DataControllerUnitTests
             Mock.Of<IInstanceEventService>(),
             Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
             null,
-            authorization.Object
+            authorization.Object,
+            new PatternDefaultStorageAccountResolver()
         )
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
@@ -3412,7 +3401,8 @@ public class DataControllerUnitTests
             instanceEventServiceMock.Object,
             Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
             null,
-            authorizationServiceMock.Object
+            authorizationServiceMock.Object,
+            new PatternDefaultStorageAccountResolver()
         )
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
