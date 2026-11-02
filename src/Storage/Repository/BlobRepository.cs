@@ -488,25 +488,28 @@ public class BlobRepository(
         return serviceClient.GetBlobBatchClient();
     }
 
+    private bool UsesSharedKey(AzureBlobProviderInfo info) =>
+        IsConfiguredEndpoint(info.Endpoint, _storageConfiguration.BlobEndPoint);
+
     /// <summary>
-    /// Gets whether the account is served by the configured blob endpoint (Azurite), which is
-    /// accessed with the configured account key instead of an Azure identity.
+    /// Gets whether an account endpoint is the configured blob endpoint (Azurite), whose account is
+    /// accessed with the configured account name and key instead of an Azure identity. Scheme, host,
+    /// port and path must all match, ignoring a trailing slash, since the path names the account.
     /// </summary>
-    private bool UsesSharedKey(AzureBlobProviderInfo info)
+    internal static bool IsConfiguredEndpoint(Uri endpoint, string configuredBlobEndPoint)
     {
-        return info.Endpoint is not null
-            && Uri.TryCreate(
-                _storageConfiguration.BlobEndPoint,
-                UriKind.Absolute,
-                out Uri configured
-            )
+        return endpoint is not null
+            && endpoint.IsAbsoluteUri
+            && Uri.TryCreate(configuredBlobEndPoint, UriKind.Absolute, out Uri configured)
             && string.Equals(
-                info.Endpoint.Host,
-                configured.Host,
-                StringComparison.OrdinalIgnoreCase
-            )
-            && info.Endpoint.Port == configured.Port;
+                NormalizeEndpoint(endpoint),
+                NormalizeEndpoint(configured),
+                StringComparison.Ordinal
+            );
     }
+
+    private static string NormalizeEndpoint(Uri uri) =>
+        $"{uri.Scheme}://{uri.Host}:{uri.Port}{uri.AbsolutePath.TrimEnd('/')}";
 
     private StorageSharedKeyCredential CreateSharedKeyCredential()
     {

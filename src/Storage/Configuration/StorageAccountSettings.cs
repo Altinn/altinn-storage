@@ -7,7 +7,8 @@ public class StorageAccountSettings
 {
     /// <summary>
     /// Gets or sets how long, in seconds, the storage account rows are cached. This bounds how long a
-    /// new writable account takes to receive writes on every instance of the service.
+    /// new writable account takes to receive writes on every instance of the service. Must be greater
+    /// than zero; <see cref="StorageAccountSettingsValidator"/> stops the application from starting otherwise.
     /// </summary>
     public int CacheSeconds { get; set; } = 60;
 }

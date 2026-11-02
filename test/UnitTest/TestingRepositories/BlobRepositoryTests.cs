@@ -311,6 +311,51 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
     }
 }
 
+public class BlobRepositoryEndpointTests
+{
+    private const string _configured = "http://127.0.0.1:10000/devstoreaccount1";
+
+    [Theory]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1", true)]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1/", true)]
+    [InlineData("HTTP://127.0.0.1:10000/devstoreaccount1", true)]
+    [InlineData("http://127.0.0.1:10000/otheraccount", false)]
+    [InlineData("http://127.0.0.1:10000/", false)]
+    [InlineData("https://127.0.0.1:10000/devstoreaccount1", false)]
+    [InlineData("http://127.0.0.1:10001/devstoreaccount1", false)]
+    [InlineData("http://localhost:10000/devstoreaccount1", false)]
+    public void IsConfiguredEndpoint_ComparesSchemeHostPortAndPath(string endpoint, bool expected)
+    {
+        Assert.Equal(expected, BlobRepository.IsConfiguredEndpoint(new Uri(endpoint), _configured));
+    }
+
+    [Fact]
+    public void IsConfiguredEndpoint_ConfiguredEndpointWithTrailingSlash_Matches()
+    {
+        Assert.True(
+            BlobRepository.IsConfiguredEndpoint(
+                new Uri("http://127.0.0.1:10000/devstoreaccount1"),
+                _configured + "/"
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not a uri")]
+    public void IsConfiguredEndpoint_NoUsableConfiguredEndpoint_ReturnsFalse(string? configured)
+    {
+        Assert.False(BlobRepository.IsConfiguredEndpoint(new Uri(_configured), configured));
+    }
+
+    [Fact]
+    public void IsConfiguredEndpoint_NoEndpoint_ReturnsFalse()
+    {
+        Assert.False(BlobRepository.IsConfiguredEndpoint(null, _configured));
+    }
+}
+
 public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
 {
     public const string Org = "ttd";
