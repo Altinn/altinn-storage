@@ -12,7 +12,9 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Xunit;
@@ -69,7 +71,7 @@ public class StorageAccountTests(DataElementFixture fixture)
         short azureId = await _repository.Insert(azure, _org, 1, writable: true);
         short fileSystemId = await _repository.Insert(fileSystem, _org, 2, writable: false);
 
-        IReadOnlyList<StorageAccountRow> rows = await _repository.ReadAll();
+        IReadOnlyList<StorageAccountRow> rows = (await _repository.ReadAll()).Readable;
 
         StorageAccountRow azureRow = Assert.Single(rows, row => row.Id == azureId);
         Assert.Equal(azure, azureRow.ProviderInfo);
@@ -110,7 +112,7 @@ public class StorageAccountTests(DataElementFixture fixture)
         short second = await _repository.Insert(Azure("second"), _org, 1, writable: true);
         short readOnly = await _repository.Insert(Azure("readonly"), _org, 1, writable: false);
 
-        IReadOnlyList<StorageAccountRow> rows = await _repository.ReadAll();
+        IReadOnlyList<StorageAccountRow> rows = (await _repository.ReadAll()).Readable;
         Assert.False(rows.Single(row => row.Id == first).Writable);
         Assert.True(rows.Single(row => row.Id == second).Writable);
         Assert.False(rows.Single(row => row.Id == readOnly).Writable);
@@ -126,32 +128,64 @@ public class StorageAccountTests(DataElementFixture fixture)
     [Theory]
     [InlineData("unknown-provider", """{"accountName":"a","container":"c"}""")]
     [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
-    public async Task ReadAll_UnreadableRow_ThrowsNamingRow(string provider, string document)
+    public async Task ReadAll_UnreadableRow_ReturnsItAsUnreadableBesideReadableRows(
+        string provider,
+        string document
+    )
     {
+        short readableId = await _repository.Insert(Azure("readable"), _org, 2, writable: true);
         short id = await PostgresUtil.RunQuery<short>(
-            $"select storage.insertstorageaccount('{provider}', '{document}'::jsonb, '{_org}', 1, false)"
+            $"select storage.insertstorageaccount('{provider}', '{document}'::jsonb, '{_org}', 1, true)"
         );
 
         try
         {
-            InvalidOperationException exception =
-                await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.ReadAll());
-            Assert.Contains($"Storage account {id} ", exception.Message);
-            Assert.Contains($"'{provider}'", exception.Message);
+            StorageAccountRows rows = await _repository.ReadAll();
 
-            StorageAccountStartupCheck startupCheck = new(
-                _repository,
-                NullLogger<StorageAccountStartupCheck>.Instance
+            Assert.Single(rows.Readable, row => row.Id == readableId);
+            Assert.DoesNotContain(rows.Readable, row => row.Id == id);
+            UnreadableStorageAccountRow unreadable = Assert.Single(
+                rows.Unreadable,
+                row => row.Id == id
             );
-            InvalidOperationException startupException =
-                await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                    startupCheck.StartAsync(CancellationToken.None)
-                );
-            Assert.Contains($"Storage account {id} ", startupException.Message);
+            Assert.Equal(provider, unreadable.Provider);
+            Assert.Equal(_org, unreadable.Org);
+            Assert.Equal(1, unreadable.StorageAccountNumber);
+            Assert.True(unreadable.Writable);
+            Assert.False(string.IsNullOrEmpty(unreadable.Error));
+            Assert.StartsWith($"Storage account {id} ", unreadable.Description);
+            Assert.Contains($"'{provider}'", unreadable.Description);
         }
         finally
         {
-            // The row would break every later read of the table.
+            await PostgresUtil.RunSql($"delete from storage.storageaccounts where id = {id}");
+        }
+    }
+
+    [Fact]
+    public async Task StartupCheck_UnreadableRow_LogsCriticalAndSucceeds()
+    {
+        short id = await PostgresUtil.RunQuery<short>(
+            $$"""select storage.insertstorageaccount('unknown-provider', '{"accountName":"a","container":"c"}'::jsonb, '{{_org}}', 1, false)"""
+        );
+        CapturingLoggerProvider logs = new();
+        StorageAccountStartupCheck startupCheck = new(
+            _repository,
+            logs.CreateLogger<StorageAccountStartupCheck>()
+        );
+
+        try
+        {
+            await startupCheck.StartAsync(CancellationToken.None);
+
+            string critical = Assert.Single(
+                logs.Messages(LogLevel.Critical),
+                message => message.StartsWith($"Storage account {id} ")
+            );
+            Assert.Contains("'unknown-provider'", critical);
+        }
+        finally
+        {
             await PostgresUtil.RunSql($"delete from storage.storageaccounts where id = {id}");
         }
     }

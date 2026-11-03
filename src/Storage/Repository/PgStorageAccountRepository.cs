@@ -19,11 +19,10 @@ public class PgStorageAccountRepository(NpgsqlDataSource dataSource) : IStorageA
     private const string _insertSql = "select storage.insertstorageaccount($1, $2, $3, $4, $5)";
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<StorageAccountRow>> ReadAll(
-        CancellationToken cancellationToken = default
-    )
+    public async Task<StorageAccountRows> ReadAll(CancellationToken cancellationToken = default)
     {
-        List<StorageAccountRow> rows = [];
+        List<StorageAccountRow> readable = [];
+        List<UnreadableStorageAccountRow> unreadable = [];
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(_readAllSql);
         await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
@@ -37,19 +36,46 @@ public class PgStorageAccountRepository(NpgsqlDataSource dataSource) : IStorageA
                 "providerinfo",
                 cancellationToken
             );
-            rows.Add(
+            string org = await reader.GetFieldValueAsync<string>("org", cancellationToken);
+            int number = await reader.GetFieldValueAsync<int>(
+                "storageaccountnumber",
+                cancellationToken
+            );
+            bool writable = await reader.GetFieldValueAsync<bool>("writable", cancellationToken);
+
+            StorageAccountProviderInfo providerInfo;
+            try
+            {
+                providerInfo = StorageAccountProviderInfo.Deserialize(provider, document);
+            }
+            catch (Exception exception) when (exception is JsonException or NotSupportedException)
+            {
+                unreadable.Add(
+                    new UnreadableStorageAccountRow(
+                        id,
+                        provider,
+                        org,
+                        number,
+                        writable,
+                        exception.Message
+                    )
+                );
+                continue;
+            }
+
+            readable.Add(
                 new StorageAccountRow(
                     id,
-                    DeserializeProviderInfo(id, provider, document),
-                    await reader.GetFieldValueAsync<string>("org", cancellationToken),
-                    await reader.GetFieldValueAsync<int>("storageaccountnumber", cancellationToken),
-                    await reader.GetFieldValueAsync<bool>("writable", cancellationToken),
+                    providerInfo,
+                    org,
+                    number,
+                    writable,
                     await reader.GetFieldValueAsync<DateTimeOffset>("created", cancellationToken)
                 )
             );
         }
 
-        return rows;
+        return new StorageAccountRows(readable, unreadable);
     }
 
     /// <inheritdoc/>
@@ -70,24 +96,5 @@ public class PgStorageAccountRepository(NpgsqlDataSource dataSource) : IStorageA
 
         object? id = await pgcom.ExecuteScalarAsync(cancellationToken);
         return (short)id!;
-    }
-
-    private static StorageAccountProviderInfo DeserializeProviderInfo(
-        short id,
-        string provider,
-        string document
-    )
-    {
-        try
-        {
-            return StorageAccountProviderInfo.Deserialize(provider, document);
-        }
-        catch (Exception exception) when (exception is JsonException or NotSupportedException)
-        {
-            throw new InvalidOperationException(
-                $"Storage account {id} has provider '{provider}' with a provider info document this build cannot read: {exception.Message}",
-                exception
-            );
-        }
     }
 }
