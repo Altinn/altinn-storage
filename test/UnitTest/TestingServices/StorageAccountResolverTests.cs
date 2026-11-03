@@ -219,9 +219,9 @@ public class StorageAccountResolverTests
     public async Task ForWrite_WritableRowForPair_ReturnsRow()
     {
         SetupRows([
-            Row(1, new AzureBlobProviderInfo("old", "c"), "ttd", 1, writable: false),
+            Row(1, new AzureBlobProviderInfo("old", "container"), "ttd", 1, writable: false),
             Row(2, _namedAccount, "ttd", 1, writable: true),
-            Row(3, new AzureBlobProviderInfo("other", "c"), "ttd", 2, writable: true),
+            Row(3, new AzureBlobProviderInfo("other", "container"), "ttd", 2, writable: true),
         ]);
 
         StorageAccount account = await _resolver.ForWrite("ttd", 1);

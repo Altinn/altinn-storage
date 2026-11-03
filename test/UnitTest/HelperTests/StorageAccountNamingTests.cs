@@ -1,4 +1,3 @@
-using System;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -29,10 +28,6 @@ public class StorageAccountNamingTests
             new AzureBlobProviderInfo("ttdaltinndevstorage01", "ttd-dev-appsdata-blob-db"),
             info
         );
-        Assert.Equal(
-            new Uri("https://ttdaltinndevstorage01.blob.core.windows.net/ttd-dev-appsdata-blob-db"),
-            info.ContainerUri
-        );
     }
 
     [Fact]
@@ -51,7 +46,7 @@ public class StorageAccountNamingTests
     }
 
     [Fact]
-    public void PatternDefault_Azurite_UsesConfiguredEndpointForEveryNumber()
+    public void PatternDefault_Azurite_UsesConfiguredAccountForEveryNumber()
     {
         AzureStorageConfiguration configuration = new()
         {
@@ -64,16 +59,23 @@ public class StorageAccountNamingTests
         AzureBlobProviderInfo info = StorageAccountNaming.PatternDefault(configuration, "ttd", 7);
 
         Assert.Equal(
-            new AzureBlobProviderInfo(
-                "devstoreaccount1",
-                "ttd-dev-appsdata-blob-db",
-                new Uri("http://127.0.0.1:10000/devstoreaccount1")
-            ),
+            new AzureBlobProviderInfo("devstoreaccount1", "ttd-dev-appsdata-blob-db"),
             info
         );
+    }
+
+    [Fact]
+    public void PatternDefault_UppercaseOrg_GivesLowercaseNames()
+    {
+        AzureBlobProviderInfo info = StorageAccountNaming.PatternDefault(
+            _azureConfiguration,
+            "TTD",
+            StorageAccountNaming.DefaultStorageAccountNumber
+        );
+
         Assert.Equal(
-            new Uri("http://127.0.0.1:10000/devstoreaccount1/ttd-dev-appsdata-blob-db"),
-            info.ContainerUri
+            new AzureBlobProviderInfo("ttdaltinndevstorage01", "ttd-dev-appsdata-blob-db"),
+            info
         );
     }
 

@@ -311,48 +311,74 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
     }
 }
 
-public class BlobRepositoryEndpointTests
+public class AzureBlobLocationTests
 {
-    private const string _configured = "http://127.0.0.1:10000/devstoreaccount1";
+    [Theory]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1")]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1/")]
+    public void Of_AzuriteAccount_UsesConfiguredEndpointAndSharedKey(string blobEndPoint)
+    {
+        AzureStorageConfiguration configuration = new()
+        {
+            AccountName = "devstoreaccount1",
+            BlobEndPoint = blobEndPoint,
+        };
+
+        AzureBlobLocation location = AzureBlobLocation.Of(
+            new AzureBlobProviderInfo("devstoreaccount1", "ttd-dev-appsdata-blob-db"),
+            configuration
+        );
+
+        Assert.Equal(new Uri("http://127.0.0.1:10000/devstoreaccount1"), location.ServiceUri);
+        Assert.Equal(
+            new Uri("http://127.0.0.1:10000/devstoreaccount1/ttd-dev-appsdata-blob-db"),
+            location.ContainerUri
+        );
+        Assert.True(location.UsesSharedKey);
+    }
 
     [Theory]
-    [InlineData("http://127.0.0.1:10000/devstoreaccount1", true)]
-    [InlineData("http://127.0.0.1:10000/devstoreaccount1/", true)]
-    [InlineData("HTTP://127.0.0.1:10000/devstoreaccount1", true)]
-    [InlineData("http://127.0.0.1:10000/otheraccount", false)]
-    [InlineData("http://127.0.0.1:10000/", false)]
-    [InlineData("https://127.0.0.1:10000/devstoreaccount1", false)]
-    [InlineData("http://127.0.0.1:10001/devstoreaccount1", false)]
-    [InlineData("http://localhost:10000/devstoreaccount1", false)]
-    public void IsConfiguredEndpoint_ComparesSchemeHostPortAndPath(string endpoint, bool expected)
+    [InlineData("devstoreaccount1")]
+    [InlineData("altinnstorage")]
+    public void Of_OtherAccount_UsesPublicEndpointAndAzureIdentity(string configuredAccountName)
     {
-        Assert.Equal(expected, BlobRepository.IsConfiguredEndpoint(new Uri(endpoint), _configured));
+        AzureStorageConfiguration configuration = new()
+        {
+            AccountName = configuredAccountName,
+            BlobEndPoint = "http://127.0.0.1:10000/devstoreaccount1",
+        };
+
+        AzureBlobLocation location = AzureBlobLocation.Of(
+            new AzureBlobProviderInfo("ttdaltinnprodstrg01", "ttd-prod-appsdata-blob-db"),
+            configuration
+        );
+
+        Assert.Equal(
+            new Uri("https://ttdaltinnprodstrg01.blob.core.windows.net"),
+            location.ServiceUri
+        );
+        Assert.Equal(
+            new Uri("https://ttdaltinnprodstrg01.blob.core.windows.net/ttd-prod-appsdata-blob-db"),
+            location.ContainerUri
+        );
+        Assert.False(location.UsesSharedKey);
     }
 
     [Fact]
-    public void IsConfiguredEndpoint_ConfiguredEndpointWithTrailingSlash_Matches()
+    public void Of_AzuriteAccountWithoutAzuriteConfiguration_Throws()
     {
-        Assert.True(
-            BlobRepository.IsConfiguredEndpoint(
-                new Uri("http://127.0.0.1:10000/devstoreaccount1"),
-                _configured + "/"
+        AzureStorageConfiguration configuration = new()
+        {
+            AccountName = "altinnstorage",
+            BlobEndPoint = "https://altinnstorage.blob.core.windows.net",
+        };
+
+        Assert.Throws<InvalidOperationException>(() =>
+            AzureBlobLocation.Of(
+                new AzureBlobProviderInfo("devstoreaccount1", "ttd-dev-appsdata-blob-db"),
+                configuration
             )
         );
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("not a uri")]
-    public void IsConfiguredEndpoint_NoUsableConfiguredEndpoint_ReturnsFalse(string? configured)
-    {
-        Assert.False(BlobRepository.IsConfiguredEndpoint(new Uri(_configured), configured));
-    }
-
-    [Fact]
-    public void IsConfiguredEndpoint_NoEndpoint_ReturnsFalse()
-    {
-        Assert.False(BlobRepository.IsConfiguredEndpoint(null, _configured));
     }
 }
 
@@ -423,7 +449,15 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     /// </summary>
     public static AzureBlobProviderInfo ProviderInfo(string containerName)
     {
-        return new AzureBlobProviderInfo(_accountName, containerName, new Uri(_blobEndPoint));
+        return new AzureBlobProviderInfo(_accountName, containerName);
+    }
+
+    /// <summary>
+    /// Gets the URI of a container in the Azurite account.
+    /// </summary>
+    public static Uri ContainerUri(string containerName)
+    {
+        return new Uri($"{_blobEndPoint.TrimEnd('/')}/{containerName}");
     }
 
     public async Task DisposeAsync()

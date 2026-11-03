@@ -806,7 +806,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         {
             string location = account.ProviderInfo switch
             {
-                AzureBlobProviderInfo info => info.ContainerUri.ToString(),
+                AzureBlobProviderInfo info => $"{info.AccountName}/{info.Container}",
                 FileSystemProviderInfo info => info.Directory,
                 _ => throw new NotSupportedException(),
             };
