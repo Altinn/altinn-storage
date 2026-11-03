@@ -6,7 +6,9 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -28,6 +30,7 @@ public class StorageAccountResolverTests
     );
 
     private readonly Mock<IStorageAccountRepository> _repository = new();
+    private readonly CapturingLoggerProvider _logs = new();
     private readonly StorageAccountResolver _resolver;
 
     public StorageAccountResolverTests()
@@ -36,7 +39,8 @@ public class StorageAccountResolverTests
             _repository.Object,
             new MemoryCache(new MemoryCacheOptions()),
             Options.Create(_azureConfiguration),
-            Options.Create(new StorageAccountSettings())
+            Options.Create(new StorageAccountSettings()),
+            _logs.CreateLogger<StorageAccountResolver>()
         );
     }
 
@@ -58,11 +62,13 @@ public class StorageAccountResolverTests
     {
         _repository
             .SetupSequence(r => r.ReadAll(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([Row(1, _namedAccount, "ttd", 1, writable: true)])
-            .ReturnsAsync([
-                Row(1, _namedAccount, "ttd", 1, writable: false),
-                Row(2, new FileSystemProviderInfo("/data/ttd"), "ttd", 1, writable: true),
-            ]);
+            .ReturnsAsync(Rows([Row(1, _namedAccount, "ttd", 1, writable: true)]))
+            .ReturnsAsync(
+                Rows([
+                    Row(1, _namedAccount, "ttd", 1, writable: false),
+                    Row(2, new FileSystemProviderInfo("/data/ttd"), "ttd", 1, writable: true),
+                ])
+            );
         await _resolver.GetById(1);
 
         StorageAccount account = await _resolver.GetById(2);
@@ -221,10 +227,79 @@ public class StorageAccountResolverTests
         );
     }
 
-    private void SetupRows(IReadOnlyList<StorageAccountRow> rows)
+    [Fact]
+    public async Task UnreadableRow_FailsOnlyOperationsThatUseIt()
     {
-        _repository.Setup(r => r.ReadAll(It.IsAny<CancellationToken>())).ReturnsAsync(rows);
+        SetupRows(
+            [
+                Row(1, _namedAccount, "ttd", 2, writable: true),
+                Row(2, new FileSystemProviderInfo("/data/skd"), "skd", 1, writable: true),
+            ],
+            [Unreadable(7, "ttd", 1, writable: true), Unreadable(8, "ttd", 3, writable: false)]
+        );
+
+        InvalidOperationException byId = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _resolver.GetById(7)
+        );
+        InvalidOperationException forElement = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                _resolver.ForElement(VersionedElement(8, "ttd", 3), "ttd", 3)
+        );
+        InvalidOperationException forWrite = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                _resolver.ForWrite("ttd", 1)
+        );
+
+        Assert.Contains("Storage account 7 ", byId.Message);
+        Assert.Contains("'unknown-provider'", byId.Message);
+        Assert.Contains("The provider is not supported.", byId.Message);
+        Assert.Contains("Storage account 8 ", forElement.Message);
+        Assert.Contains("Storage account 7 ", forWrite.Message);
+        Assert.Equal(new StorageAccount(1, _namedAccount), await _resolver.GetById(1));
+        Assert.Equal(new StorageAccount(1, _namedAccount), await _resolver.ForWrite("ttd", 2));
+        Assert.Equal(
+            new StorageAccount(2, new FileSystemProviderInfo("/data/skd")),
+            await _resolver.ForWrite("skd", 1)
+        );
+        Assert.Equal(_resolver.PatternDefault("ttd", 3), await _resolver.ForWrite("ttd", 3));
+        _repository.Verify(r => r.ReadAll(It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Refresh_UnreadableRow_LogsCriticalOnEveryRefresh()
+    {
+        SetupRows([], [Unreadable(7, "ttd", 1, writable: true)]);
+
+        await _resolver.ForWrite("skd", 1);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _resolver.GetById(9));
+
+        IReadOnlyList<string> critical = _logs.Messages(LogLevel.Critical);
+        Assert.Equal(2, critical.Count);
+        Assert.All(critical, message => Assert.StartsWith("Storage account 7 ", message));
+        _repository.Verify(r => r.ReadAll(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    private void SetupRows(
+        IReadOnlyList<StorageAccountRow> rows,
+        IReadOnlyList<UnreadableStorageAccountRow>? unreadable = null
+    )
+    {
+        _repository
+            .Setup(r => r.ReadAll(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Rows(rows, unreadable));
+    }
+
+    private static StorageAccountRows Rows(
+        IReadOnlyList<StorageAccountRow> rows,
+        IReadOnlyList<UnreadableStorageAccountRow>? unreadable = null
+    ) => new(rows, unreadable ?? []);
+
+    private static UnreadableStorageAccountRow Unreadable(
+        short id,
+        string org,
+        int number,
+        bool writable
+    ) => new(id, "unknown-provider", org, number, writable, "The provider is not supported.");
 
     private static StorageAccountRow Row(
         short id,

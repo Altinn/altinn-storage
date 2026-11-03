@@ -15,7 +15,9 @@ public interface IStorageAccountResolver
     /// <param name="id">The storage account row id.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The storage account.</returns>
-    /// <exception cref="System.InvalidOperationException">No row has the id.</exception>
+    /// <exception cref="System.InvalidOperationException">
+    /// No row has the id, or this build cannot read the row with the id.
+    /// </exception>
     Task<StorageAccount> GetById(short id, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -29,7 +31,8 @@ public interface IStorageAccountResolver
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The storage account.</returns>
     /// <exception cref="System.InvalidOperationException">
-    /// The element has a blob version whose storage location was not loaded.
+    /// The element has a blob version whose storage location was not loaded, or whose storage account
+    /// row is missing or cannot be read.
     /// </exception>
     Task<StorageAccount> ForElement(
         DataElementInternal element,
@@ -68,6 +71,9 @@ public interface IStorageAccountResolver
     /// <param name="number">The storage account number.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>The storage account.</returns>
+    /// <exception cref="System.InvalidOperationException">
+    /// This build cannot read the writable row for the pair.
+    /// </exception>
     Task<StorageAccount> ForWrite(
         string org,
         int number,

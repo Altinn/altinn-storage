@@ -422,16 +422,21 @@ public class ContentOnDemandControllerUnitTests
         Mock<IStorageAccountRepository> repository = new();
         repository
             .Setup(r => r.ReadAll(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([
-                new StorageAccountRow(
-                    _namedAccount.Id!.Value,
-                    _namedAccount.ProviderInfo,
-                    _org,
-                    1,
-                    true,
-                    DateTimeOffset.UtcNow
-                ),
-            ]);
+            .ReturnsAsync(
+                new StorageAccountRows(
+                    [
+                        new StorageAccountRow(
+                            _namedAccount.Id!.Value,
+                            _namedAccount.ProviderInfo,
+                            _org,
+                            1,
+                            true,
+                            DateTimeOffset.UtcNow
+                        ),
+                    ],
+                    []
+                )
+            );
         return TestStorageAccounts.CreateResolver(repository.Object);
     }
 

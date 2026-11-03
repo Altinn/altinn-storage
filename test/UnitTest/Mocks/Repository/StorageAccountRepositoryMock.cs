@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Models;
@@ -12,9 +11,8 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 /// </summary>
 public class StorageAccountRepositoryMock : IStorageAccountRepository
 {
-    public Task<IReadOnlyList<StorageAccountRow>> ReadAll(
-        CancellationToken cancellationToken = default
-    ) => Task.FromResult<IReadOnlyList<StorageAccountRow>>([]);
+    public Task<StorageAccountRows> ReadAll(CancellationToken cancellationToken = default) =>
+        Task.FromResult(new StorageAccountRows([], []));
 
     public Task<short> Insert(
         StorageAccountProviderInfo providerInfo,

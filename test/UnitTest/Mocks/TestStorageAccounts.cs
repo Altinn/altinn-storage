@@ -4,6 +4,7 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks;
@@ -42,7 +43,8 @@ public static class TestStorageAccounts
             repository ?? new StorageAccountRepositoryMock(),
             new MemoryCache(new MemoryCacheOptions()),
             Options.Create(configuration ?? AzureConfiguration),
-            Options.Create(new StorageAccountSettings())
+            Options.Create(new StorageAccountSettings()),
+            NullLogger<StorageAccountResolver>.Instance
         );
     }
 
