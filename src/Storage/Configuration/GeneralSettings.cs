@@ -124,4 +124,11 @@ public class GeneralSettings
     /// </summary>
     [Range(1, 3600)]
     public int FileScanReadUrlLifetimeSeconds { get; set; } = 300;
+
+    /// <summary>
+    /// Gets or sets how long, in seconds, the storage account rows are cached. This bounds how long a
+    /// new writable account takes to receive writes on every instance of the service. Must be greater
+    /// than zero; the storage account resolver cannot be created otherwise.
+    /// </summary>
+    public int StorageAccountCacheSeconds { get; set; } = 60;
 }

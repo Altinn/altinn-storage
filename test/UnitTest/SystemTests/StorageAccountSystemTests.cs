@@ -559,7 +559,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     {
         Dictionary<string, string?> settings = new()
         {
-            ["StorageAccounts:CacheSeconds"] = cacheSeconds.ToString(),
+            ["GeneralSettings:StorageAccountCacheSeconds"] = cacheSeconds.ToString(),
             ["GeneralSettings:DisableA2Endpoints"] = "true",
         };
         if (fileScanQueueName is not null)

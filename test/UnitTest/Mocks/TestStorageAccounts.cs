@@ -43,7 +43,7 @@ public static class TestStorageAccounts
             repository ?? new StorageAccountRepositoryMock(),
             new MemoryCache(new MemoryCacheOptions()),
             Options.Create(configuration ?? AzureConfiguration),
-            Options.Create(new StorageAccountSettings()),
+            Options.Create(new GeneralSettings()),
             NullLogger<StorageAccountResolver>.Instance
         );
     }
