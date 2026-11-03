@@ -293,7 +293,7 @@ public class DataRepositoryMock : IDataRepository
         Guid dataElementId,
         string appId,
         string blobStorageOrg,
-        int storageAccountNumber,
+        int? storageAccountNumber,
         short? storageAccountId,
         CancellationToken cancellationToken = default
     )

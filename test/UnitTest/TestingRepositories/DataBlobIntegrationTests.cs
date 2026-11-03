@@ -795,7 +795,7 @@ public class DataBlobIntegrationTests
             dataElementId,
             instance.AppId,
             instance.Org,
-            StorageAccountNaming.DefaultStorageAccountNumber,
+            null,
             account.Id
         );
         string blobStoragePath = DataElementHelper.GetVersionedBlobPath(

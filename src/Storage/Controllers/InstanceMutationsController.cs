@@ -1758,10 +1758,9 @@ public class InstanceMutationsController(
         CancellationToken cancellationToken
     )
     {
-        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
         StorageAccount storageAccount = await storageAccountResolver.ForWrite(
             instance.Org,
-            storageAccountNumber,
+            StorageAccountNaming.NumberOf(application),
             cancellationToken
         );
         string blobVersionId = await dataRepository.CreateBlobVersionId(
@@ -1769,7 +1768,7 @@ public class InstanceMutationsController(
             dataElementId,
             instance.AppId,
             instance.Org,
-            storageAccountNumber,
+            application.StorageAccountNumber,
             storageAccount.Id,
             cancellationToken
         );
