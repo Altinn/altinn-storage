@@ -38,20 +38,11 @@ using static Altinn.Platform.Storage.Interface.Models.SignRequest;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class SignControllerTests : IClassFixture<TestApplicationFactory<SignController>>
+public class SignControllerTests : IDisposable
 {
     private const string BasePath = "storage/api/v1/instances";
 
-    private readonly TestApplicationFactory<SignController> _factory;
-
-    /// <summary>
-    /// Constructor.
-    /// </summary>
-    /// <param name="factory">The web application factory.</param>
-    public SignControllerTests(TestApplicationFactory<SignController> factory)
-    {
-        _factory = factory;
-    }
+    private readonly TestApplicationFactory<SignController> _factory = new();
 
     public static TheoryData<Signee> SigneeData =>
         new(
@@ -82,6 +73,8 @@ public class SignControllerTests : IClassFixture<TestApplicationFactory<SignCont
                 "{\"type\":\"process_state_version_mismatch\",\"title\":\"Process state version did not match expected version.\",\"status\":412}"
             },
         };
+
+    public void Dispose() => _factory.Dispose();
 
     [Theory]
     [MemberData(nameof(SigneeData))]

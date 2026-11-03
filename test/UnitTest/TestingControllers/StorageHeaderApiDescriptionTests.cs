@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -22,15 +23,18 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// appear in the generated API description. Reading them off <c>Request.Headers</c> instead would
 /// leave them undocumented, which these tests exist to prevent.
 /// </summary>
-public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessController> factory)
-    : IClassFixture<TestApplicationFactory<ProcessController>>
+public class StorageHeaderApiDescriptionTests : IDisposable
 {
+    private readonly TestApplicationFactory<ProcessController> _factory = new();
+
     public static TheoryData<string> RequestHeaders =>
         [
             StorageHeaders.IfInstanceVersionMatch,
             StorageHeaders.IfProcessStateVersionMatch,
             StorageHeaders.IdempotencyKey,
         ];
+
+    public void Dispose() => _factory.Dispose();
 
     [Theory]
     [MemberData(nameof(RequestHeaders))]
@@ -89,8 +93,8 @@ public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessCont
 
     private List<ApiDescription> GetApiDescriptions()
     {
-        WebApplicationFactory<ProcessController> webApplicationFactory = factory.WithWebHostBuilder(
-            builder =>
+        WebApplicationFactory<ProcessController> webApplicationFactory =
+            _factory.WithWebHostBuilder(builder =>
             {
                 IConfiguration configuration = new ConfigurationBuilder()
                     .AddJsonFile(ServiceUtil.GetAppsettingsPath())
@@ -99,8 +103,7 @@ public class StorageHeaderApiDescriptionTests(TestApplicationFactory<ProcessCont
                     (hostingContext, config) => config.AddConfiguration(configuration)
                 );
                 builder.ConfigureTestServices(services => services.AddMockRepositories());
-            }
-        );
+            });
         webApplicationFactory.CreateClient().Dispose();
 
         return

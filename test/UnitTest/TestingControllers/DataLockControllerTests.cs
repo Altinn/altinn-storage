@@ -47,19 +47,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// 998c5e56-6f73-494a-9730-6ebd11bffe88: false (unlocked)
 /// 998c5e56-6f73-494a-9730-6ebd11bfff99: true (locked)
 /// </summary>
-public class DataLockControllerTests : IClassFixture<TestApplicationFactory<DataLockController>>
+public class DataLockControllerTests : IDisposable
 {
-    private readonly TestApplicationFactory<DataLockController> _factory;
+    private readonly TestApplicationFactory<DataLockController> _factory = new();
+
     private readonly string _versionPrefix = "/storage/api/v1";
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DataLockControllerTests"/> class.
-    /// </summary>
-    /// <param name="factory">Platform storage fixture.</param>
-    public DataLockControllerTests(TestApplicationFactory<DataLockController> factory)
-    {
-        _factory = factory;
-    }
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task User_with_write_is_allowed_to_lock()

@@ -22,8 +22,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class ContentOnDemandControllerTests
-    : IClassFixture<TestApplicationFactory<ContentOnDemandController>>
+public class ContentOnDemandControllerTests : IDisposable
 {
     private const string _basePath = "storage/api/v1/ondemand";
     private const string _html = "<html><body>formdata</body></html>";
@@ -34,16 +33,9 @@ public class ContentOnDemandControllerTests
     private static readonly Guid _htmlDataGuid = new("11f7c994-6681-4e3d-a3ba-6b19bbf3e5f6");
     private static readonly Guid _xmlDataGuid = new("3a1b2f4c-7a1e-4b25-9f0f-0d6a0f3a5b21");
 
-    private readonly TestApplicationFactory<ContentOnDemandController> _factory;
+    private readonly TestApplicationFactory<ContentOnDemandController> _factory = new();
 
-    /// <summary>
-    /// Constructor.
-    /// </summary>
-    /// <param name="factory">The web application factory.</param>
-    public ContentOnDemandControllerTests(TestApplicationFactory<ContentOnDemandController> factory)
-    {
-        _factory = factory;
-    }
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task GetFormdataAsHtml_ReturnsHtmlInResponseBody()

@@ -29,15 +29,11 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class InstanceEventsControllerTests
-    : IClassFixture<TestApplicationFactory<InstanceEventsController>>
+public class InstanceEventsControllerTests : IDisposable
 {
-    private readonly TestApplicationFactory<InstanceEventsController> _factory;
+    private readonly TestApplicationFactory<InstanceEventsController> _factory = new();
 
-    public InstanceEventsControllerTests(TestApplicationFactory<InstanceEventsController> factory)
-    {
-        _factory = factory;
-    }
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task Post_WhenInstanceEventInstanceIdNotSet_Returns400BadRequest()

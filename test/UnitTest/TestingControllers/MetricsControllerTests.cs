@@ -26,14 +26,15 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class MetricsControllerTests(TestApplicationFactory<MetricsController> factory)
-    : IClassFixture<TestApplicationFactory<MetricsController>>
+public class MetricsControllerTests : IDisposable
 {
-    private readonly TestApplicationFactory<MetricsController> _factory = factory;
+    private readonly TestApplicationFactory<MetricsController> _factory = new();
 
     private const string _basePath = "storage/api/v1/metrics";
 
     private const string _validApiKey = "test-metrics-api-key";
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task Get_DailyMetrics_ReturnsOk()

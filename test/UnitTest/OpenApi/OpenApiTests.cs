@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.OpenApi;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -9,9 +10,12 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.OpenApi;
 
-public class OpenApiTests(TestApplicationFactory<Program> factory)
-    : IClassFixture<TestApplicationFactory<Program>>
+public class OpenApiTests : IDisposable
 {
+    private readonly TestApplicationFactory<Program> _factory = new();
+
+    public void Dispose() => _factory.Dispose();
+
     [Fact]
     public async Task VerifyFullSwagger()
     {
@@ -38,7 +42,7 @@ public class OpenApiTests(TestApplicationFactory<Program> factory)
 
     private async Task<string> GetSwaggerDocument(string documentName)
     {
-        using var client = factory.CreateClient();
+        using var client = _factory.CreateClient();
 
         var response = await client.GetAsync($"/swagger/{documentName}/swagger.json");
         var swaggerJson = await response.Content.ReadAsStringAsync();
