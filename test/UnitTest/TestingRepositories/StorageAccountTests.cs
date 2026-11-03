@@ -375,40 +375,7 @@ public class StorageAccountTests(DataElementFixture fixture)
     public async Task GetHardDeletedDataElements_ReturnsStorageAccountIdOfAttachedVersions()
     {
         short accountId = await _repository.Insert(Azure("harddeleted"), _org, 1, writable: false);
-        Instance apiInstance = TestData.Instance_1_1.Clone();
-        apiInstance.Id = $"{apiInstance.InstanceOwner.PartyId}/{Guid.NewGuid()}";
-        InstanceInternal instance = apiInstance.FromApiModel();
-        instance.CompleteConfirmations =
-        [
-            new CompleteConfirmation
-            {
-                StakeholderId = instance.Org,
-                ConfirmedOn = DateTime.UtcNow.AddDays(-8),
-            },
-        ];
-        instance = await fixture.InstanceRepo.Create(instance, CancellationToken.None);
-        instance = await fixture.InstanceRepo.GetOne(instance.Id, false, CancellationToken.None);
-        DataElementInternal element = NewElement(_dataElementTemplate2);
-        element.InstanceGuid = instance.Id;
-        element.DeleteStatus = new DeleteStatus
-        {
-            IsHardDeleted = true,
-            HardDeleted = DateTime.UtcNow.AddDays(-8),
-        };
-        element.BlobVersionId = await fixture.DataRepo.CreateBlobVersionId(
-            instance.Id,
-            element.Id,
-            instance.AppId,
-            instance.Org,
-            1,
-            accountId
-        );
-        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
-            instance.AppId,
-            instance.Id,
-            element.BlobVersionId
-        );
-        await fixture.DataRepo.Create(element, instance.InternalId);
+        DataElementInternal element = await CreateHardDeletedElement(accountId);
 
         List<DeletedDataElementInternal> deleted =
             await fixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
@@ -420,6 +387,97 @@ public class StorageAccountTests(DataElementFixture fixture)
         BlobVersionReferencesInternal refs = Assert.Single(ours.BlobVersions);
         Assert.Equal(accountId, refs.StorageAccountId);
         Assert.Equal([element.BlobVersionId], refs.BlobVersionIds);
+    }
+
+    [Fact]
+    public async Task ReadDetachedBlobVersionsV1_SkipsVersionsInNamedAccounts()
+    {
+        short accountId = await _repository.Insert(Azure("detachedv1"), _org, 1, writable: false);
+        Guid dataElementId = Guid.NewGuid();
+        await fixture.DataRepo.CreateBlobVersionId(
+            _instance.Id,
+            dataElementId,
+            _instance.AppId,
+            _instance.Org,
+            1,
+            accountId
+        );
+        string withoutId = await fixture.DataRepo.CreateBlobVersionId(
+            _instance.Id,
+            dataElementId,
+            _instance.AppId,
+            _instance.Org,
+            1,
+            null
+        );
+
+        List<Guid> versions = await ReadGuids(
+            "select unnest(blobversions) from storage.readdetachedblobversions($1)",
+            dataElementId
+        );
+
+        Assert.Equal([BlobVersionId.Decode(withoutId)], versions);
+    }
+
+    [Fact]
+    public async Task ReadOrphanBlobVersionsForCleanupV1_SkipsVersionsInNamedAccounts()
+    {
+        short accountId = await _repository.Insert(Azure("orphanv1"), _org, 1, writable: false);
+        Guid dataElementId = Guid.NewGuid();
+        string withId;
+        string withoutId;
+        await PostgresUtil.FreezeTime(DateTimeOffset.UtcNow.AddDays(-8));
+        try
+        {
+            withId = await fixture.DataRepo.CreateBlobVersionId(
+                _instance.Id,
+                dataElementId,
+                _instance.AppId,
+                _instance.Org,
+                1,
+                accountId
+            );
+            withoutId = await fixture.DataRepo.CreateBlobVersionId(
+                _instance.Id,
+                dataElementId,
+                _instance.AppId,
+                _instance.Org,
+                1,
+                null
+            );
+        }
+        finally
+        {
+            await PostgresUtil.UnfreezeTime();
+        }
+
+        List<Guid> versions = await ReadGuids(
+            "select unnest(blobversions) from storage.readorphanblobversionsforcleanup() where instanceguid = $1",
+            _instance.Id
+        );
+
+        Assert.Equal([BlobVersionId.Decode(withoutId)], versions);
+        Assert.DoesNotContain(BlobVersionId.Decode(withId), versions);
+    }
+
+    [Fact]
+    public async Task ReadHardDeletedDataElementsForCleanupV1_SkipsElementsWithVersionInNamedAccount()
+    {
+        short accountId = await _repository.Insert(
+            Azure("harddeletedv1"),
+            _org,
+            1,
+            writable: false
+        );
+        DataElementInternal named = await CreateHardDeletedElement(accountId);
+        DataElementInternal pattern = await CreateHardDeletedElement(null);
+
+        List<Guid> elements = await ReadGuids(
+            "select (element->>'Id')::uuid from storage.readharddeleteddataelementsforcleanup() where (element->>'Id')::uuid = any($1)",
+            new[] { named.Id, pattern.Id }
+        );
+
+        Assert.Equal([pattern.Id], elements);
     }
 
     private static AzureBlobProviderInfo Azure(string container) => new("account", container);
@@ -492,6 +550,59 @@ public class StorageAccountTests(DataElementFixture fixture)
             _instance.InternalId
         );
         return result.DataElement;
+    }
+
+    private async Task<DataElementInternal> CreateHardDeletedElement(short? storageAccountId)
+    {
+        Instance apiInstance = TestData.Instance_1_1.Clone();
+        apiInstance.Id = $"{apiInstance.InstanceOwner.PartyId}/{Guid.NewGuid()}";
+        InstanceInternal instance = apiInstance.FromApiModel();
+        instance.CompleteConfirmations =
+        [
+            new CompleteConfirmation
+            {
+                StakeholderId = instance.Org,
+                ConfirmedOn = DateTime.UtcNow.AddDays(-8),
+            },
+        ];
+        instance = await fixture.InstanceRepo.Create(instance, CancellationToken.None);
+        instance = await fixture.InstanceRepo.GetOne(instance.Id, false, CancellationToken.None);
+        DataElementInternal element = NewElement(_dataElementTemplate2);
+        element.InstanceGuid = instance.Id;
+        element.DeleteStatus = new DeleteStatus
+        {
+            IsHardDeleted = true,
+            HardDeleted = DateTime.UtcNow.AddDays(-8),
+        };
+        element.BlobVersionId = await fixture.DataRepo.CreateBlobVersionId(
+            instance.Id,
+            element.Id,
+            instance.AppId,
+            instance.Org,
+            1,
+            storageAccountId
+        );
+        element.BlobStoragePath = DataElementHelper.GetVersionedBlobPath(
+            instance.AppId,
+            instance.Id,
+            element.BlobVersionId
+        );
+        await fixture.DataRepo.Create(element, instance.InternalId);
+        return element;
+    }
+
+    private async Task<List<Guid>> ReadGuids(string sql, object parameter)
+    {
+        List<Guid> ids = [];
+        await using NpgsqlCommand command = fixture.DataSource.CreateCommand(sql);
+        command.Parameters.AddWithValue(parameter);
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            ids.Add(reader.GetGuid(0));
+        }
+
+        return ids;
     }
 
     private Task<int> ReadInstanceVersion() =>
