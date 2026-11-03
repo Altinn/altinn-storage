@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Azure.Storage;
 using Azure.Storage.Blobs;
@@ -21,7 +22,7 @@ namespace Altinn.Platform.Storage.UnitTest.Utils;
 /// </summary>
 /// <remarks>
 /// Existence is checked with the Azure SDK and the shared key of the configured Azurite account, so only
-/// Azure blob accounts on that endpoint can be audited.
+/// Azure blob accounts in Azurite can be audited.
 /// </remarks>
 public static class BlobVersionAudit
 {
@@ -75,10 +76,11 @@ public static class BlobVersionAudit
                 row.InstanceGuid,
                 BlobVersionId.Encode(row.Id)
             );
-            bool present = await Exists(info.ContainerUri, blobStoragePath);
+            Uri containerUri = AzureBlobLocation.Of(info, storageConfiguration).ContainerUri;
+            bool present = await Exists(containerUri, blobStoragePath);
 
             List<Uri> alsoPresentIn = [];
-            foreach (Uri container in knownContainers.Where(c => c != info.ContainerUri))
+            foreach (Uri container in knownContainers.Where(c => c != containerUri))
             {
                 if (await Exists(container, blobStoragePath))
                 {
@@ -86,7 +88,9 @@ public static class BlobVersionAudit
                 }
             }
 
-            findings.Add(new Finding(row, blobStoragePath, account, present, alsoPresentIn));
+            findings.Add(
+                new Finding(row, blobStoragePath, account, containerUri, present, alsoPresentIn)
+            );
         }
 
         return findings;
@@ -181,19 +185,15 @@ public static class BlobVersionAudit
     /// <param name="Row">The blob version row.</param>
     /// <param name="BlobStoragePath">The path of the row's blob.</param>
     /// <param name="Account">The storage account the resolver gives for the row.</param>
+    /// <param name="Container">The container of that storage account.</param>
     /// <param name="Present">Whether the blob is in that account.</param>
     /// <param name="AlsoPresentIn">The other known containers holding a blob at the same path.</param>
     public sealed record Finding(
         DataElementBlobVersion Row,
         string BlobStoragePath,
         StorageAccount Account,
+        Uri Container,
         bool Present,
         IReadOnlyList<Uri> AlsoPresentIn
-    )
-    {
-        /// <summary>
-        /// Gets the container of the storage account the resolver gives for the row.
-        /// </summary>
-        public Uri Container => ((AzureBlobProviderInfo)Account.ProviderInfo).ContainerUri;
-    }
+    );
 }
