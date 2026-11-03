@@ -31,13 +31,15 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class StudioInstancesControllerTests : IDisposable
+public class StudioInstancesControllerTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<StudioInstancesController> _factory = new();
 
     private const string BasePath = "/storage/api/v1/studio/instances";
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task GetInstances_NoAccessToken_ReturnsUnauthorized()

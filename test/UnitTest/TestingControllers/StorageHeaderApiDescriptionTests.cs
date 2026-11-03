@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.UnitTest.Fixture;
@@ -23,7 +24,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// appear in the generated API description. Reading them off <c>Request.Headers</c> instead would
 /// leave them undocumented, which these tests exist to prevent.
 /// </summary>
-public class StorageHeaderApiDescriptionTests : IDisposable
+public class StorageHeaderApiDescriptionTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<ProcessController> _factory = new();
 
@@ -34,7 +35,9 @@ public class StorageHeaderApiDescriptionTests : IDisposable
             StorageHeaders.IdempotencyKey,
         ];
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Theory]
     [MemberData(nameof(RequestHeaders))]

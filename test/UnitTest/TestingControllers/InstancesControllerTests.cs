@@ -53,7 +53,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Constructor.
 /// </summary>
-public class InstancesControllerTests : IDisposable
+public class InstancesControllerTests : IAsyncLifetime
 {
     public enum GuardedInstanceUpdateRoute
     {
@@ -74,7 +74,9 @@ public class InstancesControllerTests : IDisposable
 
     private readonly TestApplicationFactory<InstancesController> _factory = new();
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Test case: User has to low authentication level.

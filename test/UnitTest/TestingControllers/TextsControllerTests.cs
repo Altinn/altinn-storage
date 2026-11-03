@@ -1,6 +1,5 @@
 #nullable disable
 
-using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
@@ -29,7 +28,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class TextsControllerTests : IDisposable
+public class TextsControllerTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<TextsController> _factory = new();
     private readonly HttpClient _httpClient;
@@ -42,7 +41,9 @@ public class TextsControllerTests : IDisposable
         _httpClient = CreateTestHttpClient(mockTextRepository.Object);
     }
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:

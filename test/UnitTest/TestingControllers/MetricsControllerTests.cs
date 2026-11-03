@@ -26,7 +26,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class MetricsControllerTests : IDisposable
+public class MetricsControllerTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<MetricsController> _factory = new();
 
@@ -34,7 +34,9 @@ public class MetricsControllerTests : IDisposable
 
     private const string _validApiKey = "test-metrics-api-key";
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task Get_DailyMetrics_ReturnsOk()

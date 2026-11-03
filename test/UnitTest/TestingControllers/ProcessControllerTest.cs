@@ -41,7 +41,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Test class for Process Controller. Focuses on authorization of requests.
 /// </summary>
-public class ProcessControllerTest : IDisposable
+public class ProcessControllerTest : IAsyncLifetime
 {
     private readonly TestApplicationFactory<ProcessController> _factory = new();
 
@@ -130,7 +130,9 @@ public class ProcessControllerTest : IDisposable
     public static TheoryData<string> MalformedVersionPreconditions =>
         ["0", "-1", "1.0", "not-a-version", "+5", " 5 ", "5,5"];
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Version preconditions are parsed strictly: only a plain positive 32-bit integer is

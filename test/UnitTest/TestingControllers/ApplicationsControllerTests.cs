@@ -32,13 +32,15 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class ApplicationsControllerTests : IDisposable
+public class ApplicationsControllerTests : IAsyncLifetime
 {
     private const string BasePath = "/storage/api/v1";
 
     private readonly TestApplicationFactory<ApplicationsController> _factory = new();
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Testing that the <see cref="ApplicationsController.IsValidAppId"/> operation successfully identifies valid and invalid app id values.

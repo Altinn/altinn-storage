@@ -22,7 +22,7 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class ContentOnDemandControllerTests : IDisposable
+public class ContentOnDemandControllerTests : IAsyncLifetime
 {
     private const string _basePath = "storage/api/v1/ondemand";
     private const string _html = "<html><body>formdata</body></html>";
@@ -35,7 +35,9 @@ public class ContentOnDemandControllerTests : IDisposable
 
     private readonly TestApplicationFactory<ContentOnDemandController> _factory = new();
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task GetFormdataAsHtml_ReturnsHtmlInResponseBody()

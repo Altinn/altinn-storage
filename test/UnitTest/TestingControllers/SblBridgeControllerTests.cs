@@ -25,11 +25,13 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Test class for Process Controller. Focuses on authorization of requests.
 /// </summary>
-public class SblBridgeControllerTests : IDisposable
+public class SblBridgeControllerTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<SblBridgeController> _factory = new();
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task RegisterAltinn3CorrespondenceRecipient_ValidPartyId_ReturnsOk()
