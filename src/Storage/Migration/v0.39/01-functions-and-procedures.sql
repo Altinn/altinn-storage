@@ -2024,6 +2024,10 @@ BEGIN
         FROM storage.dataelementblobversions bv
         WHERE bv.dataelementid = _dataelementid
             AND bv.detachedat IS NOT NULL
+            -- Callers of this version resolve the account from org and number only; a version in a
+            -- named account would be looked up in the wrong account, its blob reported as missing
+            -- and its row deleted, leaking the blob. Only _v2 callers handle these versions.
+            AND bv.storageaccountid IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
         ORDER BY min(bv.created), min(bv.id::TEXT);
 END;
@@ -2102,7 +2106,19 @@ BEGIN
             AND bv.detachedat IS NULL
         GROUP BY bv.instanceguid, bv.appid, bv.blobstorageorg, bv.storageaccountnumber
     ) v ON TRUE
-    WHERE i.AltinnMainVersion >= 3;
+    WHERE i.AltinnMainVersion >= 3
+        -- Callers of this version resolve the account from org and number only and then delete the
+        -- element. Leaving out just its named-account version would return the element as one without
+        -- versions, so it would be deleted without its blob; such an element is left out entirely
+        -- and stays until a _v2 caller cleans it up.
+        AND NOT EXISTS (
+            SELECT 1
+            FROM storage.dataelementblobversions nv
+            WHERE nv.instanceguid = i.alternateid
+                AND nv.dataelementid = d.alternateid
+                AND nv.detachedat IS NULL
+                AND nv.storageaccountid IS NOT NULL
+        );
 END;
 $BODY$;
 
@@ -2401,6 +2417,10 @@ BEGIN
             array_agg(v.id ORDER BY v.created, v.id) AS blobversions
         FROM storage.dataelementblobversions v
         WHERE v.detachedat <= NOW() - INTERVAL '7 days'
+            -- Callers of this version resolve the account from org and number only; a version in a
+            -- named account would be looked up in the wrong account, its blob reported as missing
+            -- and its row deleted, leaking the blob. Only _v2 callers handle these versions.
+            AND v.storageaccountid IS NULL
         GROUP BY v.instanceguid, v.appid, v.blobstorageorg, v.storageaccountnumber;
 END;
 $BODY$;
