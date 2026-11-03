@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Models;
@@ -11,11 +10,12 @@ namespace Altinn.Platform.Storage.Repository;
 public interface IStorageAccountRepository
 {
     /// <summary>
-    /// Reads all storage account rows.
+    /// Reads all storage account rows. A row whose provider info this build cannot read is returned
+    /// as unreadable instead of failing the read, so it fails only the operations that use it.
     /// </summary>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>The rows ordered by id.</returns>
-    Task<IReadOnlyList<StorageAccountRow>> ReadAll(CancellationToken cancellationToken = default);
+    /// <returns>The readable and unreadable rows, each ordered by id.</returns>
+    Task<StorageAccountRows> ReadAll(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Inserts a storage account row. A writable row takes the writable flag over from the previous

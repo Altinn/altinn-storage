@@ -37,6 +37,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Npgsql;
@@ -321,28 +322,74 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task StartHost_RowWithUnknownProvider_FailsToStart()
+    public async Task StartHost_WritableRowWithUnknownProvider_StartsAndFailsOnlyOperationsThatUseIt()
     {
         // Arrange
         short id = await PostgresUtil.RunQuery<short>(
-            $$"""select storage.insertstorageaccount('unknown-provider', '{"accountName":"a","container":"c"}'::jsonb, '{{_org}}', 1, false)"""
+            $$"""select storage.insertstorageaccount('unknown-provider', '{"accountName":"a","container":"c"}'::jsonb, '{{_org}}', 1, true)"""
         );
 
         try
         {
-            await using TestApplicationFactory<DataController> root = new();
-            WebApplicationFactory<DataController> factory = Configure(root, Settings(60, null));
+            CapturingLoggerProvider logs = new();
 
             // Act
-            Exception exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+            StorageHost host = await StartHost(seedApplication: true, logs: logs);
+            short readableId = await host
+                .Services.GetRequiredService<IStorageAccountRepository>()
+                .Insert(
+                    BlobRepositoryAzuriteFixture.ProviderInfo($"named-{Guid.NewGuid():N}"),
+                    _org,
+                    2,
+                    writable: false
+                );
+            Guid instance = await CreateInstance(host);
+            using HttpResponseMessage upload = await PostData(
+                host,
+                instance,
+                _defaultDataType,
+                "not written"
+            );
 
             // Assert
-            Assert.Contains($"Storage account {id} ", exception.ToString());
-            Assert.Contains("'unknown-provider'", exception.ToString());
+            CapturingLoggerProvider.Entry startupLog = Assert.Single(
+                logs.Entries,
+                entry =>
+                    entry.Level == LogLevel.Critical
+                    && entry.Category == typeof(StorageAccountStartupCheck).FullName
+                    && entry.Message.StartsWith($"Storage account {id} ")
+            );
+            Assert.Contains("'unknown-provider'", startupLog.Message);
+            Assert.Equal(HttpStatusCode.InternalServerError, upload.StatusCode);
+            Assert.Contains($"Storage account {id} ", await upload.Content.ReadAsStringAsync());
+            Assert.Equal(
+                0,
+                await PostgresUtil.RunCountQuery(
+                    $"select count(*) from storage.dataelements where instanceguid = '{instance}'"
+                )
+            );
+            InvalidOperationException byId = await Assert.ThrowsAsync<InvalidOperationException>(
+                () =>
+                    host.Resolver.GetById(id)
+            );
+            Assert.Contains($"Storage account {id} ", byId.Message);
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                host.Resolver.ForWrite(_org, 1)
+            );
+            Assert.Equal(readableId, (await host.Resolver.GetById(readableId)).Id);
+            Assert.Null((await host.Resolver.ForWrite(_org, 2)).Id);
+            Assert.Null((await host.Resolver.ForWrite($"{_org}x", 1)).Id);
+            Assert.Contains(
+                logs.Entries,
+                entry =>
+                    entry.Level == LogLevel.Critical
+                    && entry.Category == typeof(StorageAccountResolver).FullName
+                    && entry.Message.StartsWith($"Storage account {id} ")
+            );
         }
         finally
         {
-            // The row would stop every later host from starting.
+            // An unreadable writable row fails every later write for the org and number.
             await PostgresUtil.RunSql($"delete from storage.storageaccounts where id = {id}");
         }
     }
@@ -525,7 +572,8 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
 
     private static WebApplicationFactory<DataController> Configure(
         TestApplicationFactory<DataController> root,
-        Dictionary<string, string?> settings
+        Dictionary<string, string?> settings,
+        CapturingLoggerProvider? logs = null
     ) =>
         root.WithWebHostBuilder(builder =>
         {
@@ -543,19 +591,25 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
                 services.AddSingleton(Mock.Of<IPartiesWithInstancesClient>());
                 services.AddSingleton(Mock.Of<IMessageBus>());
                 services.AddSingleton<IPDP, PermitAllPdp>();
+                if (logs is not null)
+                {
+                    services.AddSingleton<ILoggerProvider>(logs);
+                }
             });
         });
 
     private async Task<StorageHost> StartHost(
         int cacheSeconds = 60,
         bool seedApplication = false,
-        string? fileScanQueueName = null
+        string? fileScanQueueName = null,
+        CapturingLoggerProvider? logs = null
     )
     {
         TestApplicationFactory<DataController> root = new();
         WebApplicationFactory<DataController> factory = Configure(
             root,
-            Settings(cacheSeconds, fileScanQueueName)
+            Settings(cacheSeconds, fileScanQueueName),
+            logs
         );
         HttpClient client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new("Bearer", PrincipalUtil.GetOrgToken(_org));
