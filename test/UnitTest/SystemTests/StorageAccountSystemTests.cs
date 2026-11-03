@@ -82,7 +82,12 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private string AppId => $"{_org}/{_app}";
 
     private Uri PatternContainerUri =>
-        ((AzureBlobProviderInfo)TestStorageAccounts.PatternDefault(_org).ProviderInfo).ContainerUri;
+        AzureBlobLocation
+            .Of(
+                (AzureBlobProviderInfo)TestStorageAccounts.PatternDefault(_org).ProviderInfo,
+                _storageConfiguration
+            )
+            .ContainerUri;
 
     public async Task InitializeAsync()
     {
@@ -113,7 +118,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         // Arrange
         StorageHost host = await StartHost(seedApplication: true);
         BlobContainerClient named = await CreateContainer($"named-{Guid.NewGuid():N}");
-        Uri namedUri = BlobRepositoryAzuriteFixture.ProviderInfo(named.Name).ContainerUri;
+        Uri namedUri = BlobRepositoryAzuriteFixture.ContainerUri(named.Name);
 
         Guid first = await CreateInstance(host);
         Guid second = await CreateInstance(host);
@@ -315,7 +320,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         Assert.Null(Assert.Single(await ReadVersionRows(existing)).StorageAccountId);
         Assert.Equal("kept", await ReadData(host, instance, existing));
         BlobContainerClient missing = new(
-            BlobRepositoryAzuriteFixture.ProviderInfo(missingContainer).ContainerUri,
+            BlobRepositoryAzuriteFixture.ContainerUri(missingContainer),
             SharedKey()
         );
         Assert.False(await missing.ExistsAsync());
@@ -440,7 +445,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         const int uploadsPerPhase = 10;
         StorageHost host = await StartHost(seedApplication: true);
         BlobContainerClient named = await CreateContainer($"named-{Guid.NewGuid():N}");
-        Uri namedUri = BlobRepositoryAzuriteFixture.ProviderInfo(named.Name).ContainerUri;
+        Uri namedUri = BlobRepositoryAzuriteFixture.ContainerUri(named.Name);
         Guid instance = await CreateInstance(host);
 
         // Act

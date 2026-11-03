@@ -65,11 +65,7 @@ public class StorageAccountTests(DataElementFixture fixture)
     [Fact]
     public async Task ReadAll_ReturnsDocumentsAsTheirVariant()
     {
-        AzureBlobProviderInfo azure = new(
-            "devstoreaccount1",
-            "named-container",
-            new Uri("http://127.0.0.1:10000/devstoreaccount1")
-        );
+        AzureBlobProviderInfo azure = new("devstoreaccount1", "named-container");
         FileSystemProviderInfo fileSystem = new("/data/blobs/ttd");
         short azureId = await _repository.Insert(azure, _org, 1, writable: true);
         short fileSystemId = await _repository.Insert(fileSystem, _org, 2, writable: false);
@@ -131,6 +127,10 @@ public class StorageAccountTests(DataElementFixture fixture)
     [Theory]
     [InlineData("unknown-provider", """{"accountName":"a","container":"c"}""")]
     [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":"ttdaccount","container":"container","endpoint":"https://evil.example"}"""
+    )]
     public async Task ReadAll_UnreadableRow_ReturnsItAsUnreadableBesideReadableRows(
         string provider,
         string document

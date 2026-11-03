@@ -2,6 +2,7 @@ using System;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.Repository;
 
 namespace Altinn.Platform.Storage.Helpers;
 
@@ -15,8 +16,6 @@ public static class StorageAccountNaming
     /// The storage account number used when an application does not set one.
     /// </summary>
     public const int DefaultStorageAccountNumber = 1;
-
-    private const string _azuriteAccountName = "devstoreaccount1";
 
     /// <summary>
     /// Gets the storage account number of an application.
@@ -38,7 +37,8 @@ public static class StorageAccountNaming
     /// <remarks>
     /// The account name is <see cref="AzureStorageConfiguration.OrgStorageAccount"/> formatted with the org,
     /// with its last two characters replaced by the number when it is not the default number. Azurite has
-    /// a single account, so the number does not apply there.
+    /// a single account, so the number does not apply there. Both names are lowercased, since Azure
+    /// account and container names are lowercase.
     /// </remarks>
     public static AzureBlobProviderInfo PatternDefault(
         AzureStorageConfiguration config,
@@ -46,17 +46,13 @@ public static class StorageAccountNaming
         int number
     )
     {
-        string container = string.Format(config.OrgStorageContainer, org);
-        if (config.AccountName == _azuriteAccountName)
+        string container = string.Format(config.OrgStorageContainer, org).ToLowerInvariant();
+        if (config.AccountName == AzureBlobLocation.AzuriteAccountName)
         {
-            return new AzureBlobProviderInfo(
-                config.AccountName,
-                container,
-                new Uri(config.BlobEndPoint)
-            );
+            return new AzureBlobProviderInfo(config.AccountName, container);
         }
 
-        string accountName = string.Format(config.OrgStorageAccount, org);
+        string accountName = string.Format(config.OrgStorageAccount, org).ToLowerInvariant();
         if (number != DefaultStorageAccountNumber)
         {
             accountName = $"{accountName.AsSpan(0, accountName.Length - 2)}{number:D2}";

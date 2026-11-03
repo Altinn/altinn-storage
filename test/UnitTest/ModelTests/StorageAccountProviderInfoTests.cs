@@ -8,7 +8,7 @@ namespace Altinn.Platform.Storage.UnitTest.ModelTests;
 public class StorageAccountProviderInfoTests
 {
     [Fact]
-    public void AzureBlob_SerializesWithoutDiscriminatorAndOmitsNullEndpoint()
+    public void AzureBlob_SerializesAccountNameAndContainerOnly()
     {
         StorageAccountProviderInfo info = new AzureBlobProviderInfo(
             "ttdaltinnprodstrg01",
@@ -20,23 +20,8 @@ public class StorageAccountProviderInfoTests
             """{"accountName":"ttdaltinnprodstrg01","container":"ttd-prod-appsdata-blob-db"}""",
             info.Serialize()
         );
-        Assert.Equal(info, StorageAccountProviderInfo.Deserialize(info.Provider, info.Serialize()));
-    }
-
-    [Fact]
-    public void AzureBlob_WithEndpoint_SerializesWithoutDiscriminator()
-    {
-        StorageAccountProviderInfo info = new AzureBlobProviderInfo(
-            "devstoreaccount1",
-            "ttd-dev-appsdata-blob-db",
-            new Uri("http://127.0.0.1:10000/devstoreaccount1")
-        );
-
-        Assert.Equal(
-            """{"accountName":"devstoreaccount1","container":"ttd-dev-appsdata-blob-db","endpoint":"http://127.0.0.1:10000/devstoreaccount1"}""",
-            info.Serialize()
-        );
         Assert.Equal(info.Serialize(), info.SerializeToElement().GetRawText());
+        Assert.Equal(info, StorageAccountProviderInfo.Deserialize(info.Provider, info.Serialize()));
     }
 
     [Fact]
@@ -53,17 +38,8 @@ public class StorageAccountProviderInfoTests
         {
             {
                 StorageAccountProviderInfo.AzureBlob,
-                """{"endpoint":"http://127.0.0.1:10000/devstoreaccount1","container":"c","accountName":"a"}""",
-                new AzureBlobProviderInfo(
-                    "a",
-                    "c",
-                    new Uri("http://127.0.0.1:10000/devstoreaccount1")
-                )
-            },
-            {
-                StorageAccountProviderInfo.AzureBlob,
-                """{"container":"c","accountName":"a"}""",
-                new AzureBlobProviderInfo("a", "c")
+                """{"container":"ttd-container","accountName":"ttdaccount"}""",
+                new AzureBlobProviderInfo("ttdaccount", "ttd-container")
             },
             {
                 StorageAccountProviderInfo.FileSystem,
@@ -87,33 +63,50 @@ public class StorageAccountProviderInfoTests
         Assert.Equal(info, StorageAccountProviderInfo.Deserialize(provider, info.Serialize()));
     }
 
-    [Fact]
-    public void AzureBlob_ContainerUri_UsesPublicEndpointByDefault()
+    [Theory]
+    [InlineData("abc", "abc")]
+    [InlineData("abcdefghijklmnopqrstuvwx", "a-b-c")]
+    [InlineData("devstoreaccount1", "ttd-dev-appsdata-blob-db")]
+    public void AzureBlob_ValidNames_AreAccepted(string accountName, string container)
     {
-        AzureBlobProviderInfo info = new("ttdaltinnprodstrg01", "ttd-prod-appsdata-blob-db");
+        AzureBlobProviderInfo info = new(accountName, container);
 
-        Assert.Equal(new Uri("https://ttdaltinnprodstrg01.blob.core.windows.net"), info.ServiceUri);
-        Assert.Equal(
-            new Uri("https://ttdaltinnprodstrg01.blob.core.windows.net/ttd-prod-appsdata-blob-db"),
-            info.ContainerUri
+        Assert.Equal(accountName, info.AccountName);
+        Assert.Equal(container, info.Container);
+    }
+
+    [Theory]
+    [InlineData("ab")]
+    [InlineData("abcdefghijklmnopqrstuvwxy")]
+    [InlineData("TtdAccount")]
+    [InlineData("ttd-account")]
+    [InlineData("evil.com/x")]
+    [InlineData("ttdaccount@evil")]
+    [InlineData("ttdaccount\n")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void AzureBlob_InvalidAccountName_Throws(string? accountName)
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new AzureBlobProviderInfo(accountName!, "container")
         );
     }
 
     [Theory]
-    [InlineData("http://127.0.0.1:10000/devstoreaccount1")]
-    [InlineData("http://127.0.0.1:10000/devstoreaccount1/")]
-    public void AzureBlob_ContainerUri_UsesEndpointWhenSet(string endpoint)
+    [InlineData("ab")]
+    [InlineData("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl")]
+    [InlineData("Container")]
+    [InlineData("-container")]
+    [InlineData("container-")]
+    [InlineData("con--tainer")]
+    [InlineData("con/tainer")]
+    [InlineData("container?x=1")]
+    [InlineData("container\n")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void AzureBlob_InvalidContainer_Throws(string? container)
     {
-        AzureBlobProviderInfo info = new(
-            "devstoreaccount1",
-            "ttd-dev-appsdata-blob-db",
-            new Uri(endpoint)
-        );
-
-        Assert.Equal(
-            new Uri("http://127.0.0.1:10000/devstoreaccount1/ttd-dev-appsdata-blob-db"),
-            info.ContainerUri
-        );
+        Assert.Throws<ArgumentException>(() => new AzureBlobProviderInfo("ttdaccount", container!));
     }
 
     [Fact]
@@ -127,11 +120,37 @@ public class StorageAccountProviderInfoTests
     }
 
     [Theory]
-    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
-    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":null,"container":"c"}""")]
+    [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"ttdaccount"}""")]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":null,"container":"container"}"""
+    )]
     [InlineData(StorageAccountProviderInfo.AzureBlob, "null")]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":"ttdaccount","container":"container","endpoint":"https://evil.example"}"""
+    )]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":"ttdaccount","container":"container","extra":1}"""
+    )]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":"evil.example/x","container":"container"}"""
+    )]
+    [InlineData(
+        StorageAccountProviderInfo.AzureBlob,
+        """{"accountName":"ttdaccount","container":"../other"}"""
+    )]
     [InlineData(StorageAccountProviderInfo.FileSystem, "{}")]
-    [InlineData(StorageAccountProviderInfo.FileSystem, """{"accountName":"a","container":"c"}""")]
+    [InlineData(
+        StorageAccountProviderInfo.FileSystem,
+        """{"directory":"/data/blobs/ttd","extra":1}"""
+    )]
+    [InlineData(
+        StorageAccountProviderInfo.FileSystem,
+        """{"accountName":"ttdaccount","container":"container"}"""
+    )]
     public void Deserialize_InvalidDocumentForProvider_ThrowsJsonException(
         string provider,
         string json

@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Altinn.Platform.Storage.Models;
 
@@ -30,7 +31,7 @@ public abstract record StorageAccountProviderInfo
     /// </summary>
     /// <remarks>
     /// The two Respect* flags make a document that lacks a required property, or has it set to null,
-    /// fail to deserialize.
+    /// fail to deserialize, and a document with a property the provider does not have fails as well.
     /// </remarks>
     public static JsonSerializerOptions JsonOptions { get; } =
         new()
@@ -39,6 +40,7 @@ public abstract record StorageAccountProviderInfo
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             RespectRequiredConstructorParameters = true,
             RespectNullableAnnotations = true,
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
         };
 
     /// <summary>
@@ -57,7 +59,8 @@ public abstract record StorageAccountProviderInfo
     /// <returns>The provider info.</returns>
     /// <exception cref="NotSupportedException">The provider is unknown.</exception>
     /// <exception cref="JsonException">
-    /// The document is not valid for the provider, for example a required property is missing.
+    /// The document is not valid for the provider, for example a required property is missing, an
+    /// unknown property is present or a value is not allowed.
     /// </exception>
     public static StorageAccountProviderInfo Deserialize(string provider, string json) =>
         provider switch
@@ -83,41 +86,67 @@ public abstract record StorageAccountProviderInfo
         JsonSerializer.SerializeToElement(this, GetType(), JsonOptions);
 
     private static T Deserialize<T>(string json)
-        where T : StorageAccountProviderInfo =>
-        JsonSerializer.Deserialize<T>(json, JsonOptions)
-        ?? throw new JsonException("The provider info document is null.");
+        where T : StorageAccountProviderInfo
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json, JsonOptions)
+                ?? throw new JsonException("The provider info document is null.");
+        }
+        catch (ArgumentException exception)
+        {
+            throw new JsonException(exception.Message, exception);
+        }
+    }
 }
 
 /// <summary>
-/// A container in an Azure Blob Storage account.
+/// A container in an Azure Blob Storage account. The document names only the account and the
+/// container; the blob repository derives the location from them, so a document cannot point the
+/// repository, or its credentials, at any other host.
 /// </summary>
-/// <param name="AccountName">The storage account name.</param>
-/// <param name="Container">The container name.</param>
-/// <param name="Endpoint">
-/// The blob service endpoint, for Azurite or non-public clouds. When null the public Azure endpoint
-/// of the account is used.
+/// <param name="AccountName">
+/// The storage account name: 3 to 24 lowercase letters and digits, as Azure requires.
 /// </param>
-public sealed record AzureBlobProviderInfo(
-    string AccountName,
-    string Container,
-    Uri? Endpoint = null
-) : StorageAccountProviderInfo
+/// <param name="Container">
+/// The container name: 3 to 63 lowercase letters, digits and hyphens, starting and ending with a
+/// letter or digit and without consecutive hyphens, as Azure requires.
+/// </param>
+/// <exception cref="ArgumentException">A name is not a valid Azure name.</exception>
+public sealed partial record AzureBlobProviderInfo(string AccountName, string Container)
+    : StorageAccountProviderInfo
 {
+    /// <summary>
+    /// Gets the storage account name.
+    /// </summary>
+    public string AccountName { get; } =
+        AccountName is not null && AccountNamePattern().IsMatch(AccountName)
+            ? AccountName
+            : throw new ArgumentException(
+                $"'{AccountName}' is not a valid Azure storage account name.",
+                nameof(AccountName)
+            );
+
+    /// <summary>
+    /// Gets the container name.
+    /// </summary>
+    public string Container { get; } =
+        Container is { Length: >= 3 and <= 63 } && ContainerPattern().IsMatch(Container)
+            ? Container
+            : throw new ArgumentException(
+                $"'{Container}' is not a valid Azure blob container name.",
+                nameof(Container)
+            );
+
     /// <inheritdoc/>
     [JsonIgnore]
     public override string Provider => AzureBlob;
 
-    /// <summary>
-    /// Gets the blob service URI of the account.
-    /// </summary>
-    [JsonIgnore]
-    public Uri ServiceUri => Endpoint ?? new Uri($"https://{AccountName}.blob.core.windows.net");
+    [GeneratedRegex(@"^[a-z0-9]{3,24}\z")]
+    private static partial Regex AccountNamePattern();
 
-    /// <summary>
-    /// Gets the URI of the container.
-    /// </summary>
-    [JsonIgnore]
-    public Uri ContainerUri => new($"{ServiceUri.AbsoluteUri.TrimEnd('/')}/{Container}");
+    [GeneratedRegex(@"^[a-z0-9]+(-[a-z0-9]+)*\z")]
+    private static partial Regex ContainerPattern();
 }
 
 /// <summary>
