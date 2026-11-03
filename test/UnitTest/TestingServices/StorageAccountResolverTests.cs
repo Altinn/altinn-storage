@@ -39,8 +39,29 @@ public class StorageAccountResolverTests
             _repository.Object,
             new MemoryCache(new MemoryCacheOptions()),
             Options.Create(_azureConfiguration),
-            Options.Create(new StorageAccountSettings()),
+            Options.Create(new GeneralSettings()),
             _logs.CreateLogger<StorageAccountResolver>()
+        );
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Constructor_StorageAccountCacheSecondsNotPositive_ThrowsWithMessage(int seconds)
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            new StorageAccountResolver(
+                _repository.Object,
+                new MemoryCache(new MemoryCacheOptions()),
+                Options.Create(_azureConfiguration),
+                Options.Create(new GeneralSettings { StorageAccountCacheSeconds = seconds }),
+                _logs.CreateLogger<StorageAccountResolver>()
+            )
+        );
+
+        Assert.Equal(
+            $"GeneralSettings:StorageAccountCacheSeconds must be greater than zero, but is {seconds}.",
+            exception.Message
         );
     }
 
