@@ -346,7 +346,7 @@ public class StorageAccountTests(DataElementFixture fixture)
                     OrgStorageContainer = "{0}-dev-appsdata-blob-db",
                 }
             ),
-            Options.Create(new StorageAccountSettings()),
+            Options.Create(new GeneralSettings()),
             NullLogger<StorageAccountResolver>.Instance
         );
         Assert.Equal(

@@ -28,14 +28,16 @@ public sealed class StorageAccountResolver(
     IStorageAccountRepository repository,
     IMemoryCache memoryCache,
     IOptions<AzureStorageConfiguration> storageConfiguration,
-    IOptions<StorageAccountSettings> settings,
+    IOptions<GeneralSettings> generalSettings,
     ILogger<StorageAccountResolver> logger
 ) : IStorageAccountResolver
 {
     private const string _cacheKey = "storage-accounts";
 
     private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
-    private readonly TimeSpan _cacheDuration = TimeSpan.FromSeconds(settings.Value.CacheSeconds);
+    private readonly TimeSpan _cacheDuration = CacheDuration(
+        generalSettings.Value.StorageAccountCacheSeconds
+    );
 
     /// <inheritdoc/>
     public async Task<StorageAccount> GetById(
@@ -181,6 +183,18 @@ public sealed class StorageAccountResolver(
             blobStorageOrg,
             storageAccountNumber ?? StorageAccountNaming.DefaultStorageAccountNumber
         );
+    }
+
+    private static TimeSpan CacheDuration(int seconds)
+    {
+        if (seconds <= 0)
+        {
+            throw new InvalidOperationException(
+                $"GeneralSettings:StorageAccountCacheSeconds must be greater than zero, but is {seconds}."
+            );
+        }
+
+        return TimeSpan.FromSeconds(seconds);
     }
 
     private async Task<Snapshot> GetSnapshot(CancellationToken cancellationToken)
