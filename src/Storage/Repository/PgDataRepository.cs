@@ -640,7 +640,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         Guid dataElementId,
         string appId,
         string blobStorageOrg,
-        int storageAccountNumber,
+        int? storageAccountNumber,
         short? storageAccountId,
         CancellationToken cancellationToken = default
     )
@@ -653,7 +653,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Uuid, dataElementId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, appId);
         pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, blobStorageOrg);
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Integer, storageAccountNumber);
+        pgcom.Parameters.AddWithValue(
+            NpgsqlDbType.Integer,
+            storageAccountNumber ?? (object)DBNull.Value
+        );
         pgcom.Parameters.AddWithValue(
             NpgsqlDbType.Smallint,
             storageAccountId ?? (object)DBNull.Value

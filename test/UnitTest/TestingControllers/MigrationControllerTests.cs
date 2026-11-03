@@ -165,7 +165,7 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
                     It.Is<Guid>(dataElementId => dataElementId != Guid.Empty),
                     instance.AppId,
                     instance.Org,
-                    1,
+                    (int?)null,
                     It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )
