@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
@@ -14,8 +15,10 @@ using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Xunit;
 
@@ -310,6 +313,56 @@ public class StorageAccountTests(DataElementFixture fixture)
     }
 
     [Fact]
+    public async Task CreateBlobVersionId_RecordsStorageAccountNumberAsGiven()
+    {
+        DataElementInternal withoutNumber = await CreateVersionedElement(null, null);
+        DataElementInternal withNumber = await CreateVersionedElement(3, null);
+
+        DataElementInternal readWithoutNumber = await fixture.DataRepo.Read(
+            _instance.Id,
+            withoutNumber.Id
+        );
+        DataElementInternal readWithNumber = await fixture.DataRepo.Read(
+            _instance.Id,
+            withNumber.Id
+        );
+
+        AssertLocation(readWithoutNumber, null, _instance.Org, null);
+        AssertLocation(readWithNumber, null, _instance.Org, 3);
+        DataElementBlobVersion row = await fixture.DataRepo.ReadBlobVersion(
+            _instance.Id,
+            withoutNumber.Id,
+            readWithoutNumber.BlobVersionId
+        );
+        Assert.Null(row.StorageAccountNumber);
+        StorageAccountResolver resolver = new(
+            _repository,
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(
+                new AzureStorageConfiguration
+                {
+                    AccountName = "altinnstorage",
+                    OrgStorageAccount = "{0}altinndevstorage01",
+                    OrgStorageContainer = "{0}-dev-appsdata-blob-db",
+                }
+            ),
+            Options.Create(new StorageAccountSettings()),
+            NullLogger<StorageAccountResolver>.Instance
+        );
+        Assert.Equal(
+            resolver.PatternDefault(
+                _instance.Org,
+                StorageAccountNaming.DefaultStorageAccountNumber
+            ),
+            await resolver.ForElement(readWithoutNumber, _instance.Org, 3)
+        );
+        Assert.Equal(
+            resolver.PatternDefault(_instance.Org, 3),
+            await resolver.ForElement(readWithNumber, _instance.Org, 3)
+        );
+    }
+
+    [Fact]
     public async Task ApplyInstanceMutation_ReturnsStorageLocationOfCurrentBlobVersion()
     {
         short accountId = await _repository.Insert(Azure("named"), _org, 5, writable: false);
@@ -520,7 +573,7 @@ public class StorageAccountTests(DataElementFixture fixture)
         DataElementInternal element,
         short? storageAccountId,
         string org,
-        int number
+        int? number
     )
     {
         Assert.NotNull(element.BlobVersionId);
@@ -561,7 +614,7 @@ public class StorageAccountTests(DataElementFixture fixture)
     }
 
     private async Task<DataElementInternal> CreateVersionedElement(
-        int storageAccountNumber,
+        int? storageAccountNumber,
         short? storageAccountId
     )
     {

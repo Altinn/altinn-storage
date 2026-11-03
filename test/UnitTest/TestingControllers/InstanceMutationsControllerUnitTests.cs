@@ -738,7 +738,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int>(),
+                    It.IsAny<int?>(),
                     It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -3268,7 +3268,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int>(),
+                    It.IsAny<int?>(),
                     It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 ),
@@ -5574,7 +5574,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<Guid>(),
                     It.IsAny<string>(),
                     It.IsAny<string>(),
-                    It.IsAny<int>(),
+                    It.IsAny<int?>(),
                     It.IsAny<short?>(),
                     It.IsAny<CancellationToken>()
                 )

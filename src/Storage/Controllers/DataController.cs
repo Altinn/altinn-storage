@@ -945,10 +945,9 @@ public class DataController : ControllerBase
 
         DateTime changedTime = DateTime.UtcNow;
 
-        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
         StorageAccount storageAccount = await _storageAccountResolver.ForWrite(
             instance.Org,
-            storageAccountNumber,
+            StorageAccountNaming.NumberOf(application),
             cancellationToken
         );
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
@@ -956,7 +955,7 @@ public class DataController : ControllerBase
             dataGuid,
             instance.AppId,
             instance.Org,
-            storageAccountNumber,
+            application.StorageAccountNumber,
             storageAccount.Id,
             cancellationToken
         );

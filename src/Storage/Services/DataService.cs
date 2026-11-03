@@ -191,10 +191,9 @@ public class DataService : IDataService
         CancellationToken cancellationToken = default
     )
     {
-        int storageAccountNumber = StorageAccountNaming.NumberOf(application);
         StorageAccount storageAccount = await _storageAccountResolver.ForWrite(
             instance.Org,
-            storageAccountNumber,
+            StorageAccountNaming.NumberOf(application),
             cancellationToken
         );
         string blobVersionId = await _dataRepository.CreateBlobVersionId(
@@ -202,7 +201,7 @@ public class DataService : IDataService
             options.DataElementId,
             instance.AppId,
             instance.Org,
-            storageAccountNumber,
+            application.StorageAccountNumber,
             storageAccount.Id,
             cancellationToken
         );
