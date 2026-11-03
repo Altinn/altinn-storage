@@ -40,7 +40,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Represents a collection of integration tests of the <see cref="DataController"/>.
 /// </summary>
-public class DataControllerTests : IDisposable
+public class DataControllerTests : IAsyncLifetime
 {
     private const string _versionPrefix = "/storage/api/v1";
     private TestTelemetry _testTelemetry;
@@ -51,7 +51,9 @@ public class DataControllerTests : IDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:

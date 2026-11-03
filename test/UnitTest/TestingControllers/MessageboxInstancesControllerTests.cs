@@ -45,7 +45,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Initializes a new instance of the <see cref="MessageBoxInstancesControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
 /// </summary>
-public class MessageBoxInstancesControllerTests : IDisposable
+public class MessageBoxInstancesControllerTests : IAsyncLifetime
 {
     public enum GuardedMessageBoxUpdateRoute
     {
@@ -57,7 +57,9 @@ public class MessageBoxInstancesControllerTests : IDisposable
 
     private const string BasePath = "/storage/api/v1";
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:

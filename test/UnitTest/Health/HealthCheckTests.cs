@@ -1,6 +1,5 @@
 #nullable disable
 
-using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -15,11 +14,13 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Health;
 
-public class HealthCheckTests : IDisposable
+public class HealthCheckTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<HealthCheck> _factory = new();
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Verify that component responds on health check

@@ -39,7 +39,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Represents a collection of integration tests of the <see cref="InstanceMutationsController"/>.
 /// </summary>
-public class InstanceMutationsControllerTests : IDisposable
+public class InstanceMutationsControllerTests : IAsyncLifetime
 {
     private readonly TestApplicationFactory<InstanceMutationsController> _factory = new();
 
@@ -49,7 +49,9 @@ public class InstanceMutationsControllerTests : IDisposable
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Theory]
     [InlineData("duplicate-updates")]

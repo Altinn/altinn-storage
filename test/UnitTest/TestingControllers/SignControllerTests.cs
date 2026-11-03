@@ -38,7 +38,7 @@ using static Altinn.Platform.Storage.Interface.Models.SignRequest;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class SignControllerTests : IDisposable
+public class SignControllerTests : IAsyncLifetime
 {
     private const string BasePath = "storage/api/v1/instances";
 
@@ -74,7 +74,9 @@ public class SignControllerTests : IDisposable
             },
         };
 
-    public void Dispose() => _factory.Dispose();
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Theory]
     [MemberData(nameof(SigneeData))]
