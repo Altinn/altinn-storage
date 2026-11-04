@@ -39,15 +39,19 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Represents a collection of integration tests of the <see cref="InstanceMutationsController"/>.
 /// </summary>
-public class InstanceMutationsControllerTests(
-    TestApplicationFactory<InstanceMutationsController> factory
-) : IClassFixture<TestApplicationFactory<InstanceMutationsController>>
+public class InstanceMutationsControllerTests : IAsyncLifetime
 {
+    private readonly TestApplicationFactory<InstanceMutationsController> _factory = new();
+
     private const string _versionPrefix = "/storage/api/v1";
     private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Theory]
     [InlineData("duplicate-updates")]
@@ -734,7 +738,7 @@ public class InstanceMutationsControllerTests(
         Mock<IPartiesWithInstancesClient> partiesWrapper = new();
         Mock<IMessageBus> busMock = new();
 
-        var webApplicationFactory = factory.WithWebHostBuilder(builder =>
+        var webApplicationFactory = _factory.WithWebHostBuilder(builder =>
         {
             IConfiguration configuration = new ConfigurationBuilder()
                 .AddJsonFile(ServiceUtil.GetAppsettingsPath())
