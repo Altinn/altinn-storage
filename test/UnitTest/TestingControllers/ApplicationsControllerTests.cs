@@ -787,7 +787,6 @@ public class ApplicationsControllerTests
     {
         // No setup required for these services. They are not in use by the ApplicationController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-        Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
         HttpClient client = _factory
@@ -800,7 +799,6 @@ public class ApplicationsControllerTests
                     services.AddSingleton(applicationRepository);
 
                     services.AddSingleton(keyVaultWrapper.Object);
-                    services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<
                         IPostConfigureOptions<JwtCookieOptions>,

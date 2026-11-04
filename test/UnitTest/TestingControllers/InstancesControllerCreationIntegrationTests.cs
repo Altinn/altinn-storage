@@ -55,10 +55,6 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         applicationService
             .Setup(service => service.GetApplicationOrErrorAsync(_appId))
             .ReturnsAsync((new Application { Id = _appId, Org = "tdd" }, null));
-        Mock<IPartiesWithInstancesClient> partiesWithInstancesClient = new();
-        partiesWithInstancesClient
-            .Setup(client => client.SetHasAltinn3Instances(_partyId))
-            .Returns(Task.CompletedTask);
         Mock<IInstanceEventService> instanceEventService = new();
         instanceEventService
             .Setup(service =>
@@ -77,7 +73,6 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
         };
         InstancesController controller = new(
             _instanceFixture.InstanceRepo,
-            partiesWithInstancesClient.Object,
             NullLogger<InstancesController>.Instance,
             authorization.Object,
             instanceEventService.Object,
@@ -148,7 +143,6 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
                 service.DispatchEvent(InstanceEventType.Created, It.IsAny<InstanceInternal>()),
             Times.Once
         );
-        partiesWithInstancesClient.VerifyAll();
     }
 
     private static Task<string> ReadStoredProcessStatusRepresentation(Guid instanceGuid) =>

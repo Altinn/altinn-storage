@@ -159,7 +159,6 @@ public class RequestFilterProcessor : BaseProcessor<Activity>
                 when _disableTelemetryForMigration
                     && path.TrimEnd('/').EndsWith("/health", StringComparison.OrdinalIgnoreCase) =>
                 true,
-            "/storage/api/v1/migration" => true,
             _ => false,
         };
     }

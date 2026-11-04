@@ -111,19 +111,12 @@ export function buildInstanceUrl(instanceId, dataId, type) {
 export function buildMessageboxInstanceUrl(instanceId, type) {
   var value = "";
   switch (type) {
-    case "search":
-      value = platformStorage["sblInstances"] + "/search";
-      break;
     case "instanceid":
       value = platformStorage["sblInstances"] + "/" + instanceId;
       break;
     case "events":
       value =
         platformStorage["sblInstances"] + "/" + instanceId + "/" + "events";
-      break;
-    case "undelete":
-      value =
-        platformStorage["sblInstances"] + "/" + instanceId + "/" + "undelete";
       break;
   }
   return value;

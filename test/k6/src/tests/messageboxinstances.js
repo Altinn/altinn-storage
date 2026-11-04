@@ -68,86 +68,6 @@ function TC01_GetInstanceById(data) {
   addErrorCount(success);
 }
 
-//  TC02 - POST search active instances
-function TC02_SearchActiveInstances(data) {
-  var queryModel = {
-    language: "nb",
-    appId: data.org + "/" + data.app,
-    instanceOwnerPartyIdList: [data.partyId],
-    includeActive: "true",
-    filterMigrated: "true",
-  };
-  var res = msgboxApi.searchInstances(data.userToken, queryModel);
-
-  var instances = JSON.parse(res.body);
-  var success = check([res, instances], {
-    "TC02_SearchActiveInstances: POST search active instances by appId. Status is 200":
-      (r) => r[0].status === 200,
-    "TC02_SearchActiveInstances: POST search active instances by appId. Count is more than 0":
-      (r) => r[1].length > 0,
-    "TC02_SearchActiveInstances: Post search active instances by appId. Only active instances retrieved":
-      (r) => {
-        return (
-          instances.every((instance) => instance.archivedDateTime === null) &&
-          instances.every((instance) => instance.deletedDateTime === null)
-        );
-      },
-  });
-  addErrorCount(success);
-}
-
-//  TC03 - POST search  instances
-function TC03_SearchInstances(data) {
-  var queryModel = {
-    language: "nb",
-    instanceOwnerPartyIdList: [data.partyId],
-    fromCreated: setupData.todayDateInISO(),
-    toCreated: "9999-12-31T23:59:59Z",
-  };
-
-  var res = msgboxApi.searchInstances(data.userToken, queryModel);
-  var instances = JSON.parse(res.body);
-
-  var success = check([res, instances], {
-    "TC03_SearchInstances: POST search instances created today. Status is 200":
-      (r) => r[0].status === 200,
-    "TC03_SearchInstances: POST search instances created today. Count is more than 0":
-      (r) => r[1].length > 0,
-    "TC03_SearchInstances: POST search instances created today. Created date is greater than today":
-      (r) => {
-        return r[1].every(
-          (instance) => instance.createdDateTime > setupData.todayDateInISO()
-        );
-      },
-  });
-  addErrorCount(success);
-
-  //Test to search instances based on filter parameters: search string (app title) from storage: SBL and validate the response
-  queryModel = {
-    instanceOwnerPartyIdList: [data.partyId],
-    searchString: "storage-end-to-end",
-    language: "nb",
-  };
-
-  res = msgboxApi.searchInstances(data.userToken, queryModel);
-
-  var instances = JSON.parse(res.body);
-  var success = check([res, instances], {
-    "TC03_SearchInstances: POST search instance (app title). Status is 200": (
-      r
-    ) => r[0].status === 200,
-    "TC03_SearchInstances: POST search instances (app title). Count is more than 0":
-      (r) => r[1].length > 0,
-    "TC03_SearchInstances: POST search instance (app title). App title matches":
-      (r) => {
-        return r[1].every((instance) =>
-          instance.title.includes("storage-end-to-end")
-        );
-      },
-  });
-  addErrorCount(success);
-}
-
 // TC04 - GET instance events
 function TC04_GetInstanceEvents(data) {
   var res = msgboxApi.getInstanceEvents(data.userToken, data.instanceId);
@@ -175,17 +95,6 @@ function TC05_SoftDeleteInstance(data) {
   addErrorCount(success);
 }
 
-// TC06 - PUT undelete instance
-function TC06_UndeleteInstance(data) {
-  var res = msgboxApi.undeleteInstance(data.userToken, data.instanceId);
-  var success = check(res, {
-    "TC06_UndeleteInstance: Undelete instance. Status is 200": (r) =>
-      r.status === 200,
-    "TC06_UndeleteInstance: Response is true": (r) => r.body === "true",
-  });
-  addErrorCount(success);
-}
-
 // TC07 - DELETE hard delete instance
 function TC07_HardDeleteInstance(data) {
   var res = msgboxApi.deleteInstance(data.userToken, data.instanceId, true);
@@ -198,27 +107,20 @@ function TC07_HardDeleteInstance(data) {
 
 /*
  * 01 - GET instance by id
- * 02 - POST search active instances
- * 03 - POST search instances
  * 04 - GET instance events
  * 05  DELETE soft delete instance
- * 06 - PUT undelete instance
  * 07 - DELETE hard delete instance
  */
 export default function (data) {
   try {
     if (data.runFullTestSet) {
       TC01_GetInstanceById(data);
-      TC02_SearchActiveInstances(data);
-      TC03_SearchInstances(data);
       TC04_GetInstanceEvents(data);
       TC05_SoftDeleteInstance(data);
-      TC06_UndeleteInstance(data);
       TC07_HardDeleteInstance(data);
     } else {
       // Limited test set for use case tests
       TC01_GetInstanceById(data);
-      TC02_SearchActiveInstances(data);
       TC04_GetInstanceEvents(data);
       TC07_HardDeleteInstance(data);
     }

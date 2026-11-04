@@ -26,19 +26,14 @@ public class InstanceQueryParameters
     private const string _excludeConfirmedByParameterName = "excludeConfirmedBy";
     private const string _instanceOwnerIdentifierHeaderName = "X-Ai-InstanceOwnerIdentifier";
     private const string _instanceOwnerPartyIdParameterName = "instanceOwner.partyId";
-    private const string _instanceOwnerPartyIdsParameterName = "instanceOwner.partyIds";
     private const string _lastChangedParameterName = "lastChanged";
     private const string _mainVersionExcludeParameterName = "mainVersionExclude";
     private const string _mainVersionIncludeParameterName = "mainVersionInclude";
-    private const string _messageBoxIntervalParameterName = "msgBoxInterval";
     private const string _orgParameterName = "org";
     private const string _processEndEventParameterName = "process.endEvent";
     private const string _processEndedParameterName = "process.ended";
     private const string _processIsCompleteParameterName = "process.isComplete";
     private const string _sizeParameterName = "size";
-    private const string _statusIsActiveOrSoftDeletedParameterName = "status.isActiveOrSoftDeleted";
-    private const string _statusIsArchivedOrSoftDeletedParameterName =
-        "status.isArchivedOrSoftDeleted";
     private const string _statusIsArchivedParameterName = "status.isArchived";
     private const string _statusIsHardDeletedParameterName = "status.isHardDeleted";
     private const string _statusIsSoftDeletedParameterName = "status.isSoftDeleted";
@@ -222,26 +217,6 @@ public class InstanceQueryParameters
     internal string ArchiveReference { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the status is active or soft deleted.
-    /// </summary>
-    internal bool? IsActiveOrSoftDeleted { get; set; }
-
-    /// <summary>
-    /// Gets or sets a value indicating whether the status is archived or soft deleted.
-    /// </summary>
-    internal bool? IsArchivedOrSoftDeleted { get; set; }
-
-    /// <summary>
-    /// Gets or sets the list of instance owner party IDs.
-    /// </summary>
-    internal int?[] InstanceOwnerPartyIds { get; set; }
-
-    /// <summary>
-    /// Gets or sets the message box interval.
-    /// </summary>
-    internal string[] MsgBoxInterval { get; set; }
-
-    /// <summary>
     /// Generates the PostgreSQL parameters from the query parameters
     /// </summary>
     /// <returns>Dictionary with PostgreSQL parameters</returns>
@@ -256,16 +231,6 @@ public class InstanceQueryParameters
         AddParamIfNotNull(postgresParams, _statusIsHardDeletedParameterName, IsHardDeleted);
         AddParamIfNotNull(postgresParams, _processIsCompleteParameterName, ProcessIsComplete);
         AddParamIfNotNull(postgresParams, _instanceOwnerPartyIdParameterName, InstanceOwnerPartyId);
-        AddParamIfNotNull(
-            postgresParams,
-            _statusIsActiveOrSoftDeletedParameterName,
-            IsActiveOrSoftDeleted
-        );
-        AddParamIfNotNull(
-            postgresParams,
-            _statusIsArchivedOrSoftDeletedParameterName,
-            IsArchivedOrSoftDeleted
-        );
         AddParamIfNotNull(postgresParams, _mainVersionExcludeParameterName, MainVersionExclude);
         AddParamIfNotNull(postgresParams, _mainVersionIncludeParameterName, MainVersionInclude);
         AddParamIfNotNull(postgresParams, _confirmedParameterName, GetConfirmed());
@@ -275,11 +240,6 @@ public class InstanceQueryParameters
         AddParamIfNotEmpty(postgresParams, _currentTaskParameterName, ProcessCurrentTask);
         AddParamIfNotEmpty(postgresParams, _dataValuesA2ArchRefParameterName, DataValuesA2ArchRef);
         AddParamIfNotEmpty(postgresParams, _a3RefParameterName, A3Ref);
-        AddParamIfNotEmpty(
-            postgresParams,
-            _instanceOwnerPartyIdsParameterName,
-            InstanceOwnerPartyIds
-        );
         AddParamIfNotEmpty(
             postgresParams,
             _archiveReferenceParameterName,
@@ -293,12 +253,6 @@ public class InstanceQueryParameters
 
         AddDateParamIfNotNull(postgresParams, _creationDateParameterName, Created, false);
         AddDateParamIfNotNull(postgresParams, _lastChangedParameterName, LastChanged, false);
-        AddDateParamIfNotNull(
-            postgresParams,
-            _messageBoxIntervalParameterName,
-            MsgBoxInterval,
-            false
-        );
 
         AddDateParamIfNotNull(postgresParams, _dueBeforeParameterName, DueBefore, true);
         AddDateParamIfNotNull(postgresParams, _visibleAfterParameterName, VisibleAfter, true);
@@ -336,15 +290,14 @@ public class InstanceQueryParameters
     }
 
     /// <summary>
-    /// Checks if the combination of InstanceOwnerPartyId, InstanceOwnerPartyIds, and InstanceOwnerIdentifier in the query parameters is invalid.
+    /// Checks if the combination of InstanceOwnerPartyId and InstanceOwnerIdentifier in the query parameters is invalid.
     /// </summary>
     /// <returns>
-    /// <c>true</c> if both InstanceOwnerPartyId (or InstanceOwnerPartyIds) and InstanceOwnerIdentifier are present; otherwise, <c>false</c>.
+    /// <c>true</c> if both InstanceOwnerPartyId and InstanceOwnerIdentifier are present; otherwise, <c>false</c>.
     /// </returns>
     public bool IsInvalidInstanceOwnerCombination()
     {
-        return (InstanceOwnerPartyId.HasValue || InstanceOwnerPartyIds != null)
-            && !string.IsNullOrEmpty(InstanceOwnerIdentifier);
+        return InstanceOwnerPartyId.HasValue && !string.IsNullOrEmpty(InstanceOwnerIdentifier);
     }
 
     /// <summary>

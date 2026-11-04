@@ -554,7 +554,6 @@ public class InstanceLockControllerTest
     {
         // No setup required for these services. They are not in use by the ApplicationController
         var keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-        var partiesWrapper = new Mock<IPartiesWithInstancesClient>();
 
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
@@ -564,7 +563,6 @@ public class InstanceLockControllerTest
                     services.AddMockRepositories();
 
                     services.AddSingleton(keyVaultWrapper.Object);
-                    services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<
                         IPublicSigningKeyProvider,

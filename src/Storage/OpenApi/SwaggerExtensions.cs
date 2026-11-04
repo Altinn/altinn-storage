@@ -144,7 +144,6 @@ public static class SwaggerExtensions
                 is AuthorizeAttribute
                 {
                     Policy: AuthzConstants.POLICY_STUDIO_DESIGNER
-                        or AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE
                         or AuthzConstants.POLICY_SCOPE_APPDEPLOY
                 }
         );
