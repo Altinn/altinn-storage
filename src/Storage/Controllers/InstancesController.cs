@@ -257,39 +257,7 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
-        {
-            Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(responseInstance);
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -309,39 +277,7 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
-        {
-            Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(responseInstance);
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -394,7 +330,7 @@ public class InstancesController : ControllerBase
                 appInfo.Org,
                 appInfo.Id.Split('/')[1],
                 HttpContext.User,
-                "instantiate",
+                AuthorizationActions.Instantiate,
                 instanceOwnerPartyId,
                 null
             );
@@ -514,7 +450,7 @@ public class InstancesController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Information from the deleted instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -534,24 +470,24 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
-            );
         }
 
         instance.Status ??= new InstanceStatus();
@@ -657,7 +593,7 @@ public class InstancesController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Returns a list of the process events.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -673,6 +609,20 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Complete,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -681,16 +631,6 @@ public class InstancesController : ControllerBase
         }
 
         List<string> updateProperties = [];
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
-        }
-
         string org = User.GetOrg();
 
         instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
@@ -765,7 +705,7 @@ public class InstancesController : ControllerBase
     /// <param name="status">The updated read status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns the updated instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -778,21 +718,25 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
         {
             return BadRequest(
                 $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
             );
-        }
-
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
         InstanceInternal updatedInstance;
@@ -1283,7 +1227,7 @@ public class InstancesController : ControllerBase
             queryParameters.Org,
             appId,
             HttpContext.User,
-            "read"
+            AuthorizationActions.Read
         );
         XacmlJsonResponse response;
         try
@@ -1446,6 +1390,52 @@ public class InstancesController : ControllerBase
         queryParameters.Size ??= 100;
 
         return queryParameters;
+    }
+
+    /// <summary>
+    /// Shared implementation of the instance read endpoints: authorizes the read, then returns the
+    /// instance as seen by the caller.
+    /// </summary>
+    private async Task<ActionResult<Instance>> GetInstanceResponseAsync(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
+        if (
+            !isSyncAdapter
+            && await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
+                is false
+        )
+        {
+            return Forbid();
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
+
+        Instance mappedInstance = instance.ToApiModel();
+        if (User.GetOrg() != instance.Org && !isSyncAdapter)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     private static void FilterOutDeletedDataElements(Instance instance)

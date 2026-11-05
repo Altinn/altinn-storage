@@ -101,7 +101,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the deleted data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpDelete("data/{dataGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -119,22 +119,24 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -279,25 +281,22 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -482,7 +481,10 @@ public class DataController : ControllerBase
 
         if (
             User.GetOrg() != instance.Org
-            || await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
+            || await _authorizationService.AuthorizeInstanceRequest(
+                instance,
+                AuthorizationActions.Read
+            )
                 is false
         )
         {
@@ -566,25 +568,23 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
@@ -614,7 +614,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the new data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(RequestSizeLimit)]
@@ -635,6 +635,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -647,17 +660,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, elementType or attached file content cannot be null"
             );
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -778,7 +780,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("data/{dataGuid}")]
     [DisableFormValueModelBinding]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -800,6 +802,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -812,17 +827,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, datafile or attached file content cannot be empty"
             );
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -1086,7 +1090,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("dataelements/{dataGuid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -1105,6 +1109,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -1118,17 +1135,6 @@ public class DataController : ControllerBase
         )
         {
             return BadRequest("Mismatch between path and dataElement content");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(

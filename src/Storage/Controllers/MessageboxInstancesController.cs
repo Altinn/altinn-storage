@@ -236,13 +236,25 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceOwnerPartyId">the instance owner id</param>
     /// <param name="instanceGuid">the instance guid</param>
     /// <returns>list of instances</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}/events")]
     public async Task<ActionResult> GetMessageBoxInstanceEvents(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid
     )
     {
+        (_, ProblemDetails problem) = await InstanceAuthorization.GetInstanceOrProblem(
+            _authorizationService,
+            instanceOwnerPartyId,
+            instanceGuid,
+            AuthorizationActions.Read,
+            CancellationToken.None
+        );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
+        }
+
         string[] eventTypes =
         {
             InstanceEventType.Created.ToString(),
@@ -284,7 +296,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceGuid">instance id</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>True if the instance was restored.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Undelete(
@@ -293,17 +305,17 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be restored with instanceId={instanceOwnerPartyId}/{instanceGuid}"
+        (InstanceInternal instance, ProblemDetails? problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                cancellationToken
             );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (instance.Status.IsHardDeleted)
@@ -368,7 +380,7 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>true if instance was successfully deleted</returns>
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult> Delete(
@@ -378,18 +390,17 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
-
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceId}"
+        (InstanceInternal instance, ProblemDetails? problem) =
+            await InstanceAuthorization.GetInstanceOrProblem(
+                _authorizationService,
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                cancellationToken
             );
+        if (problem is not null)
+        {
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         instance.Status ??= new InstanceStatus();

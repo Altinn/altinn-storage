@@ -20,7 +20,6 @@ using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.Constants;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -227,9 +226,10 @@ public class DataBlobIntegrationTests
         Mock<IAuthorization> authorization = new();
         authorization
             .Setup(service =>
-                service.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), "read")
+                service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(true);
+        authorization.DelegateGetAuthorizedInstance(_dataElementFixture.InstanceRepo);
         Mock<IInstanceEventService> eventService = new();
         eventService
             .Setup(service =>
@@ -273,14 +273,12 @@ public class DataBlobIntegrationTests
         InstanceMutationsController mutationController = new(
             _dataElementFixture.DataRepo,
             _blobFixture.Repository,
-            _dataElementFixture.InstanceRepo,
             _dataElementFixture.InstanceMutationRepo,
             applicationRepository.Object,
             dataService,
             eventService.Object,
             settings,
             authorization.Object,
-            Mock.Of<IAuthorizationService>(),
             Mock.Of<IProcessAuthorizer>()
         )
         {

@@ -91,7 +91,7 @@ public class SignControllerTests : IAsyncLifetime
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -194,7 +194,7 @@ public class SignControllerTests : IAsyncLifetime
         instanceServiceMock
             .Setup(ism =>
                 ism.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -248,7 +248,7 @@ public class SignControllerTests : IAsyncLifetime
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -301,7 +301,7 @@ public class SignControllerTests : IAsyncLifetime
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -354,7 +354,7 @@ public class SignControllerTests : IAsyncLifetime
         signingService
             .Setup(service =>
                 service.CreateSignDocument(
-                    It.IsAny<Guid>(),
+                    It.IsAny<InstanceInternal>(),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
@@ -393,7 +393,7 @@ public class SignControllerTests : IAsyncLifetime
         signingService.Verify(
             service =>
                 service.CreateSignDocument(
-                    Guid.Parse(instanceGuid),
+                    It.Is<InstanceInternal>(instance => instance.Id == Guid.Parse(instanceGuid)),
                     It.IsAny<SignRequest>(),
                     It.IsAny<string>(),
                     It.IsAny<int?>(),
