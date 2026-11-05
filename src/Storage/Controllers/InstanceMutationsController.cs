@@ -84,12 +84,16 @@ public class InstanceMutationsController(
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
-    /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
-    /// mutation on an instance without a current task only from the app that owns the instance. A
-    /// delete-instance mutation returns 403 while the application's
-    /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
-    /// not passed. A delete-instance mutation checks instance existence before delete authorization,
-    /// so a missing instance returns 404 before a possible delete-policy 403.
+    /// from that snapshot are rejected by later plan validation. A mutation that sets the process state
+    /// cannot also create, update, or delete data elements (400), so every data-element write is made in
+    /// the snapshot's current task. A data-element create, update, or delete of a data type bound to tasks
+    /// returns 409 unless that task is one of them, also during a process transition; only a delete of an
+    /// element whose data type sets <c>autoDeleteOnProcessEnd</c>, on an instance whose process has ended,
+    /// is exempt. Process-state authorization admits a mutation on an instance without a current task
+    /// only from the app that owns the instance. A delete-instance mutation returns 403 while the
+    /// application's <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was
+    /// archived, has not passed. A delete-instance mutation checks instance existence before delete
+    /// authorization, so a missing instance returns 404 before a possible delete-policy 403.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -166,6 +170,20 @@ public class InstanceMutationsController(
         if (deleteInstanceRequestError is not null)
         {
             return deleteInstanceRequestError;
+        }
+
+        if (
+            mutationRequest.ProcessState?.State is not null
+            && (
+                mutationRequest.CreateDataElements?.Count > 0
+                || mutationRequest.UpdateDataElements?.Count > 0
+                || mutationRequest.DeleteDataElements?.Count > 0
+            )
+        )
+        {
+            return BadRequest(
+                "processState.state cannot be combined with data element creates, updates or deletes."
+            );
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -433,7 +451,7 @@ public class InstanceMutationsController(
 
         HashSet<string> checkedDataTypeIds = new(StringComparer.Ordinal);
         foreach (
-            string dataTypeId in EnumerateRequestedDataTypeIds(
+            (string dataTypeId, _) in EnumerateRequestedDataTypeWrites(
                 mutationRequest,
                 existingDataElementsById
             )
@@ -461,7 +479,33 @@ public class InstanceMutationsController(
         return null;
     }
 
-    private static IEnumerable<string> EnumerateRequestedDataTypeIds(
+    private ActionResult ValidateTaskBindings(
+        InstanceMutationRequest mutationRequest,
+        Dictionary<Guid, DataElementInternal> existingDataElementsById,
+        InstanceInternal instance,
+        Application application
+    )
+    {
+        foreach (
+            (string dataTypeId, bool isDelete) in EnumerateRequestedDataTypeWrites(
+                    mutationRequest,
+                    existingDataElementsById
+                )
+                .Distinct()
+        )
+        {
+            // Plan validation rejects undeclared data types with 400.
+            DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
+            if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } taskBindingConflict)
+            {
+                return Conflict(taskBindingConflict);
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<(string DataTypeId, bool IsDelete)> EnumerateRequestedDataTypeWrites(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElementsById
     )
@@ -472,7 +516,7 @@ public class InstanceMutationsController(
             ).Where(create => !string.IsNullOrWhiteSpace(create.DataType))
         )
         {
-            yield return create.DataType;
+            yield return (create.DataType, false);
         }
 
         // Updates and deletes resolve the data type from the existing element; elements that no
@@ -488,7 +532,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, false);
             }
         }
 
@@ -503,7 +547,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, true);
             }
         }
     }
@@ -530,6 +574,17 @@ public class InstanceMutationsController(
                 instance,
                 mutationRequest.ExpectedProcessStatus
             );
+
+            ActionResult taskBindingError = ValidateTaskBindings(
+                mutationRequest,
+                existingDataElementsById,
+                instance,
+                application
+            );
+            if (taskBindingError is not null)
+            {
+                return (null, taskBindingError);
+            }
 
             ActionResult validationError = await ValidateMutationPlan(
                 mutationRequest,

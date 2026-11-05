@@ -216,6 +216,49 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
         int count = await PostgresUtil.RunCountQuery(sql);
         Assert.Equal(1, count);
     }
+
+    /// <summary>
+    /// Test that create and update store TaskIds and read it back, keeping an empty list apart from null
+    /// </summary>
+    [Fact]
+    public async Task Application_TaskIds_CreateAndUpdate_Ok()
+    {
+        // Arrange
+        _a1.DataTypes =
+        [
+            new DataType { Id = "first", TaskIds = [] },
+            new DataType { Id = "second", TaskIds = ["Task_1", "Task_2"] },
+            new DataType { Id = "unbound" },
+        ];
+
+        // Act
+        await _applicationFixture.ApplicationRepo.Create(_a1);
+        Application created = (await _applicationFixture.ApplicationRepo.FindByOrg("ttd")).Single();
+
+        _a1.DataTypes[0].TaskIds = ["Task_1", "Task_2"];
+        _a1.DataTypes[1].TaskIds = [];
+        await _applicationFixture.ApplicationRepo.Update(_a1);
+        Application updated = (await _applicationFixture.ApplicationRepo.FindByOrg("ttd")).Single();
+
+        // Assert
+        Assert.NotNull(DataTypeById(created, "first").TaskIds);
+        Assert.Empty(DataTypeById(created, "first").TaskIds);
+        Assert.Equal(["Task_1", "Task_2"], DataTypeById(created, "second").TaskIds);
+        Assert.Null(DataTypeById(created, "unbound").TaskIds);
+
+        Assert.Equal(["Task_1", "Task_2"], DataTypeById(updated, "first").TaskIds);
+        Assert.NotNull(DataTypeById(updated, "second").TaskIds);
+        Assert.Empty(DataTypeById(updated, "second").TaskIds);
+        Assert.Null(DataTypeById(updated, "unbound").TaskIds);
+
+        string sql =
+            "select count(*) from storage.applications, jsonb_array_elements(application -> 'DataTypes') d where d ? 'TaskIds'";
+        int count = await PostgresUtil.RunCountQuery(sql);
+        Assert.Equal(2, count);
+    }
+
+    private static DataType DataTypeById(Application application, string id) =>
+        application.DataTypes.Single(d => d.Id == id);
 }
 
 public class ApplicationFixture
