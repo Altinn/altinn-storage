@@ -40,24 +40,20 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Represents a collection of integration tests of the <see cref="DataController"/>.
 /// </summary>
-public class DataControllerTests : IClassFixture<TestApplicationFactory<DataController>>
+public class DataControllerTests : IAsyncLifetime
 {
     private const string _versionPrefix = "/storage/api/v1";
     private TestTelemetry _testTelemetry;
-    private readonly TestApplicationFactory<DataController> _factory;
+    private readonly TestApplicationFactory<DataController> _factory = new();
+
     private static readonly JsonSerializerOptions _serializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DataControllerTests"/> class.
-    /// </summary>
-    /// <param name="factory">Platform storage fixture.</param>
-    public DataControllerTests(TestApplicationFactory<DataController> factory)
-    {
-        _factory = factory;
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:

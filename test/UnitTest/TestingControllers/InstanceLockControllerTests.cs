@@ -34,19 +34,18 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Test class for Instance Lock Controller.
 /// </summary>
-public class InstanceLockControllerTest
-    : IClassFixture<TestApplicationFactory<InstanceLockController>>
+public class InstanceLockControllerTest : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<InstanceLockController> _factory;
+    private readonly TestApplicationFactory<InstanceLockController> _factory = new();
+
     private readonly Guid _instanceGuid = new("20a1353e-91cf-44d6-8ff7-f68993638ffe");
     private readonly long _instanceInternalId = 4567;
     private readonly int _userId = 3;
     private readonly int _partyId = 1337;
 
-    public InstanceLockControllerTest(TestApplicationFactory<InstanceLockController> factory)
-    {
-        _factory = factory;
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Test: Verifies that AcquireInstanceLock and UpdateInstanceLock endpoints have authorization attributes.
