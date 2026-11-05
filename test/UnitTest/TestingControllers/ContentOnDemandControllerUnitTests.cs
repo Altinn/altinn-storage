@@ -12,6 +12,7 @@ using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -24,6 +25,11 @@ public class ContentOnDemandControllerUnitTests
     private const string _org = "ttd";
     private const string _app = "apps-test";
     private const string _appId = "ttd/apps-test";
+
+    private static readonly StorageAccount _namedAccount = new(
+        7,
+        new AzureBlobProviderInfo("namedaccount", "named-container")
+    );
 
     [Fact]
     public async Task GetFormSummaryAsHtml_WithBlobVersionId_PassesVersionedPathToReadBlob()
@@ -60,9 +66,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -99,9 +104,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedFallbackPath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -149,9 +153,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -199,9 +202,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock.Verify(
             b =>
                 b.ReadBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     expectedBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -313,6 +315,148 @@ public class ContentOnDemandControllerUnitTests
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
+    [Fact]
+    public async Task GetSignatureAsHtml_ElementInNamedAccount_ReadsFromIt()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid signatureDataGuid = Guid.NewGuid();
+        var (controller, blobRepoMock) = CreateController(
+            instanceGuid,
+            [InNamedAccount(signatureDataGuid, "signature-data")],
+            "[{}]",
+            NamedAccountResolver()
+        );
+
+        // Act
+        ActionResult result = await controller.GetSignatureAsHtml(
+            _org,
+            _app,
+            instanceGuid,
+            signatureDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ViewResult>(result);
+        VerifyReadFromNamedAccount(blobRepoMock);
+    }
+
+    [Fact]
+    public async Task GetPaymentAsHtml_ElementInNamedAccount_ReadsFromIt()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid paymentDataGuid = Guid.NewGuid();
+        var (controller, blobRepoMock) = CreateController(
+            instanceGuid,
+            [InNamedAccount(paymentDataGuid, "payment-data")],
+            "{}",
+            NamedAccountResolver()
+        );
+
+        // Act
+        ActionResult result = await controller.GetPaymentAsHtml(
+            _org,
+            _app,
+            instanceGuid,
+            paymentDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.IsType<ViewResult>(result);
+        VerifyReadFromNamedAccount(blobRepoMock);
+    }
+
+    [Fact]
+    public async Task GetFormSummaryAsHtml_XmlElementInNamedAccount_ReadsFromIt()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid htmlDataGuid = Guid.NewGuid();
+        Guid xmlDataGuid = Guid.NewGuid();
+        List<DataElementInternal> dataElements = CreateFormSummaryDataElements(
+            htmlDataGuid,
+            xmlDataGuid,
+            "xml-version-id"
+        );
+        dataElements[1].BlobStorageLoaded = true;
+        dataElements[1].StorageAccountId = _namedAccount.Id;
+        var (controller, blobRepoMock) = CreateController(
+            instanceGuid,
+            dataElements,
+            "<xml/>",
+            NamedAccountResolver()
+        );
+
+        // Act
+        ActionResult<Stream> result = await controller.GetFormSummaryAsHtml(
+            _org,
+            _app,
+            instanceGuid,
+            htmlDataGuid,
+            "nb",
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.NotNull(result.Value);
+        VerifyReadFromNamedAccount(blobRepoMock);
+    }
+
+    private static DataElementInternal InNamedAccount(Guid id, string dataType) =>
+        new()
+        {
+            Id = id,
+            DataType = dataType,
+            BlobVersionId = $"{dataType}-version-id",
+            BlobStorageLoaded = true,
+            StorageAccountId = _namedAccount.Id,
+        };
+
+    private static IStorageAccountResolver NamedAccountResolver()
+    {
+        Mock<IStorageAccountRepository> repository = new();
+        repository
+            .Setup(r => r.ReadAll(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new StorageAccountRows(
+                    [
+                        new StorageAccountRow(
+                            _namedAccount.Id!.Value,
+                            _namedAccount.ProviderInfo,
+                            _org,
+                            1,
+                            true,
+                            DateTimeOffset.UtcNow
+                        ),
+                    ],
+                    []
+                )
+            );
+        return TestStorageAccounts.CreateResolver(repository.Object);
+    }
+
+    private static void VerifyReadFromNamedAccount(Mock<IBlobRepository> blobRepoMock)
+    {
+        blobRepoMock.Verify(
+            b => b.ReadBlob(_namedAccount, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once
+        );
+        blobRepoMock.Verify(
+            b =>
+                b.ReadBlob(
+                    It.Is<StorageAccount>(account => account != _namedAccount),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
     private static ContentOnDemandController CreateControllerWithMissingInstance(Guid instanceGuid)
     {
         Mock<IInstanceRepository> instanceRepoMock = new();
@@ -334,7 +478,8 @@ public class ContentOnDemandControllerUnitTests
             appRepoMock.Object,
             settings,
             formattingMock.Object,
-            pdfMock.Object
+            pdfMock.Object,
+            new PatternDefaultStorageAccountResolver()
         );
     }
 
@@ -369,7 +514,8 @@ public class ContentOnDemandControllerUnitTests
     ) CreateController(
         Guid instanceGuid,
         List<DataElementInternal> dataElements,
-        string blobContent
+        string blobContent,
+        IStorageAccountResolver? resolver = null
     )
     {
         foreach (DataElementInternal dataElement in dataElements)
@@ -410,9 +556,8 @@ public class ContentOnDemandControllerUnitTests
         blobRepoMock
             .Setup(r =>
                 r.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -432,7 +577,8 @@ public class ContentOnDemandControllerUnitTests
             appRepoMock.Object,
             settings,
             formattingMock.Object,
-            pdfMock.Object
+            pdfMock.Object,
+            resolver ?? new PatternDefaultStorageAccountResolver()
         );
 
         return (controller, blobRepoMock);

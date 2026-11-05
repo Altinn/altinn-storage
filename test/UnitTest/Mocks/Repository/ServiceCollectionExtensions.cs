@@ -1,6 +1,7 @@
 #nullable disable
 
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinn.Platform.Storage.UnitTest.Mocks.Repository;
@@ -15,5 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApplicationRepository, ApplicationRepositoryMock>();
         services.AddSingleton<IInstanceEventRepository, InstanceEventRepositoryMock>();
         services.AddSingleton<ITextRepository, TextRepositoryMock>();
+        services.AddSingleton<IStorageAccountRepository, StorageAccountRepositoryMock>();
+        services.AddSingleton<IStorageAccountResolver, PatternDefaultStorageAccountResolver>();
     }
 }

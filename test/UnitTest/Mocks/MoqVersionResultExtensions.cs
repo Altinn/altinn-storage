@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Moq.Language.Flow;
 
 namespace Moq;
@@ -112,7 +113,7 @@ internal static class MoqVersionResultExtensions
             Stream,
             DataElementCreateOptions,
             long,
-            int?,
+            Application,
             CancellationToken,
             (DataElementInternal DataElement, DateTimeOffset BlobTimestamp)
         > value
@@ -124,7 +125,7 @@ internal static class MoqVersionResultExtensions
                 Stream stream,
                 DataElementCreateOptions options,
                 long instanceInternalId,
-                int? storageAccountNumber,
+                Application application,
                 int? expectedInstanceVersion,
                 int? expectedProcessStateVersion,
                 CancellationToken cancellationToken
@@ -135,11 +136,16 @@ internal static class MoqVersionResultExtensions
                     stream,
                     options,
                     instanceInternalId,
-                    storageAccountNumber,
+                    application,
                     cancellationToken
                 );
                 return Task.FromResult(
-                    new DataUploadResult(dataElement, blobTimestamp, new StorageVersions(1, 1))
+                    new DataUploadResult(
+                        dataElement,
+                        blobTimestamp,
+                        new StorageVersions(1, 1),
+                        TestStorageAccounts.PatternDefault(instanceInternal.Org)
+                    )
                 );
             }
         );

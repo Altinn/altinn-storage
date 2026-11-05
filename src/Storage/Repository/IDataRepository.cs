@@ -132,7 +132,8 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element id that owns the allocated blob version.</param>
     /// <param name="appId">The application id.</param>
     /// <param name="blobStorageOrg">The org used to locate the blob container/account.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="storageAccountNumber">The application's storage account number as the application gives it, or null when it has none.</param>
+    /// <param name="storageAccountId">The id of the storage account the blob is written to, or null for the pattern default.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The allocated version ID as a base64url-encoded UUID.</returns>
     Task<string> CreateBlobVersionId(
@@ -141,6 +142,7 @@ public interface IDataRepository
         string appId,
         string blobStorageOrg,
         int? storageAccountNumber,
+        short? storageAccountId,
         CancellationToken cancellationToken = default
     );
 

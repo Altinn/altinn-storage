@@ -1524,7 +1524,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     staleDataElement,
-                    null,
+                    1,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1564,7 +1564,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     staleDataElement,
-                    null,
+                    1,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -1606,7 +1606,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     staleDataElement,
-                    It.IsAny<int?>(),
+                    It.IsAny<int>(),
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1725,7 +1725,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     staleDataElement,
-                    null,
+                    1,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -1757,7 +1757,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 d.CleanupDeletedDataElementBlobs(
                     It.IsAny<InstanceInternal>(),
                     staleDataElement,
-                    null,
+                    1,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once

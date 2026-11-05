@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -59,6 +60,10 @@ public static class ServiceUtil
         services.AddMemoryCache();
 
         services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
+        services.Configure<AzureStorageConfiguration>(
+            config.GetSection("AzureStorageConfiguration")
+        );
+        services.AddSingleton<IStorageAccountResolver, StorageAccountResolver>();
 
         return services.BuildServiceProvider();
     }

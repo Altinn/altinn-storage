@@ -4,6 +4,10 @@
 
 [![Storage build status](https://dev.azure.com/brreg/altinn-studio/_apis/build/status/altinn-platform/storage-master?label=platform/storage)](https://dev.azure.com/brreg/altinn-studio/_build/latest?definitionId=30)
 
+## Documentation
+
+- [Storage accounts per blob version](docs/storage-accounts.md): how `storage.storageaccounts` locates each blob version, the per-pod cache, and how an owner's blobs are moved to a new account.
+
 ## Getting Started
 
 These instructions will get you a copy of the storage component up and running on your machine for development and testing purposes.

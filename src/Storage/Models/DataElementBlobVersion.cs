@@ -38,6 +38,11 @@ public sealed record DataElementBlobVersion
     public int? StorageAccountNumber { get; set; }
 
     /// <summary>
+    /// Gets or sets the id of the storage account the blob was written to, or null for the pattern default.
+    /// </summary>
+    public short? StorageAccountId { get; set; }
+
+    /// <summary>
     /// Gets or sets the time the blob version was allocated.
     /// </summary>
     public DateTimeOffset Created { get; set; }

@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Fixture;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -102,9 +103,8 @@ public class ContentOnDemandControllerTests : IAsyncLifetime
         blobRepositoryMock.Verify(
             br =>
                 br.ReadBlob(
-                    _org,
+                    TestStorageAccounts.PatternDefault(_org),
                     xmlBlobStoragePath,
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -129,9 +129,8 @@ public class ContentOnDemandControllerTests : IAsyncLifetime
         blobRepositoryMock.Verify(
             br =>
                 br.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -200,9 +199,8 @@ public class ContentOnDemandControllerTests : IAsyncLifetime
         blobRepositoryMock
             .Setup(br =>
                 br.ReadBlob(
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<string>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )

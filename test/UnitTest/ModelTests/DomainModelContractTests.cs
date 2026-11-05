@@ -137,14 +137,26 @@ public class DomainModelContractTests
             apiProperties,
             domainProperties,
             apiOnly: ["SelfLinks"],
-            domainOnly: []
+            domainOnly:
+            [
+                "BlobStorageAccountNumber",
+                "BlobStorageLoaded",
+                "BlobStorageOrg",
+                "StorageAccountId",
+            ]
         );
         AssertMatchingTypes(
             apiProperties,
             domainProperties,
             new Dictionary<string, Type> { ["Id"] = typeof(Guid), ["InstanceGuid"] = typeof(Guid) }
         );
-        AssertJsonIgnoredProperties<DataElementInternal>("BlobVersionId");
+        AssertJsonIgnoredProperties<DataElementInternal>(
+            "BlobStorageAccountNumber",
+            "BlobStorageLoaded",
+            "BlobStorageOrg",
+            "BlobVersionId",
+            "StorageAccountId"
+        );
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
         Assert.False(typeof(DataElement).IsAssignableFrom(typeof(DataElementInternal)));
         Assert.Null(

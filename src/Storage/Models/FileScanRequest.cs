@@ -1,6 +1,7 @@
 ﻿#nullable disable
 
 using System;
+using System.Text.Json;
 
 namespace Altinn.Platform.Storage.Models;
 
@@ -52,4 +53,23 @@ public class FileScanRequest
     /// Gets or sets an optional account number for when the application owner have more than one storage account
     /// </summary>
     public int? StorageAccountNumber { get; set; }
+
+    /// <summary>
+    /// Gets or sets the provider of the storage account holding the blob, such as
+    /// <see cref="Models.StorageAccountProviderInfo.AzureBlob"/>. It selects how
+    /// <see cref="StorageAccountProviderInfo"/> is read.
+    /// </summary>
+    public string StorageAccountProvider { get; set; }
+
+    /// <summary>
+    /// Gets or sets where the storage account holding the blob keeps its blobs, as the provider's own
+    /// provider info document.
+    /// </summary>
+    public JsonElement? StorageAccountProviderInfo { get; set; }
+
+    /// <summary>
+    /// Gets or sets the id of the storage account row holding the blob, or null when the blob is in
+    /// the storage account derived from the naming pattern.
+    /// </summary>
+    public short? StorageAccountId { get; set; }
 }

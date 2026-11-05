@@ -408,7 +408,7 @@ public class ProcessController : ControllerBase
 
         InstanceInternal updatedInstance = applyResult.Instance;
 
-        int? cleanupStorageAccountNumber = null;
+        int cleanupStorageAccountNumber = StorageAccountNaming.DefaultStorageAccountNumber;
         if (generatedDataElementsToDelete.Count > 0)
         {
             try
@@ -416,7 +416,10 @@ public class ProcessController : ControllerBase
                 (Application application, _) = await _applicationService.GetApplicationOrErrorAsync(
                     updatedInstance.AppId
                 );
-                cleanupStorageAccountNumber = application?.StorageAccountNumber;
+                if (application is not null)
+                {
+                    cleanupStorageAccountNumber = StorageAccountNaming.NumberOf(application);
+                }
             }
             catch (Exception exception)
             {

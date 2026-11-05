@@ -24,6 +24,7 @@ public class SigningService : ISigningService
     private readonly IInstanceRepository _instanceRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IBlobRepository _blobRepository;
+    private readonly IStorageAccountResolver _storageAccountResolver;
     private readonly ILogger<SigningService> _logger;
     private readonly IDataService _dataService;
     private readonly IApplicationService _applicationService;
@@ -47,6 +48,7 @@ public class SigningService : ISigningService
         IInstanceMutationRepository instanceMutationRepository,
         IApplicationRepository applicationRepository,
         IBlobRepository blobRepository,
+        IStorageAccountResolver storageAccountResolver,
         ILogger<SigningService> logger
     )
     {
@@ -57,6 +59,7 @@ public class SigningService : ISigningService
         _instanceMutationRepository = instanceMutationRepository;
         _applicationRepository = applicationRepository;
         _blobRepository = blobRepository;
+        _storageAccountResolver = storageAccountResolver;
         _logger = logger;
     }
 
@@ -134,7 +137,7 @@ public class SigningService : ISigningService
                 instance.Org,
                 instanceGuid,
                 Guid.Parse(dataElementSignature.DataElementId),
-                app.StorageAccountNumber
+                app
             );
             if (string.IsNullOrEmpty(base64Sha256Hash))
             {
@@ -188,7 +191,7 @@ public class SigningService : ISigningService
                     GeneratedFromTask = signRequest.GeneratedFromTask,
                     Locked = true,
                 },
-                app.StorageAccountNumber,
+                app,
                 cancellationToken
             );
         }
@@ -245,7 +248,7 @@ public class SigningService : ISigningService
             await _dataService.DeleteStagedDataElementBlob(
                 instance,
                 stagedDataElement.DataElement,
-                app.StorageAccountNumber
+                stagedDataElement.StorageAccount
             );
             throw;
         }
@@ -256,7 +259,7 @@ public class SigningService : ISigningService
                 await _dataService.DeleteStagedDataElementBlob(
                     instance,
                     stagedDataElement.DataElement,
-                    app.StorageAccountNumber
+                    stagedDataElement.StorageAccount
                 );
             }
 
@@ -270,7 +273,7 @@ public class SigningService : ISigningService
             await _dataService.CleanupDeletedDataElementBlobs(
                 updatedInstance,
                 existingSignDocument.DataElement,
-                app.StorageAccountNumber,
+                StorageAccountNaming.NumberOf(app),
                 CancellationToken.None
             );
         }
@@ -295,10 +298,15 @@ public class SigningService : ISigningService
                 {
                     try
                     {
-                        await using Stream stream = await _blobRepository.ReadBlob(
+                        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
+                            dataElement,
                             instance.Org,
+                            StorageAccountNaming.NumberOf(application),
+                            cancellationToken
+                        );
+                        await using Stream stream = await _blobRepository.ReadBlob(
+                            storageAccount,
                             dataElement.BlobStoragePath,
-                            application.StorageAccountNumber,
                             cancellationToken
                         );
                         var signDocument = await JsonSerializer.DeserializeAsync<SignDocument>(
