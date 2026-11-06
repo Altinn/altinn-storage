@@ -33,6 +33,10 @@ In pgAdmin
   - platform_storage (canlogin)
 - Create schema _storage_ in storagedb with owner _platform_storage_admin_
 
+Alternatively, run `infra/postgres_init.sql` with psql as any superuser, for example
+`psql -h localhost -U postgres -f infra/postgres_init.sql`, and restart PostgreSQL to apply its `max_connections` setting.
+It creates both users, the database and the schema.
+
 A more detailed description of the database setup is available in [our developer handbook](https://docs.altinn.studio/en/community/contributing/handbook/postgres/)
 
 ### Setting up PostgreSQL with docker compose
