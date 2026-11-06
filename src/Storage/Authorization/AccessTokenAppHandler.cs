@@ -1,5 +1,3 @@
-#nullable enable
-
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;

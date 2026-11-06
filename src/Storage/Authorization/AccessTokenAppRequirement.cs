@@ -1,5 +1,3 @@
-#nullable enable
-
 using Microsoft.AspNetCore.Authorization;
 
 namespace Altinn.Platform.Storage.Authorization;
