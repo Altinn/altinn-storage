@@ -12,7 +12,7 @@ using Microsoft.Extensions.Primitives;
 namespace Altinn.Platform.Storage.Authorization;
 
 /// <summary>
-/// Checks the app claim of the platform access token against an <see cref="AccessTokenAppRequirement"/>.
+/// Checks the component in the platform access token against an <see cref="AccessTokenComponentRequirement"/>.
 /// </summary>
 /// <remarks>
 /// The token is read without validation. The policy must also contain an
@@ -22,17 +22,17 @@ namespace Altinn.Platform.Storage.Authorization;
 /// </remarks>
 /// <param name="httpContextAccessor">Access to the current request.</param>
 /// <param name="accessTokenSettings">The access token settings.</param>
-public class AccessTokenAppHandler(
+public class AccessTokenComponentHandler(
     IHttpContextAccessor httpContextAccessor,
     IOptions<AccessTokenSettings> accessTokenSettings
-) : AuthorizationHandler<AccessTokenAppRequirement>
+) : AuthorizationHandler<AccessTokenComponentRequirement>
 {
     private readonly AccessTokenSettings _settings = accessTokenSettings.Value;
 
     /// <inheritdoc/>
     protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
-        AccessTokenAppRequirement requirement
+        AccessTokenComponentRequirement requirement
     )
     {
         HttpContext? httpContext = httpContextAccessor.HttpContext;
@@ -61,9 +61,11 @@ public class AccessTokenAppHandler(
         }
 
         JwtSecurityToken jwt = tokenHandler.ReadJwtToken(tokens[0]);
-        string? app = jwt.Claims.FirstOrDefault(c => c.Type == AccessTokenClaimTypes.App)?.Value;
+        string? component = jwt
+            .Claims.FirstOrDefault(c => c.Type == AccessTokenClaimTypes.App)
+            ?.Value;
 
-        if (string.Equals(app, requirement.App, StringComparison.Ordinal))
+        if (string.Equals(component, requirement.Component, StringComparison.Ordinal))
         {
             context.Succeed(requirement);
         }
