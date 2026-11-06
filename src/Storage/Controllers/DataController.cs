@@ -47,7 +47,6 @@ public class DataController : ControllerBase
     private readonly IDataService _dataService;
     private readonly IInstanceEventService _instanceEventService;
     private readonly IOnDemandClient _onDemandClient;
-    private readonly string _storageBaseAndHost;
     private readonly GeneralSettings _generalSettings;
     private readonly IAuthorization _authorizationService;
 
@@ -84,7 +83,6 @@ public class DataController : ControllerBase
         _applicationRepository = applicationRepository;
         _dataService = dataService;
         _instanceEventService = instanceEventService;
-        _storageBaseAndHost = $"{generalSettings.Value.Hostname}/storage/api/v1/";
         _onDemandClient = onDemandClient;
         _generalSettings = generalSettings.Value;
         _authorizationService = authorizationService;
@@ -761,7 +759,7 @@ public class DataController : ControllerBase
         await _instanceEventService.DispatchEvent(InstanceEventType.Created, instance, dataElement);
 
         DataElement responseDataElement = dataElement.ToApiModel();
-        responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+        _generalSettings.SetPlatformSelfLinks(responseDataElement, instanceOwnerPartyId);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, versions);
         return Created(responseDataElement.SelfLinks.Platform, responseDataElement);
     }
@@ -1049,7 +1047,7 @@ public class DataController : ControllerBase
 
         DataElementInternal updatedElement = updatedElementResult.DataElement;
         DataElement responseDataElement = updatedElement.ToApiModel();
-        responseDataElement.SetPlatformSelfLinks(_storageBaseAndHost, instanceOwnerPartyId);
+        _generalSettings.SetPlatformSelfLinks(responseDataElement, instanceOwnerPartyId);
 
         await _dataService.StartFileScan(
             instance,
