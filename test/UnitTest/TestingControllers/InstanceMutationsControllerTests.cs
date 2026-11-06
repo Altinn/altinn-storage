@@ -57,12 +57,15 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
     [InlineData("duplicate-updates")]
     [InlineData("duplicate-deletes")]
     [InlineData("update-and-delete")]
+    [InlineData("update-duplicate-before-delete-duplicate")]
+    [InlineData("first-cross-operation-duplicate")]
     public async Task CommitMutation_DuplicateDataElementMutationIds_ReturnsBadRequest(
         string requestShape
     )
     {
         // Arrange
         Guid dataElementId = Guid.Parse(SensitiveDataApp.DataElements.Default);
+        Guid secondDataElementId = Guid.Parse(SensitiveDataApp.DataElements.SensitiveRead);
         InstanceMutationRequest request = requestShape switch
         {
             "duplicate-updates" => new InstanceMutationRequest
@@ -104,6 +107,42 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
                     new InstanceMutationDeleteDataElement { DataElementId = dataElementId },
                 ],
             },
+            "update-duplicate-before-delete-duplicate" => new InstanceMutationRequest
+            {
+                UpdateDataElements =
+                [
+                    .. new[] { dataElementId, secondDataElementId, dataElementId }.Select(
+                        id => new InstanceMutationUpdateDataElement
+                        {
+                            DataElementId = id,
+                            Locked = true,
+                        }
+                    ),
+                ],
+                DeleteDataElements =
+                [
+                    new InstanceMutationDeleteDataElement { DataElementId = secondDataElementId },
+                    new InstanceMutationDeleteDataElement { DataElementId = secondDataElementId },
+                ],
+            },
+            "first-cross-operation-duplicate" => new InstanceMutationRequest
+            {
+                UpdateDataElements =
+                [
+                    .. new[] { dataElementId, secondDataElementId }.Select(
+                        id => new InstanceMutationUpdateDataElement
+                        {
+                            DataElementId = id,
+                            Locked = true,
+                        }
+                    ),
+                ],
+                DeleteDataElements =
+                [
+                    new InstanceMutationDeleteDataElement { DataElementId = secondDataElementId },
+                    new InstanceMutationDeleteDataElement { DataElementId = dataElementId },
+                ],
+            },
             _ => throw new ArgumentOutOfRangeException(nameof(requestShape)),
         };
 
@@ -122,7 +161,9 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal(ExpectedDuplicateDataElementMutationIdsResponse(dataElementId), content);
+        Guid expectedDuplicateId =
+            requestShape == "first-cross-operation-duplicate" ? secondDataElementId : dataElementId;
+        Assert.Equal(ExpectedDuplicateDataElementMutationIdsResponse(expectedDuplicateId), content);
         InstanceMutationAsserts.VerifyApplyNever(mutationRepositoryMock);
     }
 
@@ -328,17 +369,9 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
 
         Assert.Equal(ended, storedInstance.Process.Ended);
         Assert.NotNull(capturedMutation);
-        Assert.Equal(
-            1,
-            capturedMutation.InstanceUpdateProperties.Count(property =>
-                property == nameof(InstanceInternal.Status)
-            )
-        );
-        Assert.Contains(
-            nameof(InstanceStatus.IsArchived),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.Contains(nameof(InstanceStatus.Archived), capturedMutation.InstanceUpdateProperties);
+        Assert.NotNull(capturedMutation.InstanceChanges.Status);
+        Assert.True(capturedMutation.InstanceChanges.Status.IsArchived);
+        Assert.True(capturedMutation.InstanceChanges.Status.Archived.IsSpecified);
     }
 
     [Fact]
@@ -398,19 +431,7 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         Assert.False(storedInstance.Status.IsArchived);
         Assert.Null(storedInstance.Status.Archived);
         Assert.NotNull(capturedMutation);
-        Assert.Null(capturedMutation.InstanceUpdates.Status);
-        Assert.DoesNotContain(
-            nameof(InstanceInternal.Status),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.DoesNotContain(
-            nameof(InstanceStatus.IsArchived),
-            capturedMutation.InstanceUpdateProperties
-        );
-        Assert.DoesNotContain(
-            nameof(InstanceStatus.Archived),
-            capturedMutation.InstanceUpdateProperties
-        );
+        Assert.Null(capturedMutation.InstanceChanges.Status);
     }
 
     [Fact]
@@ -559,10 +580,7 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         Assert.Equal("ttd", storedConfirmation.StakeholderId);
         Assert.NotNull(capturedMutation);
-        Assert.Contains(
-            nameof(InstanceInternal.CompleteConfirmations),
-            capturedMutation.InstanceUpdateProperties
-        );
+        Assert.NotNull(capturedMutation.InstanceChanges.CompleteConfirmations);
         Assert.Single(
             capturedMutation.InstanceEvents,
             instanceEvent =>
@@ -675,30 +693,15 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
                 (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
                 {
                     captureMutation(mutation);
-                    if (mutation.InstanceUpdateProperties.Contains(nameof(InstanceInternal.Status)))
+                    InstanceInternal persistedInstance =
+                        InstanceMutationTestFactory.ApplyInstanceChanges(storedInstance, mutation);
+                    if (mutation.InstanceChanges.Status is not null)
                     {
-                        storedInstance.Status = mutation.InstanceUpdates.Status;
+                        storedInstance.Status = persistedInstance.Status;
                     }
 
-                    if (
-                        mutation.InstanceUpdateProperties.Contains(nameof(InstanceInternal.Process))
-                    )
-                    {
-                        storedInstance.Process = mutation.InstanceUpdates.Process;
-                    }
-
-                    if (
-                        mutation.InstanceUpdateProperties.Contains(
-                            nameof(InstanceInternal.CompleteConfirmations)
-                        )
-                    )
-                    {
-                        storedInstance.CompleteConfirmations =
-                        [
-                            .. storedInstance.CompleteConfirmations ?? [],
-                            .. mutation.InstanceUpdates.CompleteConfirmations,
-                        ];
-                    }
+                    storedInstance.Process = persistedInstance.Process;
+                    storedInstance.CompleteConfirmations = persistedInstance.CompleteConfirmations;
 
                     return new InstanceMutationApplyResult(false, [], storedInstance);
                 }

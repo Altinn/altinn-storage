@@ -16,7 +16,7 @@ public interface IInstanceMutationRepository
     /// Admits a replay when an idempotent aggregate mutation has already been committed.
     /// Returns the replayed result with an instance snapshot, or throws when replay cannot be admitted.
     /// </summary>
-    Task<InstanceMutationApplyResult> TryReplayAdmission(
+    Task<InstanceMutationApplyResult> GetReplayResult(
         Guid instanceGuid,
         int expectedInstanceVersion,
         int currentInstanceVersion,

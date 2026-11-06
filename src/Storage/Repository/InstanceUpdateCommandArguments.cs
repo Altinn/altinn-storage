@@ -10,9 +10,7 @@ namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
 /// Instance update arguments computed from an instance and the list of updated properties.
-/// PgInstanceRepository binds them as parameters to storage.updateinstance_v4, and
-/// PgInstanceMutationRepository writes a subset of them as the instance update item that
-/// storage.applyinstancemutation merges itself.
+/// PgInstanceRepository binds them as parameters to storage.updateinstance_v4.
 /// </summary>
 internal sealed record InstanceUpdateCommandArguments(
     Guid AlternateId,
