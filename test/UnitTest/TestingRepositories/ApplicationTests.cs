@@ -3,7 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
@@ -47,6 +49,73 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
 
         string sql = "delete from storage.applications";
         _ = PostgresUtil.RunSql(sql).Result;
+    }
+
+    public static TheoryData<string, DateTimeKind, DateTime> ValidityDatesByKind
+    {
+        get
+        {
+            DateTime utc = new(2026, 10, 21, 10, 0, 0, DateTimeKind.Utc);
+            TheoryData<string, DateTimeKind, DateTime> data = new();
+            foreach (
+                string property in new[]
+                {
+                    nameof(Application.ValidFrom),
+                    nameof(Application.ValidTo),
+                }
+            )
+            {
+                data.Add(property, DateTimeKind.Utc, utc);
+                data.Add(
+                    property,
+                    DateTimeKind.Unspecified,
+                    DateTime.SpecifyKind(utc, DateTimeKind.Unspecified)
+                );
+                data.Add(property, DateTimeKind.Local, utc.ToLocalTime());
+            }
+
+            return data;
+        }
+    }
+
+    /// <summary>
+    /// ValidFrom and ValidTo are normalized to UTC before they are written (see ApplicationsController), so the
+    /// stored value must be in UTC form and read back as the same instant regardless of the original kind.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ValidityDatesByKind))]
+    public async Task Application_ValidityDates_AreStoredAndReadBackAsUtc(
+        string property,
+        DateTimeKind kind,
+        DateTime value
+    )
+    {
+        // Arrange
+        string app = $"{property}-{kind}".ToLowerInvariant();
+        Application application = new()
+        {
+            Id = $"ttd/{app}",
+            Org = "ttd",
+            Title = new() { { "nb", "t" } },
+        };
+        PropertyInfo validityDate = typeof(Application).GetProperty(property);
+        validityDate.SetValue(application, DateTimeHelper.ConvertToUniversalTime(value));
+
+        // Act
+        await _applicationFixture.ApplicationRepo.Create(application);
+        string stored = await PostgresUtil.RunQuery<string>(
+            $"select application->>'{property}' from storage.applications where org = 'ttd' and app = '{app}'"
+        );
+        Application readBack = await _applicationFixture.ApplicationRepo.FindOne(
+            application.Id,
+            "ttd"
+        );
+        DateTime? readBackValue = (DateTime?)validityDate.GetValue(readBack);
+
+        // Assert
+        Assert.Equal("2026-10-21T10:00:00Z", stored);
+        Assert.Equal(DateTimeKind.Utc, readBackValue.Value.Kind);
+        Assert.Equal(new DateTime(2026, 10, 21, 10, 0, 0, DateTimeKind.Utc), readBackValue.Value);
     }
 
     /// <summary>
