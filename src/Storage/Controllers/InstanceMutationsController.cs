@@ -424,6 +424,7 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
+        // Only org tokens are allowed to mutate substatus
         if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
         {
             return Forbid();
