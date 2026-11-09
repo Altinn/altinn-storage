@@ -178,17 +178,6 @@ public class Application : ChangableElement
     [JsonProperty(PropertyName = "status")]
     public AppStatus? Status { get; set; }
 
-    /// <summary>
-    /// Gets or sets the version of the Altinn app library (Altinn.App.Api/Altinn.App.Core NuGet packages)
-    /// that the deployed application runs, e.g. 8.6.1.
-    /// </summary>
-    /// <remarks>
-    /// Set by Altinn Studio at deploy time. Null when unknown, for example for applications deployed
-    /// before the value was recorded.
-    /// </remarks>
-    [JsonProperty(PropertyName = "altinnNugetVersion")]
-    public string AltinnNugetVersion { get; set; }
-
     /// <inheritdoc/>
     public override string ToString()
     {
