@@ -2706,10 +2706,12 @@ public class DataControllerUnitTests
         ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            conflict.Value
+            problem.Detail
         );
     }
 
@@ -2739,10 +2741,12 @@ public class DataControllerUnitTests
         ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            conflict.Value
+            problem.Detail
         );
     }
 
@@ -2767,10 +2771,12 @@ public class DataControllerUnitTests
         ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
-            conflict.Value
+            problem.Detail
         );
     }
 
@@ -2817,10 +2823,12 @@ public class DataControllerUnitTests
         ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            conflict.Value
+            problem.Detail
         );
     }
 
@@ -2896,8 +2904,10 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Equal("Mismatch between stored data type and dataElement content", badRequest.Value);
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(badRequest.Value);
+        Assert.Equal("You can't change dataElement.DataType in an update request", problem.Detail);
         dataRepositoryMock.Verify(
             d =>
                 d.Update(

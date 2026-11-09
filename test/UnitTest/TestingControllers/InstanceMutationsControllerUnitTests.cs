@@ -3940,10 +3940,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(badRequest.Value);
         Assert.Equal(
             "processState.state cannot be combined with data element creates, updates or deletes.",
-            badRequest.Value
+            problem.Detail
         );
         fixture.InstanceRepository.Verify(
             repository =>
@@ -5111,10 +5113,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            conflict.Value
+            problem.Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5145,10 +5149,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            conflict.Value
+            problem.Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5282,12 +5288,14 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             currentTask is null
                 ? "Data element of type attachment can only be modified in Task_2 (no current task)"
                 : "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
-            conflict.Value
+            problem.Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5349,10 +5357,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
+        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            conflict.Value
+            problem.Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
