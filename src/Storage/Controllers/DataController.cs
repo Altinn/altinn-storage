@@ -189,7 +189,7 @@ public class DataController : ControllerBase
             { } taskBindingConflict
         )
         {
-            return Conflict(taskBindingConflict);
+            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -703,7 +703,7 @@ public class DataController : ControllerBase
             { } taskBindingConflict
         )
         {
-            return Conflict(taskBindingConflict);
+            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
         }
 
         DateTime creationTime = DateTime.UtcNow;
@@ -881,7 +881,7 @@ public class DataController : ControllerBase
             { } taskBindingConflict
         )
         {
-            return Conflict(taskBindingConflict);
+            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
         }
 
         if (dataElement.Locked)
@@ -1166,7 +1166,10 @@ public class DataController : ControllerBase
 
         if (dataElement.DataType != storedDataElement.DataType)
         {
-            return BadRequest("Mismatch between stored data type and dataElement content");
+            return Problem(
+                detail: "You can't change dataElement.DataType in an update request",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -1198,7 +1201,7 @@ public class DataController : ControllerBase
             { } taskBindingConflict
         )
         {
-            return Conflict(taskBindingConflict);
+            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
         }
 
         Dictionary<string, object> propertyList = new()

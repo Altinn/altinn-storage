@@ -181,8 +181,9 @@ public class InstanceMutationsController(
             )
         )
         {
-            return BadRequest(
-                "processState.state cannot be combined with data element creates, updates or deletes."
+            return Problem(
+                detail: "processState.state cannot be combined with data element creates, updates or deletes.",
+                statusCode: StatusCodes.Status400BadRequest
             );
         }
 
@@ -498,7 +499,10 @@ public class InstanceMutationsController(
             DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
             if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } taskBindingConflict)
             {
-                return Conflict(taskBindingConflict);
+                return Problem(
+                    detail: taskBindingConflict,
+                    statusCode: StatusCodes.Status409Conflict
+                );
             }
         }
 
