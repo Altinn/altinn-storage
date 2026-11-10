@@ -179,7 +179,7 @@ public class InstanceMutationsController(
             return processStateRequestError;
         }
 
-        BadRequestObjectResult substatusError = ValidateSubstatus(mutationRequest);
+        ObjectResult substatusError = ValidateSubstatus(mutationRequest);
         if (substatusError is not null)
         {
             return substatusError;
@@ -424,7 +424,7 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
-        // Only org tokens are allowed to mutate substatus
+        // Only the instance's own org may set the substatus
         if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
         {
             return Forbid();
@@ -1681,11 +1681,14 @@ public class InstanceMutationsController(
         return null;
     }
 
-    private BadRequestObjectResult ValidateSubstatus(InstanceMutationRequest request)
+    private ObjectResult ValidateSubstatus(InstanceMutationRequest request)
     {
         if (request.Substatus is not null && string.IsNullOrEmpty(request.Substatus.Label))
         {
-            return BadRequest("substatus.label is required.");
+            return Problem(
+                detail: "substatus.label is required.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
         }
 
         return null;

@@ -2630,8 +2630,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Equal("substatus.label is required.", badRequest.Value);
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal(
+            "substatus.label is required.",
+            Assert.IsType<ProblemDetails>(badRequest.Value).Detail
+        );
         fixture.InstanceRepository.Verify(
             repository =>
                 repository.GetOne(
