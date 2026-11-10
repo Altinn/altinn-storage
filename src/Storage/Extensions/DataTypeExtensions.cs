@@ -2,6 +2,8 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Altinn.Platform.Storage.Extensions;
 
@@ -58,12 +60,10 @@ internal static class DataTypeExtensions
     /// Returns why data of this type may not be written in the instance's current task, or null when it may.
     /// </summary>
     /// <remarks>
-    /// Neither the caller's identity nor a process transition plays any part: the workflow engine stores the task it
-    /// moves to before that task starts, so every write it makes is checked against the task the write belongs to.
-    /// The one write made without a current task is the deletion <see cref="ApplicationLogic.AutoDeleteOnProcessEnd"/>
-    /// asks for, which is allowed once the process has ended.
+    /// The deletion <see cref="ApplicationLogic.AutoDeleteOnProcessEnd"/> asks for is exempt once the process has ended,
+    /// because the app makes it after it has stored the ended process, when the instance has no current task.
     /// </remarks>
-    public static string? GetTaskBindingConflict(
+    public static ProblemDetails? GetTaskBindingConflict(
         this DataType dataType,
         InstanceInternal instance,
         bool isDelete
@@ -90,8 +90,14 @@ internal static class DataTypeExtensions
         }
 
         string boundTasks = string.Join(", ", taskIds);
-        return currentTask is null
-            ? $"Data element of type {dataType.Id} can only be modified in {boundTasks} (no current task)"
-            : $"Data element of type {dataType.Id} can only be modified in {boundTasks} (current task {currentTask})";
+        return new ProblemDetails
+        {
+            Type = "task_binding_conflict",
+            Title = "Task binding conflict",
+            Status = StatusCodes.Status409Conflict,
+            Detail = currentTask is null
+                ? $"Data element of type {dataType.Id} can only be modified in {boundTasks} (no current task)"
+                : $"Data element of type {dataType.Id} can only be modified in {boundTasks} (current task {currentTask})",
+        };
     }
 }

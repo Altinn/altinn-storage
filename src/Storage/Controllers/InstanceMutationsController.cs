@@ -84,16 +84,16 @@ public class InstanceMutationsController(
     /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
-    /// from that snapshot are rejected by later plan validation. A mutation that sets the process state
-    /// cannot also create, update, or delete data elements (400), so every data-element write is made in
-    /// the snapshot's current task. A data-element create, update, or delete of a data type bound to tasks
-    /// returns 409 unless that task is one of them, also during a process transition; only a delete of an
-    /// element whose data type sets <c>autoDeleteOnProcessEnd</c>, on an instance whose process has ended,
-    /// is exempt. Process-state authorization admits a mutation on an instance without a current task
-    /// only from the app that owns the instance. A delete-instance mutation returns 403 while the
-    /// application's <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was
-    /// archived, has not passed. A delete-instance mutation checks instance existence before delete
-    /// authorization, so a missing instance returns 404 before a possible delete-policy 403.
+    /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
+    /// mutation on an instance without a current task only from the app that owns the instance. A
+    /// delete-instance mutation returns 403 while the application's
+    /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
+    /// not passed. A delete-instance mutation checks instance existence before delete authorization,
+    /// so a missing instance returns 404 before a possible delete-policy 403.
+    /// <c>processState.state</c> cannot be combined with data-element creates, updates, or deletes
+    /// (400). A data-element create, update, or delete of a data type with <c>taskIds</c> returns 409
+    /// unless the instance's current task is in <c>taskIds</c>; once the process has ended, elements
+    /// of a data type with <c>autoDeleteOnProcessEnd</c> may still be deleted.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -172,19 +172,10 @@ public class InstanceMutationsController(
             return deleteInstanceRequestError;
         }
 
-        if (
-            mutationRequest.ProcessState?.State is not null
-            && (
-                mutationRequest.CreateDataElements?.Count > 0
-                || mutationRequest.UpdateDataElements?.Count > 0
-                || mutationRequest.DeleteDataElements?.Count > 0
-            )
-        )
+        ObjectResult processStateRequestError = ValidateProcessStateRequest(mutationRequest);
+        if (processStateRequestError is not null)
         {
-            return Problem(
-                detail: "processState.state cannot be combined with data element creates, updates or deletes.",
-                statusCode: StatusCodes.Status400BadRequest
-            );
+            return processStateRequestError;
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -489,20 +480,16 @@ public class InstanceMutationsController(
     {
         foreach (
             (string dataTypeId, bool isDelete) in EnumerateRequestedDataTypeWrites(
-                    mutationRequest,
-                    existingDataElementsById
-                )
-                .Distinct()
+                mutationRequest,
+                existingDataElementsById
+            )
         )
         {
             // Plan validation rejects undeclared data types with 400.
             DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
-            if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } taskBindingConflict)
+            if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } conflict)
             {
-                return Problem(
-                    detail: taskBindingConflict,
-                    statusCode: StatusCodes.Status409Conflict
-                );
+                return Conflict(conflict);
             }
         }
 
@@ -1680,6 +1667,26 @@ public class InstanceMutationsController(
             && preconditions.InstanceVersion is not null
             && preconditions.ProcessStateVersion is not null
             && idempotencyKey is not null;
+    }
+
+    private ObjectResult ValidateProcessStateRequest(InstanceMutationRequest request)
+    {
+        if (
+            request.ProcessState?.State is not null
+            && (
+                request.CreateDataElements?.Count > 0
+                || request.UpdateDataElements?.Count > 0
+                || request.DeleteDataElements?.Count > 0
+            )
+        )
+        {
+            return Problem(
+                detail: "processState.state cannot be combined with data element creates, updates or deletes.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        return null;
     }
 
     private async Task<ActionResult> AuthorizeDeleteInstanceMutation(

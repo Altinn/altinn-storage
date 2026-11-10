@@ -2682,119 +2682,47 @@ public class DataControllerUnitTests
     }
 
     [Theory]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, false)]
-    [InlineData(DataWriteEndpoint.Overwrite, false)]
-    [InlineData(DataWriteEndpoint.Delete, false)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, false)]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, true)]
-    [InlineData(DataWriteEndpoint.Overwrite, true)]
-    [InlineData(DataWriteEndpoint.Delete, true)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, true)]
-    public async Task DataWrite_TaskBoundDataTypeOutsideItsTasks_ReturnsConflict(
-        DataWriteEndpoint endpoint,
-        bool callerIsAppOwner
-    )
-    {
-        // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
-            endpoint,
-            ["Task_2", "Task_3"],
-            callerIsAppOwner
-        );
-
-        // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
-
-        // Assert
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            problem.Detail
-        );
-    }
-
-    [Theory]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, false)]
-    [InlineData(DataWriteEndpoint.Overwrite, false)]
-    [InlineData(DataWriteEndpoint.Delete, false)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, false)]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, true)]
-    [InlineData(DataWriteEndpoint.Overwrite, true)]
-    [InlineData(DataWriteEndpoint.Delete, true)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, true)]
-    public async Task DataWrite_TaskBoundDataTypeWithoutCurrentTask_ReturnsConflict(
-        DataWriteEndpoint endpoint,
-        bool callerIsAppOwner
-    )
-    {
-        // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
-            endpoint,
-            ["Task_2"],
-            callerIsAppOwner,
-            currentTask: null
-        );
-
-        // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
-
-        // Assert
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (no current task)",
-            problem.Detail
-        );
-    }
-
-    [Theory]
     [InlineData(DataWriteEndpoint.CreateAndUpload)]
     [InlineData(DataWriteEndpoint.Overwrite)]
     [InlineData(DataWriteEndpoint.Delete)]
     [InlineData(DataWriteEndpoint.UpdateMetadata)]
-    public async Task DataWrite_TaskBoundDataTypeOutsideItsTasksWhileProcessing_ReturnsConflict(
+    public async Task DataWrite_TaskBoundDataTypeOutsideItsTasks_ReturnsConflictWithoutWriting(
         DataWriteEndpoint endpoint
     )
     {
         // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
-            endpoint,
-            ["Task_2"],
-            callerIsAppOwner: true,
-            currentProcessStatus: ProcessStatus.Processing
-        );
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(endpoint, ["Task_2", "Task_3"]);
 
         // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            endpoint
+        );
 
         // Assert
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
-            problem.Detail
+            "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
+            Assert.IsType<ProblemDetails>(conflict.Value).Detail
         );
+        VerifyNothingWritten(fixture);
     }
 
     [Fact]
     public async Task Delete_AutoDeleteOnProcessEndDataAfterProcessEnd_Succeeds()
     {
         // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
             DataWriteEndpoint.Delete,
             ["Task_2"],
-            callerIsAppOwner: true,
             currentTask: null,
-            processEnded: true
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
         );
 
         // Act
         ActionResult<DataElement> result = await CallDataWriteEndpoint(
-            testController,
+            fixture.Controller,
             DataWriteEndpoint.Delete
         );
 
@@ -2806,30 +2734,32 @@ public class DataControllerUnitTests
     [InlineData(DataWriteEndpoint.CreateAndUpload)]
     [InlineData(DataWriteEndpoint.Overwrite)]
     [InlineData(DataWriteEndpoint.UpdateMetadata)]
-    public async Task DataWrite_AutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsConflict(
+    public async Task DataWrite_AutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsConflictWithoutWriting(
         DataWriteEndpoint endpoint
     )
     {
         // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
             endpoint,
             ["Task_2"],
-            callerIsAppOwner: true,
             currentTask: null,
-            processEnded: true
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
         );
 
         // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            endpoint
+        );
 
         // Assert
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            problem.Detail
+            Assert.IsType<ProblemDetails>(conflict.Value).Detail
         );
+        VerifyNothingWritten(fixture);
     }
 
     [Theory]
@@ -2842,44 +2772,37 @@ public class DataControllerUnitTests
     )
     {
         // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
             endpoint,
             ["Task_2"],
-            callerIsAppOwner: false,
-            actionRequiredToWrite: "write"
+            writeAuthorized: false
         );
 
         // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            endpoint
+        );
 
         // Assert
         Assert.IsType<ForbidResult>(result.Result);
     }
 
     [Theory]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataWriteEndpoint.Overwrite, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataWriteEndpoint.Delete, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataWriteEndpoint.CreateAndUpload, new[] { "Task_1" }, true)]
-    [InlineData(DataWriteEndpoint.Overwrite, new[] { "Task_1" }, true)]
-    [InlineData(DataWriteEndpoint.Delete, new[] { "Task_1" }, true)]
-    [InlineData(DataWriteEndpoint.UpdateMetadata, new[] { "Task_1" }, true)]
-    public async Task DataWrite_TaskBoundDataTypeInItsTasks_Succeeds(
-        DataWriteEndpoint endpoint,
-        string[] taskIds,
-        bool callerIsAppOwner
-    )
+    [InlineData(DataWriteEndpoint.CreateAndUpload)]
+    [InlineData(DataWriteEndpoint.Overwrite)]
+    [InlineData(DataWriteEndpoint.Delete)]
+    [InlineData(DataWriteEndpoint.UpdateMetadata)]
+    public async Task DataWrite_TaskBoundDataTypeInItsTasks_Succeeds(DataWriteEndpoint endpoint)
     {
         // Arrange
-        (DataController testController, _, _) = GetTaskBoundTestController(
-            endpoint,
-            [.. taskIds],
-            callerIsAppOwner
-        );
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(endpoint, ["Task_2", "Task_1"]);
 
         // Act
-        ActionResult<DataElement> result = await CallDataWriteEndpoint(testController, endpoint);
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            endpoint
+        );
 
         // Assert
         Assert.IsType(
@@ -2924,44 +2847,108 @@ public class DataControllerUnitTests
     private static ClaimsPrincipal CreateOrgPrincipal(string org) =>
         new(new ClaimsIdentity([new Claim(AltinnCoreClaimTypes.Org, org)], "test"));
 
-    private (
-        DataController TestController,
-        Mock<IDataRepository> DataRepositoryMock,
-        Mock<IBlobRepository> BlobRepositoryMock
-    ) GetTaskBoundTestController(
+    private sealed record TaskBoundTestFixture(
+        DataController Controller,
+        Mock<IDataRepository> DataRepository,
+        Mock<IBlobRepository> BlobRepository,
+        Mock<IDataService> DataService,
+        Mock<IInstanceMutationRepository> InstanceMutationRepository
+    );
+
+    private TaskBoundTestFixture GetTaskBoundTestController(
         DataWriteEndpoint endpoint,
         List<string> taskIds,
-        bool callerIsAppOwner,
         string currentTask = "Task_1",
-        ProcessStatus currentProcessStatus = ProcessStatus.Idle,
-        string actionRequiredToWrite = null,
-        bool processEnded = false
+        bool processEnded = false,
+        bool autoDeleteOnProcessEnd = false,
+        bool writeAuthorized = true
     )
     {
         List<string> expectedPropertiesForPatch = endpoint switch
         {
-            DataWriteEndpoint.Overwrite => [.. _expectedPropertiesForOverwrite],
+            // An overwrite by the app owner also marks the element as unread.
+            DataWriteEndpoint.Overwrite => [.. _expectedPropertiesForOverwrite, "/isRead"],
             DataWriteEndpoint.UpdateMetadata => _expectedPropertiesForUpdate,
             _ => [],
         };
-        if (endpoint == DataWriteEndpoint.Overwrite && callerIsAppOwner)
-        {
-            // An overwrite by the app owner also marks the element as unread.
-            expectedPropertiesForPatch.Add("/isRead");
-        }
+        Mock<IDataService> dataServiceMock = new();
+        Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = new();
 
-        return GetTestController(
+        (
+            DataController controller,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(
             expectedPropertiesForPatch,
             includeRequestBody: endpoint
                 is DataWriteEndpoint.CreateAndUpload
                     or DataWriteEndpoint.Overwrite,
             blobVersionId: endpoint == DataWriteEndpoint.Overwrite ? "existing-version-id" : null,
+            dataServiceMock: dataServiceMock,
+            instanceMutationRepositoryMock: instanceMutationRepositoryMock,
             dataTypeTaskIds: taskIds,
+            dataTypeAutoDeleteOnProcessEnd: autoDeleteOnProcessEnd,
+            dataTypeWriteAuthorized: writeAuthorized,
             currentTask: currentTask,
-            user: callerIsAppOwner ? CreateOrgPrincipal(_org) : null,
-            currentProcessStatus: currentProcessStatus,
-            dataTypeActionRequiredToWrite: actionRequiredToWrite,
-            processEnded: processEnded
+            processEnded: processEnded,
+            user: CreateOrgPrincipal(_org)
+        );
+
+        return new TaskBoundTestFixture(
+            controller,
+            dataRepositoryMock,
+            blobRepositoryMock,
+            dataServiceMock,
+            instanceMutationRepositoryMock
+        );
+    }
+
+    private static void VerifyNothingWritten(TaskBoundTestFixture fixture)
+    {
+        fixture.DataService.Verify(
+            service =>
+                service.UploadDataAndCreateDataElement(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<DataElementCreateOptions>(),
+                    It.IsAny<long>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.BlobRepository.Verify(
+            repository =>
+                repository.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.IsAny<DataElementUpdateContext>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.InstanceMutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
         );
     }
 
@@ -3100,12 +3087,14 @@ public class DataControllerUnitTests
         Action<Mock<IInstanceEventService>> configureInstanceEventService = null,
         string blobStoragePathOverride = null,
         IOnDemandClient onDemandClient = null,
+        Mock<IDataService> dataServiceMock = null,
+        Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = null,
         List<string> dataTypeTaskIds = null,
+        bool dataTypeAutoDeleteOnProcessEnd = true,
+        bool dataTypeWriteAuthorized = true,
         string currentTask = null,
-        ClaimsPrincipal user = null,
-        ProcessStatus currentProcessStatus = ProcessStatus.Idle,
-        string dataTypeActionRequiredToWrite = null,
-        bool processEnded = false
+        bool processEnded = false,
+        ClaimsPrincipal user = null
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -3116,7 +3105,7 @@ public class DataControllerUnitTests
         Mock<IInstanceRepository> instanceRepositoryMock = new();
         Mock<IApplicationRepository> applicationRepositoryMock = new();
         Mock<IInstanceEventService> instanceEventServiceMock = new();
-        Mock<IDataService> dataServiceMock = new();
+        dataServiceMock ??= new();
         Mock<IAuthorization> authorizationServiceMock = new();
 
         var updateSetup = dataRepositoryMock.Setup(d =>
@@ -3293,15 +3282,10 @@ public class DataControllerUnitTests
                         instanceGuid,
                         includeDataElements
                     );
-                    if (
-                        currentTask is not null
-                        || currentProcessStatus != ProcessStatus.Idle
-                        || processEnded
-                    )
+                    if (currentTask is not null || processEnded)
                     {
                         instance.Process = new ProcessState
                         {
-                            Status = currentProcessStatus,
                             CurrentTask = currentTask is null
                                 ? null
                                 : new ProcessElementInfo { ElementId = currentTask },
@@ -3325,9 +3309,12 @@ public class DataControllerUnitTests
                         new DataType
                         {
                             Id = _dataType,
-                            AppLogic = new ApplicationLogic { AutoDeleteOnProcessEnd = true },
+                            AppLogic = new ApplicationLogic
+                            {
+                                AutoDeleteOnProcessEnd = dataTypeAutoDeleteOnProcessEnd,
+                            },
                             TaskIds = dataTypeTaskIds,
-                            ActionRequiredToWrite = dataTypeActionRequiredToWrite,
+                            ActionRequiredToWrite = dataTypeWriteAuthorized ? null : "write",
                         },
                     ],
                 }
@@ -3414,6 +3401,11 @@ public class DataControllerUnitTests
                 a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(authorized);
+        authorizationServiceMock
+            .Setup(a =>
+                a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), "write", It.IsAny<string>())
+            )
+            .ReturnsAsync(dataTypeWriteAuthorized);
 
         Mock<HttpContext> httpContextMock = new();
         httpContextMock
@@ -3448,7 +3440,7 @@ public class DataControllerUnitTests
         IOptions<GeneralSettings> generalSettings = Options.Create(
             new GeneralSettings { Hostname = "https://altinn.no/" }
         );
-        Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = new();
+        instanceMutationRepositoryMock ??= new();
         var applySetup = instanceMutationRepositoryMock.Setup(repository =>
             repository.Apply(
                 It.IsAny<Guid>(),

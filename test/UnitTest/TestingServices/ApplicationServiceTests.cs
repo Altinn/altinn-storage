@@ -178,7 +178,6 @@ public class ApplicationServiceTests
         _applicationRepositoryMock.VerifyAll();
     }
 
-    // The sign check still reads the obsolete TaskId for v8 apps.
 #pragma warning disable CS0618 // Type or member is obsolete
     private static Application CreateApplication(string org, string appName)
     {

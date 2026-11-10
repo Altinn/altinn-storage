@@ -11,9 +11,9 @@ namespace Altinn.Platform.Storage.Interface.Models;
 public class ApplicationLogic
 {
     /// <summary>
-    /// When this is set to true, the process engine will ensure that at least 1
+    /// When this is set to true, the process engine will ensure that at least one
     /// element of this type exists when entering any of the tasks in
-    /// <see cref="DataType.TaskIds"/>
+    /// <see cref="DataType.TaskIds"/>.
     /// </summary>
     [JsonProperty(PropertyName = "autoCreate")]
     public bool? AutoCreate { get; set; }

@@ -186,12 +186,9 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (
-            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is
-            { } taskBindingConflict
-        )
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
         {
-            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
+            return Conflict(conflict);
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -695,12 +692,9 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (
-            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
-            { } taskBindingConflict
-        )
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
+            return Conflict(conflict);
         }
 
         DateTime creationTime = DateTime.UtcNow;
@@ -875,12 +869,9 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (
-            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
-            { } taskBindingConflict
-        )
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
+            return Conflict(conflict);
         }
 
         if (dataElement.Locked)
@@ -1186,12 +1177,9 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (
-            dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is
-            { } taskBindingConflict
-        )
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Problem(detail: taskBindingConflict, statusCode: StatusCodes.Status409Conflict);
+            return Conflict(conflict);
         }
 
         Dictionary<string, object> propertyList = new()
