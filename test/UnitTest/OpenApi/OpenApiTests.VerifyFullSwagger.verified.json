@@ -4289,6 +4289,56 @@
         }
       }
     },
+    "/storage/api/v1/studio/metrics/{org}": {
+      "get": {
+        "tags": [
+          "StudioMetrics"
+        ],
+        "summary": "Gets instance metrics per app for a service owner and one UTC day.",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "The service owner.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open and unconfirmed counts describe the instances as they are now.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioDailyMetrics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/storage/api/v1/applications/{org}/{app}/texts": {
       "post": {
         "tags": [
@@ -6437,6 +6487,115 @@
         "additionalProperties": false,
         "description": "Query response object"
       },
+      "StudioAppDailyMetrics": {
+        "required": [
+          "app"
+        ],
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "The app name without the service owner prefix.",
+            "nullable": true
+          },
+          "instancesCreated": {
+            "type": "integer",
+            "description": "Instances created on the day.",
+            "format": "int64"
+          },
+          "instancesCompleted": {
+            "type": "integer",
+            "description": "Instances archived on the day.",
+            "format": "int64"
+          },
+          "secondsToCompleteP50": {
+            "type": "integer",
+            "description": "Median seconds from process start to process end for the instances archived on the day. Null when none were archived.",
+            "format": "int32",
+            "nullable": true
+          },
+          "openInstances": {
+            "type": "integer",
+            "description": "Instances whose process is still running. Soft deleted instances are included, hard deleted ones are not.",
+            "format": "int64"
+          },
+          "openOver90Days": {
+            "type": "integer",
+            "description": "Open instances created more than 90 days before the end of the day.",
+            "format": "int64"
+          },
+          "unconfirmedOver90Days": {
+            "type": "integer",
+            "description": "Instances whose process ended more than 90 days before the end of the day and that the service owner has not confirmed as complete.",
+            "format": "int64"
+          },
+          "openByTask": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudioOpenTaskCount"
+            },
+            "description": "Open instances per current process task.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Instance metrics for one app on one UTC day."
+      },
+      "StudioDailyMetrics": {
+        "required": [
+          "computedAt",
+          "date",
+          "org"
+        ],
+        "type": "object",
+        "properties": {
+          "org": {
+            "type": "string",
+            "description": "The service owner the metrics belong to.",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "description": "The UTC day the flow metrics (created, completed, time to complete) describe.",
+            "format": "date"
+          },
+          "computedAt": {
+            "type": "string",
+            "description": "When the snapshot metrics (open and unconfirmed instances) were read.",
+            "format": "date-time"
+          },
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudioAppDailyMetrics"
+            },
+            "description": "Metrics per app. Apps without instances on the day and without open or unconfirmed instances are left out.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Instance metrics for one service owner and one UTC day, one entry per app, as read by Altinn Studio."
+      },
+      "StudioOpenTaskCount": {
+        "required": [
+          "taskId"
+        ],
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "The process task id, for example Task_1.",
+            "nullable": true
+          },
+          "openInstances": {
+            "type": "integer",
+            "description": "Open instances at the task.",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Number of open instances standing at one process task."
+      },
       "Substatus": {
         "type": "object",
         "properties": {
@@ -6656,6 +6815,9 @@
     },
     {
       "name": "StudioInstances"
+    },
+    {
+      "name": "StudioMetrics"
     },
     {
       "name": "Texts"

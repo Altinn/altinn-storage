@@ -195,6 +195,7 @@
     Altinn.Platform.Storage.Controllers.StudioInstancesController.DeleteInstance (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.StudioInstancesController.GetInstances (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.StudioInstancesController.GetSingleInstance (Altinn.Platform.Storage),
+    Altinn.Platform.Storage.Controllers.StudioMetricsController.GetDailyMetrics (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Create (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Delete (Altinn.Platform.Storage),
     Altinn.Platform.Storage.Controllers.TextsController.Get (Altinn.Platform.Storage),
