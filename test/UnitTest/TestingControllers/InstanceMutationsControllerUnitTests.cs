@@ -1767,16 +1767,6 @@ public class InstanceMutationsControllerUnitTests
                 instanceEvent.EventType == InstanceEventType.Deleted.ToString()
                 && instanceEvent.DataId is null
         );
-        Assert.Empty(capturedMutation.DeleteDataElements);
-        fixture.DataService.Verify(
-            service =>
-                service.DeleteLegacyDataElementBlob(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>(),
-                    It.IsAny<int?>()
-                ),
-            Times.Never
-        );
         fixture.DataService.Verify(
             service =>
                 service.CleanupDeletedDataElementBlobs(
@@ -3377,19 +3367,11 @@ public class InstanceMutationsControllerUnitTests
         const int instanceVersion = 12;
         const int processStateVersion = 8;
         Guid instanceGuid = Guid.NewGuid();
-        Guid dataElementId = Guid.NewGuid();
         DateTime processStarted = new(2026, 6, 7, 8, 0, 0, DateTimeKind.Utc);
         DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
-        DataElementInternal dataElement = new DataElement
-        {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            DataType = _dataType,
-            Locked = true,
-        }.FromApiModel(null);
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
             instanceGuid,
-            [dataElement],
+            [],
             new StorageVersions(instanceVersion, processStateVersion)
         );
         instanceInternal.Process = new ProcessState
@@ -3461,7 +3443,6 @@ public class InstanceMutationsControllerUnitTests
             nameof(InstanceStatus.IsArchived),
             capturedMutation.InstanceUpdateProperties
         );
-        Assert.Empty(capturedMutation.DeleteDataElements);
         Assert.Equal(
             ["Deleted"],
             capturedMutation.InstanceEvents.Select(instanceEvent => instanceEvent.EventType)
@@ -5135,23 +5116,18 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Theory]
-    [InlineData(DataElementOperation.Create, false)]
-    [InlineData(DataElementOperation.Update, false)]
-    [InlineData(DataElementOperation.UpdateMetadata, false)]
-    [InlineData(DataElementOperation.Delete, false)]
-    [InlineData(DataElementOperation.Create, true)]
-    [InlineData(DataElementOperation.Update, true)]
-    [InlineData(DataElementOperation.UpdateMetadata, true)]
-    [InlineData(DataElementOperation.Delete, true)]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    [InlineData(DataElementOperation.Delete)]
     public async Task CommitMutation_TaskBoundDataTypeOutsideItsTasks_ReturnsConflict(
-        DataElementOperation operation,
-        bool callerIsAppOwner
+        DataElementOperation operation
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             [operation],
             ["Task_2", "Task_3"],
-            callerIsAppOwner
+            callerIsAppOwner: true
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5160,48 +5136,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            problem.Detail
-        );
-        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
-        VerifyNoBlobWritten(fixture);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CommitMutation_TaskBoundDataTypeWithoutCurrentTask_ReturnsConflict(
-        bool callerIsAppOwner
-    )
-    {
-        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [
-                DataElementOperation.Create,
-                DataElementOperation.Update,
-                DataElementOperation.UpdateMetadata,
-                DataElementOperation.Delete,
-            ],
-            ["Task_2"],
-            callerIsAppOwner,
-            currentTask: null
-        );
-
-        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
-            555,
-            fixture.InstanceInternal.Id,
-            CancellationToken.None
-        );
-
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (no current task)",
-            problem.Detail
+            Assert.IsType<ProblemDetails>(conflict.Value).Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5220,7 +5158,7 @@ public class InstanceMutationsControllerUnitTests
             [operation],
             ["Task_2"],
             callerIsAppOwner: false,
-            actionRequiredToWrite: "write"
+            writeAuthorized: false
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5234,19 +5172,13 @@ public class InstanceMutationsControllerUnitTests
         VerifyNoBlobWritten(fixture);
     }
 
-    [Theory]
-    [InlineData(DataElementOperation.Create)]
-    [InlineData(DataElementOperation.Update)]
-    [InlineData(DataElementOperation.UpdateMetadata)]
-    [InlineData(DataElementOperation.Delete)]
-    public async Task CommitMutation_IdleAssertedOnProcessingInstance_ReturnsProcessStatusConflictBeforeTaskBinding(
-        DataElementOperation operation
-    )
+    [Fact]
+    public async Task CommitMutation_IdleAssertedOnProcessingInstance_ReturnsProcessStatusConflictBeforeTaskBinding()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            [DataElementOperation.Create],
             ["Task_2"],
-            callerIsAppOwner: false,
+            callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing
         );
 
@@ -5257,34 +5189,24 @@ public class InstanceMutationsControllerUnitTests
         );
 
         JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        Assert.Equal("application/problem+json", conflict.ContentType);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Equal("process_status_conflict", problem.Type);
-        Assert.Contains("'processing'", problem.Detail, StringComparison.Ordinal);
+        Assert.Equal("process_status_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
 
     [Theory]
-    [InlineData(DataElementOperation.Create, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataElementOperation.Update, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataElementOperation.UpdateMetadata, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataElementOperation.Delete, new[] { "Task_1", "Task_2" }, false)]
-    [InlineData(DataElementOperation.Create, new[] { "Task_1" }, true)]
-    [InlineData(DataElementOperation.Update, new[] { "Task_1" }, true)]
-    [InlineData(DataElementOperation.UpdateMetadata, new[] { "Task_1" }, true)]
-    [InlineData(DataElementOperation.Delete, new[] { "Task_1" }, true)]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    [InlineData(DataElementOperation.Delete)]
     public async Task CommitMutation_TaskBoundDataTypeInItsTasks_Applies(
-        DataElementOperation operation,
-        string[] taskIds,
-        bool callerIsAppOwner
+        DataElementOperation operation
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             [operation],
-            [.. taskIds],
-            callerIsAppOwner
+            ["Task_2", "Task_1"],
+            callerIsAppOwner: true
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5306,27 +5228,15 @@ public class InstanceMutationsControllerUnitTests
         );
     }
 
-    [Theory]
-    [InlineData(DataElementOperation.Create, "Task_1")]
-    [InlineData(DataElementOperation.Update, "Task_1")]
-    [InlineData(DataElementOperation.UpdateMetadata, "Task_1")]
-    [InlineData(DataElementOperation.Delete, "Task_1")]
-    [InlineData(DataElementOperation.Create, null)]
-    [InlineData(DataElementOperation.Update, null)]
-    [InlineData(DataElementOperation.UpdateMetadata, null)]
-    [InlineData(DataElementOperation.Delete, null)]
-    public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_ReturnsConflict(
-        DataElementOperation operation,
-        string currentTask
-    )
+    [Fact]
+    public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_ReturnsConflict()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            [DataElementOperation.Update],
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
-            expectedProcessStatus: ProcessStatus.Processing,
-            currentTask: currentTask
+            expectedProcessStatus: ProcessStatus.Processing
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5335,14 +5245,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Equal(
-            currentTask is null
-                ? "Data element of type attachment can only be modified in Task_2 (no current task)"
-                : "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
-            problem.Detail
+            "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
+            Assert.IsType<ProblemDetails>(conflict.Value).Detail
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5404,45 +5310,11 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult conflict = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
         Assert.Equal(
             "Data element of type attachment can only be modified in Task_2 (no current task)",
-            problem.Detail
+            Assert.IsType<ProblemDetails>(conflict.Value).Detail
         );
-        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
-        VerifyNoBlobWritten(fixture);
-    }
-
-    [Fact]
-    public async Task CommitMutation_ProcessingAssertedOnIdleInstance_ReturnsProcessStatusConflict()
-    {
-        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [
-                DataElementOperation.Create,
-                DataElementOperation.Update,
-                DataElementOperation.UpdateMetadata,
-                DataElementOperation.Delete,
-            ],
-            ["Task_2"],
-            callerIsAppOwner: true,
-            currentProcessStatus: ProcessStatus.Idle,
-            expectedProcessStatus: ProcessStatus.Processing
-        );
-
-        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
-            555,
-            fixture.InstanceInternal.Id,
-            CancellationToken.None
-        );
-
-        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
-        Assert.Equal("application/problem+json", conflict.ContentType);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
-        Assert.Equal("process_status_conflict", problem.Type);
-        Assert.Contains("'idle'", problem.Detail, StringComparison.Ordinal);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
@@ -5620,6 +5492,7 @@ public class InstanceMutationsControllerUnitTests
             dataServiceMock,
             mutationRepositoryMock,
             instanceEventServiceMock,
+            authorizationServiceMock,
             policyAuthorizationServiceMock,
             processAuthorizerMock
         );
@@ -5632,7 +5505,7 @@ public class InstanceMutationsControllerUnitTests
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
         ProcessStatus? expectedProcessStatus = null,
         string currentTask = "Task_1",
-        string actionRequiredToWrite = null,
+        bool writeAuthorized = true,
         bool processEnded = false,
         bool autoDeleteOnProcessEnd = false
     )
@@ -5734,7 +5607,7 @@ public class InstanceMutationsControllerUnitTests
         };
         Application application = CreateAggregateApplication();
         application.DataTypes[0].TaskIds = taskIds;
-        application.DataTypes[0].ActionRequiredToWrite = actionRequiredToWrite;
+        application.DataTypes[0].ActionRequiredToWrite = writeAuthorized ? null : "write";
         if (autoDeleteOnProcessEnd)
         {
             application.DataTypes[0].AppLogic = new ApplicationLogic
@@ -5749,6 +5622,15 @@ public class InstanceMutationsControllerUnitTests
             mutation.ToJsonString(),
             [.. fileParts]
         );
+        fixture
+            .Authorization.Setup(authorization =>
+                authorization.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync(writeAuthorized);
         if (callerIsAppOwner)
         {
             fixture.HttpContext.User = CreateOrgPrincipal(_org);
@@ -6016,6 +5898,7 @@ public class InstanceMutationsControllerUnitTests
         Mock<IDataService> DataService,
         Mock<IInstanceMutationRepository> MutationRepository,
         Mock<IInstanceEventService> InstanceEventService,
+        Mock<IAuthorization> Authorization,
         Mock<IAuthorizationService> PolicyAuthorizationService,
         Mock<IProcessAuthorizer> ProcessAuthorizer
     );

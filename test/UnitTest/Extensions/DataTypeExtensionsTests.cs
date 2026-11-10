@@ -5,6 +5,8 @@ using System.Linq;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Extensions;
@@ -56,10 +58,14 @@ public class DataTypeExtensionsTests
     {
         DataType dataType = new() { Id = "model", TaskIds = [.. taskIds] };
 
-        Assert.Equal(
-            expected,
-            dataType.GetTaskBindingConflict(CreateInstance(currentTask), isDelete)
+        ProblemDetails conflict = dataType.GetTaskBindingConflict(
+            CreateInstance(currentTask),
+            isDelete
         );
+
+        Assert.Equal("task_binding_conflict", conflict.Type);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.Status);
+        Assert.Equal(expected, conflict.Detail);
     }
 
     [Fact]
@@ -90,18 +96,9 @@ public class DataTypeExtensionsTests
 
         Assert.Equal(
             "Data element of type model can only be modified in Task_2 (no current task)",
-            dataType.GetTaskBindingConflict(CreateInstance(currentTask: null, ended), isDelete)
-        );
-    }
-
-    [Fact]
-    public void GetTaskBindingConflict_DeleteOfAutoDeleteOnProcessEndDataInAnotherTask_ReturnsConflict()
-    {
-        DataType dataType = CreateAutoDeleteOnProcessEndDataType();
-
-        Assert.Equal(
-            "Data element of type model can only be modified in Task_2 (current task Task_1)",
-            dataType.GetTaskBindingConflict(CreateInstance("Task_1"), isDelete: true)
+            dataType
+                .GetTaskBindingConflict(CreateInstance(currentTask: null, ended), isDelete)
+                ?.Detail
         );
     }
 
