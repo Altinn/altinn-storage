@@ -28,10 +28,13 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Telemetry;
 
-public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesController> factory)
-    : IClassFixture<TestApplicationFactory<InstancesController>>
+public class AspNetCoreMetricsEnricherTests : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<InstancesController> _factory = factory;
+    private readonly TestApplicationFactory<InstancesController> _factory = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task ActionsSnapshot()

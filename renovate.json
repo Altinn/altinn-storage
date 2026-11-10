@@ -2,5 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>Altinn/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "PDFsharp 6.5.0 switched from MIT to AGPL-3.0/commercial and throws at runtime without a licence call. Hold at 6.2.x until a licensing decision is made.",
+      "matchDatasources": ["nuget"],
+      "matchPackageNames": ["PDFsharp"],
+      "allowedVersions": "<6.5.0"
+    }
   ]
 }

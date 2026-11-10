@@ -1,0 +1,19 @@
+{
+  "id": "tdd/authlevel-4-systemuser",
+  "org": "tdd",
+  "created": "2026-10-16T10:00:00.0000000Z",
+  "createdBy": "test",
+  "lastChanged": "2026-10-16T10:00:00.0000000Z",
+  "lastChangedBy": "test",
+  "title": {
+    "nb": "authlevel-4-systemuser"
+  },
+  "dataTypes": [
+    {
+      "id": "default",
+      "allowedContentTypes": [ "application/xml" ],
+      "maxCount": 1,
+      "taskId": "Task_1"
+    }
+  ]
+}

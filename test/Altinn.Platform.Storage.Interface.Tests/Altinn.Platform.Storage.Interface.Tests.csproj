@@ -8,9 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -37,6 +37,8 @@
     <EmbeddedResource Include="ShadowFields\applicationMetadata_afterChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_beforeChange.json" />
     <EmbeddedResource Include="SystemUser\platformUser_afterChange.json" />
+    <EmbeddedResource Include="TaskIds\applicationMetadata_beforeChange.json" />
+    <EmbeddedResource Include="TaskIds\applicationMetadata_afterChange.json" />
   </ItemGroup>
 
   <PropertyGroup>
