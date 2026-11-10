@@ -651,8 +651,12 @@ public class ProcessControllerTest : IAsyncLifetime
                 )
             )
             .ReturnsAsync(
-                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
-                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+                (Guid guid, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        InstanceMutationTestFactory.ApplyInstanceChangesAndStamp(snapshot, mutation)
+                    )
             );
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
         processAuthorizerMock
@@ -701,7 +705,9 @@ public class ProcessControllerTest : IAsyncLifetime
                     instanceGuid,
                     snapshot.InternalId,
                     It.Is<InstanceMutationCommit>(mutation =>
-                        mutation.InstanceUpdates.Process.Status == ProcessStatus.Processing
+                        mutation.InstanceChanges != null
+                        && mutation.InstanceChanges.Process != null
+                        && mutation.InstanceChanges.Process.Status == ProcessStatus.Processing
                         && mutation.ExpectedProcessStateVersion == 11
                     ),
                     It.IsAny<CancellationToken>()
@@ -740,7 +746,11 @@ public class ProcessControllerTest : IAsyncLifetime
                 (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
                 {
                     capturedMutation = mutation;
-                    return new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates);
+                    return new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        InstanceMutationTestFactory.ApplyInstanceChanges(snapshot, mutation)
+                    );
                 }
             );
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
@@ -767,6 +777,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     {
                         InstanceId = $"1337/{instanceGuid}",
                         EventType = InstanceEventType.Saved.ToString(),
+                        Id = Guid.Empty,
                         Created = clientTimestamp,
                         User = new PlatformUser { UserId = 3 },
                     },
@@ -775,10 +786,15 @@ public class ProcessControllerTest : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(capturedMutation);
-        DateTime? capturedStarted = capturedMutation.InstanceUpdates.Process.Started;
+        InstanceMutationChanges changes = Assert.IsType<InstanceMutationChanges>(
+            capturedMutation.InstanceChanges
+        );
+        ProcessState process = Assert.IsType<ProcessState>(changes.Process);
+        DateTime? capturedStarted = process.Started;
         Assert.Equal(clientTimestamp, capturedStarted);
         Assert.Equal(DateTimeKind.Unspecified, capturedStarted!.Value.Kind);
         InstanceEvent capturedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.Equal(Guid.Empty, capturedEvent.Id);
         Assert.Equal(clientTimestamp, capturedEvent.Created);
         Assert.Equal(DateTimeKind.Unspecified, capturedEvent.Created!.Value.Kind);
     }
@@ -812,7 +828,11 @@ public class ProcessControllerTest : IAsyncLifetime
                 (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
                 {
                     capturedMutation = mutation;
-                    return new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates);
+                    return new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        InstanceMutationTestFactory.ApplyInstanceChanges(snapshot, mutation)
+                    );
                 }
             );
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
@@ -847,6 +867,8 @@ public class ProcessControllerTest : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(capturedMutation);
         InstanceEvent capturedEvent = Assert.Single(capturedMutation.InstanceEvents);
+        Assert.NotNull(capturedEvent.Id);
+        Assert.NotEqual(Guid.Empty, capturedEvent.Id.Value);
         Assert.Equal(DateTimeKind.Utc, capturedEvent.Created!.Value.Kind);
         Assert.InRange(capturedEvent.Created.Value, before, DateTime.UtcNow);
     }
@@ -1489,9 +1511,18 @@ public class ProcessControllerTest : IAsyncLifetime
         {
             Id = Guid.NewGuid().ToString(),
         }.FromApiModel("old-version");
+        InstanceInternal? loadedSnapshot = null;
+        ProcessState? snapshotProcess = null;
         Mock<IProcessDataCleanupService> cleanupMock = new();
         cleanupMock
             .Setup(c => c.GetGeneratedFromTaskDataElements(It.IsAny<InstanceInternal>(), "Task_2"))
+            .Callback<InstanceInternal, string>(
+                (instance, _) =>
+                {
+                    loadedSnapshot = instance;
+                    snapshotProcess = instance.Process;
+                }
+            )
             .Returns([staleDataElement]);
 
         bool committed = false;
@@ -1514,8 +1545,15 @@ public class ProcessControllerTest : IAsyncLifetime
                 }
             )
             .ReturnsAsync(
-                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
-                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+                (Guid guid, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        InstanceMutationTestFactory.ApplyInstanceChangesAndStamp(
+                            Assert.IsType<InstanceInternal>(loadedSnapshot),
+                            mutation
+                        )
+                    )
             );
 
         Mock<IDataService> dataServiceMock = new();
@@ -1544,7 +1582,7 @@ public class ProcessControllerTest : IAsyncLifetime
                 state.CurrentTask = new ProcessElementInfo
                 {
                     ElementId = "Task_2",
-                    AltinnTaskType = "data",
+                    AltinnTaskType = "signing",
                     FlowType = "CompleteCurrentMoveToNext",
                 };
             }
@@ -1553,6 +1591,22 @@ public class ProcessControllerTest : IAsyncLifetime
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(capturedMutation);
+        Assert.NotNull(loadedSnapshot);
+        Assert.Same(snapshotProcess, loadedSnapshot.Process);
+        Assert.NotEqual("Task_2", snapshotProcess!.CurrentTask.ElementId);
+        Assert.Null(staleDataElement.LastChangedBy);
+        Assert.Contains(
+            capturedMutation.InstanceEvents,
+            instanceEvent => instanceEvent.EventType == InstanceEventType.SentToSign.ToString()
+        );
+        Assert.All(
+            capturedMutation.InstanceEvents,
+            instanceEvent =>
+            {
+                Assert.Equal("Task_2", instanceEvent.ProcessInfo.CurrentTask.ElementId);
+                Assert.Equal("signing", instanceEvent.ProcessInfo.CurrentTask.AltinnTaskType);
+            }
+        );
         Assert.Contains(
             capturedMutation.InstanceEvents,
             instanceEvent =>
@@ -1596,8 +1650,15 @@ public class ProcessControllerTest : IAsyncLifetime
                 )
             )
             .ReturnsAsync(
-                (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
-                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+                (Guid guid, long _, InstanceMutationCommit mutation, CancellationToken _) =>
+                    new InstanceMutationApplyResult(
+                        false,
+                        [],
+                        InstanceMutationTestFactory.ApplyInstanceChangesAndStamp(
+                            CreateVersionedInstanceSnapshot(guid, new StorageVersions(1, 1)),
+                            mutation
+                        )
+                    )
             );
 
         Mock<IDataService> dataServiceMock = new();
@@ -1656,9 +1717,14 @@ public class ProcessControllerTest : IAsyncLifetime
             .ReturnsAsync(
                 (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
                 {
-                    InstanceInternal snapshot = mutation
-                        .InstanceUpdates.ToApiModel()
-                        .FromApiModel();
+                    InstanceInternal snapshot =
+                        InstanceMutationTestFactory.ApplyInstanceChangesAndStamp(
+                            CreateVersionedInstanceSnapshot(
+                                Guid.Parse("20a1353e-91cf-44d6-8ff7-f68993638ffe"),
+                                new StorageVersions(1, 1)
+                            ),
+                            mutation
+                        );
                     snapshot.LastChanged = snapshotLastChanged;
                     snapshot.Versions = new StorageVersions(9, 12);
                     return new InstanceMutationApplyResult(false, [], snapshot);
@@ -2253,7 +2319,7 @@ public class ProcessControllerTest : IAsyncLifetime
                             )
                             .ReturnsAsync(
                                 (
-                                    Guid _,
+                                    Guid guid,
                                     long _,
                                     InstanceMutationCommit mutation,
                                     CancellationToken _
@@ -2261,7 +2327,13 @@ public class ProcessControllerTest : IAsyncLifetime
                                     new InstanceMutationApplyResult(
                                         false,
                                         [],
-                                        mutation.InstanceUpdates
+                                        InstanceMutationTestFactory.ApplyInstanceChangesAndStamp(
+                                            CreateVersionedInstanceSnapshot(
+                                                guid,
+                                                new StorageVersions(1, 1)
+                                            ),
+                                            mutation
+                                        )
                                     )
                             );
                         services.AddSingleton(mutationRepositoryMock.Object);

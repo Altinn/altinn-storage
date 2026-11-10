@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE storage.diagnoseinstancemutationupdatefailure(
+CREATE OR REPLACE PROCEDURE storage.diagnoseinstancemutationupdatefailure_v2(
     _updateelements JSONB,
     _instanceguid UUID,
     _currentinstanceversion INT,
@@ -15,9 +15,9 @@ BEGIN
         FROM (
             SELECT
                 updateelement.ordinality,
-                (updateelement.value ->> 'elementId')::UUID AS dataelementid,
-                (updateelement.value ->> 'expectedBlobVersion')::UUID AS expectedblobversion,
-                COALESCE((updateelement.value ->> 'ignoreLock')::BOOL, false) AS ignorelock
+                (updateelement.value ->> 'DataElementId')::UUID AS dataelementid,
+                (updateelement.value ->> 'ExpectedCurrentBlobVersion')::UUID AS expectedblobversion,
+                COALESCE((updateelement.value ->> 'IgnoreLock')::BOOL, false) AS ignorelock
             FROM jsonb_array_elements(_updateelements) WITH ORDINALITY updateelement(value, ordinality)
         ) updateelements
         WHERE NOT COALESCE(

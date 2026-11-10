@@ -60,7 +60,14 @@ public class SigningServiceTest
         Assert.Null(result.ServiceError);
         Assert.Equal(new StorageVersions(7, 11), result.Versions);
         Assert.NotNull(fixture.CapturedMutation);
-        Assert.Single(fixture.CapturedMutation.CreateDataElements);
+        DataElementCreation createdElement = Assert.Single(
+            fixture.CapturedMutation.CreateDataElements
+        );
+        Assert.Same(fixture.StagedDataElement, createdElement.Element);
+        Assert.Equal(
+            BlobVersionId.Decode(fixture.StagedDataElement.BlobVersionId),
+            createdElement.BlobVersion
+        );
         Assert.Empty(fixture.CapturedMutation.DeleteDataElements);
         Assert.Equal(7, fixture.CapturedMutation.ExpectedInstanceVersion);
         Assert.Equal(11, fixture.CapturedMutation.ExpectedProcessStateVersion);
@@ -104,8 +111,11 @@ public class SigningServiceTest
 
         Assert.NotNull(fixture.CapturedCreateOptions);
         Assert.NotNull(fixture.CapturedMutation);
-        Assert.Equal(performedBy, fixture.CapturedMutation.LastChangedBy);
-        Assert.Equal(fixture.CapturedCreateOptions.Created, fixture.CapturedMutation.LastChanged);
+        Assert.Equal(performedBy, fixture.CapturedMutation.Stamp.LastChangedBy);
+        Assert.Equal(
+            fixture.CapturedCreateOptions.Created,
+            fixture.CapturedMutation.Stamp.LastChanged
+        );
     }
 
     [Theory]
@@ -193,12 +203,12 @@ public class SigningServiceTest
         Assert.True(result.Created);
         Assert.Null(result.ServiceError);
         Assert.NotNull(fixture.CapturedMutation);
-        Assert.Same(fixture.Instance, fixture.CapturedMutation.InstanceUpdates);
+        Assert.Null(fixture.CapturedMutation.InstanceChanges);
         Assert.Single(fixture.CapturedMutation.CreateDataElements);
-        InstanceMutationDataElementDelete deletedElement = Assert.Single(
+        DataElementDeletion deletedElement = Assert.Single(
             fixture.CapturedMutation.DeleteDataElements
         );
-        Assert.Same(fixture.OldSignatureDataElements[0], deletedElement.DataElement);
+        Assert.Equal(fixture.OldSignatureDataElements[0].Id, deletedElement.DataElementId);
         Assert.True(deletedElement.IgnoreLock);
         Assert.Equal(
             [InstanceEventType.Signed.ToString(), InstanceEventType.Deleted.ToString()],
@@ -247,8 +257,8 @@ public class SigningServiceTest
         Assert.NotNull(fixture.CapturedMutation);
         Assert.Single(fixture.CapturedMutation.CreateDataElements);
         Assert.Equal(
-            fixture.OldSignatureDataElements,
-            fixture.CapturedMutation.DeleteDataElements.Select(delete => delete.DataElement)
+            fixture.OldSignatureDataElements.Select(element => element.Id),
+            fixture.CapturedMutation.DeleteDataElements.Select(delete => delete.DataElementId)
         );
         Assert.All(
             fixture.CapturedMutation.DeleteDataElements,
@@ -615,7 +625,7 @@ public class SigningServiceTest
                     fixture.Instance.InternalId,
                     It.Is<InstanceMutationCommit>(mutation =>
                         mutation.DeleteDataElements.Count == 1
-                        && mutation.DeleteDataElements[0].DataElement.Id
+                        && mutation.DeleteDataElements[0].DataElementId
                             == fixture.OldSignatureDataElements[0].Id
                         && mutation.DeleteDataElements[0].IgnoreLock
                         && mutation.InstanceEvents.Count == 2
@@ -859,7 +869,7 @@ public class SigningServiceTest
             )
             .ReturnsAsync(
                 (Guid _, long _, InstanceMutationCommit mutation, CancellationToken _) =>
-                    new InstanceMutationApplyResult(false, [], mutation.InstanceUpdates)
+                    new InstanceMutationApplyResult(false, [], instance)
             );
 
         for (int index = 0; index < oldSignatureDataElements.Count; index++)

@@ -892,18 +892,18 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             instance.Id,
             new Dictionary<string, string> { ["dialog.id"] = "dialog-1" }
         );
-        instance.Process.Status = ProcessStatus.Processing;
-        var processMutation = new InstanceMutationCommit(
-            CreateDataElements: [],
-            UpdateDataElements: [],
-            DeleteDataElements: [],
-            InstanceUpdates: instance,
-            InstanceUpdateProperties: [nameof(instance.Process)],
-            ExpectedInstanceVersion: initialVersions.InstanceVersion,
-            ExpectedProcessStateVersion: initialVersions.ProcessStateVersion,
-            InstanceEvents: [],
-            IdempotencyKey: Guid.NewGuid()
+        ProcessState requestedProcess = JsonSerializer.Deserialize<ProcessState>(
+            JsonSerializer.Serialize(instance.Process)
         );
+        requestedProcess.Status = ProcessStatus.Processing;
+        var processMutation = new InstanceMutationCommit
+        {
+            Stamp = new(DateTime.UtcNow, instance.LastChangedBy),
+            InstanceChanges = new() { Process = requestedProcess },
+            ExpectedInstanceVersion = initialVersions.InstanceVersion,
+            ExpectedProcessStateVersion = initialVersions.ProcessStateVersion,
+            IdempotencyKey = Guid.NewGuid(),
+        };
         InstanceMutationApplyResult processResult = await mutations.Apply(
             instance.Id,
             instance.InternalId,
@@ -920,18 +920,17 @@ public class InstanceTests : IClassFixture<InstanceFixture>
             instance.Id,
             new Dictionary<string, string> { ["dialog.id"] = "dialog-2" }
         );
-        processResult.Instance.DataValues = new() { ["case.number"] = "42" };
-        var dataValuesMutation = new InstanceMutationCommit(
-            CreateDataElements: [],
-            UpdateDataElements: [],
-            DeleteDataElements: [],
-            InstanceUpdates: processResult.Instance,
-            InstanceUpdateProperties: [nameof(instance.DataValues)],
-            ExpectedInstanceVersion: processResult.Instance.Versions.InstanceVersion,
-            ExpectedProcessStateVersion: processResult.Instance.Versions.ProcessStateVersion,
-            InstanceEvents: [],
-            IdempotencyKey: Guid.NewGuid()
-        );
+        var dataValuesMutation = new InstanceMutationCommit
+        {
+            Stamp = new(DateTime.UtcNow, processResult.Instance.LastChangedBy),
+            InstanceChanges = new()
+            {
+                DataValues = new Dictionary<string, string> { ["case.number"] = "42" },
+            },
+            ExpectedInstanceVersion = processResult.Instance.Versions.InstanceVersion,
+            ExpectedProcessStateVersion = processResult.Instance.Versions.ProcessStateVersion,
+            IdempotencyKey = Guid.NewGuid(),
+        };
         InstanceMutationApplyResult dataValuesResult = await mutations.Apply(
             instance.Id,
             instance.InternalId,

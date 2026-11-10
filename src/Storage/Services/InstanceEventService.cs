@@ -37,6 +37,7 @@ public class InstanceEventService : IInstanceEventService
 
         InstanceEvent instanceEvent = new()
         {
+            Id = Guid.NewGuid(),
             EventType = eventType.ToString(),
             InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
@@ -86,6 +87,7 @@ public class InstanceEventService : IInstanceEventService
 
         InstanceEvent instanceEvent = new()
         {
+            Id = Guid.NewGuid(),
             EventType = eventType.ToString(),
             InstanceId = $"{instance.InstanceOwner.PartyId}/{instance.Id}",
             DataId = dataElement.Id.ToString(),
