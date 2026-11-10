@@ -25,7 +25,7 @@ public class PgInstanceRepository : IInstanceRepository
     private const string _elementColumn = "element";
     private const string _currentProcessStatusColumn = "currentprocessstatus";
     private const string _readSqlFilteredInitial =
-        "select * from storage.readinstancefromquery_v9 (";
+        "select * from storage.readinstancefromquery_v10 (";
     private readonly string _deleteSql = "select * from storage.deleteinstance ($1)";
     private readonly string _insertSql =
         "call storage.insertinstance_v3 (@_partyid, @_alternateid, @_instance, @_created, @_lastchanged,"
@@ -804,7 +804,6 @@ public class PgInstanceRepository : IInstanceRepository
         { "_excludeConfirmedBy", NpgsqlDbType.Jsonb | NpgsqlDbType.Array },
         { "_includeElements", NpgsqlDbType.Boolean },
         { "_instanceOwner_partyId", NpgsqlDbType.Integer },
-        { "_instanceOwner_partyIds", NpgsqlDbType.Integer | NpgsqlDbType.Array },
         { "_lastChanged_eq", NpgsqlDbType.TimestampTz },
         { "_lastChanged_gt", NpgsqlDbType.TimestampTz },
         { "_lastChanged_gte", NpgsqlDbType.TimestampTz },
@@ -813,11 +812,6 @@ public class PgInstanceRepository : IInstanceRepository
         { "_lastChanged_lte", NpgsqlDbType.TimestampTz },
         { "_mainVersionInclude", NpgsqlDbType.Smallint },
         { "_mainVersionExclude", NpgsqlDbType.Smallint },
-        { "_msgBoxInterval_eq", NpgsqlDbType.TimestampTz },
-        { "_msgBoxInterval_gt", NpgsqlDbType.TimestampTz },
-        { "_msgBoxInterval_gte", NpgsqlDbType.TimestampTz },
-        { "_msgBoxInterval_lt", NpgsqlDbType.TimestampTz },
-        { "_msgBoxInterval_lte", NpgsqlDbType.TimestampTz },
         { "_org", NpgsqlDbType.Text },
         { "_process_currentTask", NpgsqlDbType.Text },
         { "_process_ended_eq", NpgsqlDbType.Text },
@@ -829,9 +823,7 @@ public class PgInstanceRepository : IInstanceRepository
         { "_search_string", NpgsqlDbType.Text },
         { "_size", NpgsqlDbType.Integer },
         { "_sort_ascending", NpgsqlDbType.Boolean },
-        { "_status_isActiveOrSoftDeleted", NpgsqlDbType.Boolean },
         { "_status_isArchived", NpgsqlDbType.Boolean },
-        { "_status_isArchivedOrSoftDeleted", NpgsqlDbType.Boolean },
         { "_status_isHardDeleted", NpgsqlDbType.Boolean },
         { "_status_isSoftDeleted", NpgsqlDbType.Boolean },
         { "_visibleAfter_eq", NpgsqlDbType.Text },

@@ -18,8 +18,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace Altinn.Platform.Storage.Controllers;
 
 /// <summary>
-/// Implements endpoints specifically for the Altinn II message box.
+/// Implements the message box endpoints that were built for the Altinn 2 message box.
 /// </summary>
+/// <remarks>
+/// The Dialogporten adapter is the known consumer: it calls the DELETE endpoint when a dialog is deleted.
+/// Check its use before changing or removing these endpoints.
+/// </remarks>
 [Route("storage/api/v1/sbl/instances")]
 [ApiController]
 [ExcludeFromPublicStorageApi]

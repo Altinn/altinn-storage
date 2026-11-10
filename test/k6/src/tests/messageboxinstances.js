@@ -68,38 +68,38 @@ function TC01_GetInstanceById(data) {
   addErrorCount(success);
 }
 
-// TC04 - GET instance events
-function TC04_GetInstanceEvents(data) {
+// TC02 - GET instance events
+function TC02_GetInstanceEvents(data) {
   var res = msgboxApi.getInstanceEvents(data.userToken, data.instanceId);
   var events = JSON.parse(res.body);
 
   var success = check([res, events], {
-    "TC04_GetInstanceEvents: Get instance events. Status is 200": (r) =>
+    "TC02_GetInstanceEvents: Get instance events. Status is 200": (r) =>
       r[0].status === 200,
-    "TC04_GetInstanceEvents: Get instance events. List contains at least 1 element":
+    "TC02_GetInstanceEvents: Get instance events. List contains at least 1 element":
       (r) => r[1].length != 0,
-    "TC04_GetInstanceEvents: Get instance events. Contains a created event": (
+    "TC02_GetInstanceEvents: Get instance events. Contains a created event": (
       r
     ) => r[1].some((event) => event.eventType === "Created"),
   });
   addErrorCount(success);
 }
 
-// TC05 - DELETE soft delete instance
-function TC05_SoftDeleteInstance(data) {
+// TC03 - DELETE soft delete instance
+function TC03_SoftDeleteInstance(data) {
   var res = msgboxApi.deleteInstance(data.userToken, data.instanceId, false);
   var success = check([res], {
-    "TC05_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
+    "TC03_SoftDeleteInstance: Soft delete instance. Status is 200": (r) =>
       r[0].status === 200,
   });
   addErrorCount(success);
 }
 
-// TC07 - DELETE hard delete instance
-function TC07_HardDeleteInstance(data) {
+// TC04 - DELETE hard delete instance
+function TC04_HardDeleteInstance(data) {
   var res = msgboxApi.deleteInstance(data.userToken, data.instanceId, true);
   var success = check([res], {
-    "TC07_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
+    "TC04_HardDeleteInstance: Hard delete instance. Status is 200": (r) =>
       r[0].status === 200,
   });
   addErrorCount(success);
@@ -107,22 +107,22 @@ function TC07_HardDeleteInstance(data) {
 
 /*
  * 01 - GET instance by id
- * 04 - GET instance events
- * 05  DELETE soft delete instance
- * 07 - DELETE hard delete instance
+ * 02 - GET instance events
+ * 03 - DELETE soft delete instance
+ * 04 - DELETE hard delete instance
  */
 export default function (data) {
   try {
     if (data.runFullTestSet) {
       TC01_GetInstanceById(data);
-      TC04_GetInstanceEvents(data);
-      TC05_SoftDeleteInstance(data);
-      TC07_HardDeleteInstance(data);
+      TC02_GetInstanceEvents(data);
+      TC03_SoftDeleteInstance(data);
+      TC04_HardDeleteInstance(data);
     } else {
       // Limited test set for use case tests
       TC01_GetInstanceById(data);
-      TC04_GetInstanceEvents(data);
-      TC07_HardDeleteInstance(data);
+      TC02_GetInstanceEvents(data);
+      TC04_HardDeleteInstance(data);
     }
   } catch (error) {
     addErrorCount(false);
