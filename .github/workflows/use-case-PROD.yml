@@ -68,7 +68,7 @@ jobs:
           path: test/k6/src/tests/texts.js
           inspect-flags: -e altinn_env=PROD # Supplies the value for pre-run validation, when env vars / flags are not yet defined
   slack-notify:
-    if: failure() && github.ref == 'refs/heads/main'
+    if: failure() && github.event_name == 'schedule'
     needs: usecase-test
     uses: ./.github/workflows/send-slack-warning.yml
     permissions: {}
