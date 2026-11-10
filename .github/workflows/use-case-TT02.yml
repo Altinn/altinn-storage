@@ -74,7 +74,7 @@ jobs:
           inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
   
   slack-notify:
-    if: failure()
+    if: failure() && github.event_name == 'schedule'
     needs: usecase-test
     uses: ./.github/workflows/send-slack-warning.yml
     permissions: {}
