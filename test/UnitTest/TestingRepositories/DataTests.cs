@@ -3475,6 +3475,67 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_Substatus_StoresSubstatusAndKeepsOtherStatusFields(
+        bool archive
+    )
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        InstanceStatus status = new() { Substatus = new() { Label = "new-label" } };
+        List<string> updateProperties = [nameof(InstanceStatus.Substatus)];
+        if (archive)
+        {
+            status.IsArchived = true;
+            status.Archived = _frozenTime;
+            updateProperties.AddRange([
+                nameof(InstanceInternal.Status),
+                nameof(InstanceStatus.IsArchived),
+                nameof(InstanceStatus.Archived),
+            ]);
+        }
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                AppId = _instance.AppId,
+                Org = _instance.Org,
+                InstanceOwner = _instance.InstanceOwner,
+                Created = _instance.Created,
+                Process = _instance.Process,
+                Status = status,
+            },
+            updateProperties,
+            await ReadInstanceVersion(instanceGuid),
+            null,
+            []
+        );
+
+        // Act
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation,
+            CancellationToken.None
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal("new-label", updatedInstance.Status.Substatus.Label);
+        Assert.True(updatedInstance.Status.IsSoftDeleted);
+        Assert.Equal(archive, updatedInstance.Status.IsArchived);
+    }
+
+    [Theory]
     [InlineData("status-absent")]
     [InlineData("status-null")]
     [InlineData("process-absent")]
