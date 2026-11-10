@@ -73,7 +73,7 @@ jobs:
           path: test/k6/src/tests/texts.js
           inspect-flags: -e altinn_env=TT02 # Supplies the value for pre-run validation, when env vars / flags are not yet defined
   slack-notify:
-    if: failure()
+    if: failure() && github.ref == 'refs/heads/main'
     needs: regression-tests
     uses: ./.github/workflows/send-slack-warning.yml
     permissions: {}
