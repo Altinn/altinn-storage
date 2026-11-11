@@ -3157,6 +3157,69 @@ public class InstancesControllerTests : IAsyncLifetime
 
     /// <summary>
     /// Scenario:
+    /// The instance is in a data task, so either write or reject gives access. Altinn Authorization
+    /// answers each of them with a decision of its own.
+    /// Result:
+    /// One permit is enough. Without a permit, a missing decision gives 503 and refusals give 403.
+    /// </summary>
+    [Theory]
+    [InlineData("Indeterminate", "Permit", HttpStatusCode.OK)]
+    [InlineData("Indeterminate", "NotApplicable", HttpStatusCode.ServiceUnavailable)]
+    [InlineData("NotApplicable", "Indeterminate", HttpStatusCode.ServiceUnavailable)]
+    [InlineData("NotApplicable", "Deny", HttpStatusCode.Forbidden)]
+    public async Task UpdatePresentationFields_AnswersFromTheDecisionsForWriteAndReject(
+        string writeDecision,
+        string rejectDecision,
+        HttpStatusCode expectedStatusCode
+    )
+    {
+        // Arrange
+        string requestUri =
+            $"{BasePath}/1337/20a1353e-91cf-44d6-8ff7-f68993638ffe/presentationtexts";
+
+        Dictionary<string, string> decisions = new()
+        {
+            ["write"] = writeDecision,
+            ["reject"] = rejectDecision,
+        };
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(
+                (XacmlJsonRequestRoot request) =>
+                    new XacmlJsonResponse
+                    {
+                        Response =
+                        [
+                            new XacmlJsonResult
+                            {
+                                Decision = decisions[request.Request.Action[0].Attribute[0].Value],
+                            },
+                        ],
+                    }
+            );
+
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
+        string token = PrincipalUtil.GetToken(3, 1337);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        PresentationTexts presentationTexts = new()
+        {
+            Texts = new Dictionary<string, string> { { "key1", "value1" } },
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PutAsync(
+            requestUri,
+            JsonContent.Create(presentationTexts, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
     /// Passes in null as presentation texts.
     /// Result:
     /// The existing collection is left as is, and a 400 Bad request is returned
