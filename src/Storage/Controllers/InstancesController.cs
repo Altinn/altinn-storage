@@ -426,13 +426,13 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (response?.Response == null)
+        if (!AuthorizationUnavailableException.HasDecision(response))
         {
             _logger.LogInformation(
                 "// Instances Controller // Authorization of instantiation failed with request: {request}.",
                 JsonConvert.SerializeObject(request)
             );
-            return Forbid();
+            throw new AuthorizationUnavailableException(response);
         }
 
         bool authorized;
@@ -1300,7 +1300,9 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
+        AuthorizationUnavailableException.ThrowIfNoDecision(response);
+
+        if (!DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User))
         {
             return Forbid();
         }

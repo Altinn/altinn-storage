@@ -1238,6 +1238,193 @@ public class InstancesControllerTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// Test case: Altinn Authorization gives no decision for a cross-org query.
+    /// Expected: Returns status service unavailable, not forbidden.
+    /// </summary>
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task GetMany_CrossOrgAccess_NoDecision_ReturnsServiceUnavailable(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock(decision));
+        string token = PrincipalUtil.GetOrgToken(
+            "ttd",
+            scope: "altinn:serviceowner/instances.read"
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Altinn Authorization gives no decision for the policy on the endpoint.
+    /// Expected: Returns status service unavailable, and the PDP is asked again on the next request.
+    /// </summary>
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task Delete_NoDecision_ReturnsServiceUnavailableAndIsNotCached(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/7e6cc8e2-6cd4-4ad4-9ce8-c37a767677b5";
+
+        Mock<IPDP> pdpMock = CreatePdpMock(decision);
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
+        string token = PrincipalUtil.GetToken(1, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+        HttpResponseMessage response2 = await client.DeleteAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response2.StatusCode);
+        pdpMock.Verify(
+            pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    /// <summary>
+    /// Test case: The policy does not apply to the user, on the policy on the endpoint.
+    /// Expected: Returns status forbidden, and the decision is cached.
+    /// </summary>
+    [Fact]
+    public async Task Delete_ResponseIsNotApplicable_ReturnsStatusForbiddenAndIsCached()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/7e6cc8e2-6cd4-4ad4-9ce8-c37a767677b5";
+
+        Mock<IPDP> pdpMock = CreatePdpMock("NotApplicable");
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
+        string token = PrincipalUtil.GetToken(1, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.DeleteAsync(requestUri);
+        HttpResponseMessage response2 = await client.DeleteAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response2.StatusCode);
+        pdpMock.Verify(
+            pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Once
+        );
+    }
+
+    /// <summary>
+    /// Test case: Altinn Authorization gives no decision for a check the controller makes itself.
+    /// Expected: Returns status service unavailable, and the PDP is asked again on the next request.
+    /// </summary>
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task Get_NoDecision_ReturnsServiceUnavailableAndIsNotCached(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/377efa97-80ee-4cc6-8d48-09de12cc273d";
+
+        Mock<IPDP> pdpMock = CreatePdpMock(decision);
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        HttpResponseMessage response2 = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response2.StatusCode);
+        pdpMock.Verify(
+            pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    /// <summary>
+    /// Test case: The policy does not apply to the user, on a check the controller makes itself.
+    /// Expected: Returns status forbidden.
+    /// </summary>
+    [Fact]
+    public async Task Get_ResponseIsNotApplicable_ReturnsStatusForbidden()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/377efa97-80ee-4cc6-8d48-09de12cc273d";
+
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock("NotApplicable"));
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Altinn Authorization gives no decision for an instantiation.
+    /// Expected: Returns status service unavailable, not forbidden.
+    /// </summary>
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task Post_NoDecision_ReturnsServiceUnavailable(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}?appId=tdd/endring-av-navn";
+
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock(decision));
+        string token = PrincipalUtil.GetToken(1337, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        Instance instance = new()
+        {
+            InstanceOwner = new InstanceOwner { PartyId = "1337" },
+            Org = "tdd",
+            AppId = "tdd/endring-av-navn",
+        };
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            JsonContent.Create(instance, new MediaTypeHeaderValue("application/json"))
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A PDP that answers every request with the given decision, or with no response when
+    /// <paramref name="decision"/> is <c>null</c>.
+    /// </summary>
+    private static Mock<IPDP> CreatePdpMock(string decision)
+    {
+        XacmlJsonResponse response = decision is null
+            ? null
+            : new XacmlJsonResponse { Response = [new XacmlJsonResult { Decision = decision }] };
+
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(response);
+
+        return pdpMock;
+    }
+
+    /// <summary>
     /// Test case: User requests to get multiple instances from a single instanceOwner - themselves.
     /// Expected: List of instances is returned.
     /// </summary>
