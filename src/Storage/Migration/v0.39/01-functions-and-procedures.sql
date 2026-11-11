@@ -1401,7 +1401,7 @@ $BODY$;
 
 
 -- readinstancefromquery.sql:
-CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v10(
+CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v9(
     _a3_reference TEXT DEFAULT NULL,
     _appId TEXT DEFAULT NULL,
     _appIds TEXT[] DEFAULT NULL,
@@ -1422,6 +1422,7 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v10(
     _excludeConfirmedBy JSONB[] DEFAULT NULL,
     _includeElements BOOL DEFAULT TRUE,
     _instanceOwner_partyId INTEGER DEFAULT NULL,
+    _instanceOwner_partyIds INTEGER[] DEFAULT NULL,
     _lastChanged_eq TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_gt TIMESTAMPTZ DEFAULT NULL,
     _lastChanged_gte TIMESTAMPTZ DEFAULT NULL,
@@ -1430,6 +1431,11 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v10(
     _lastChanged_lte TIMESTAMPTZ DEFAULT NULL,
     _mainVersionInclude SMALLINT DEFAULT NULL,
     _mainVersionExclude SMALLINT DEFAULT NULL,
+    _msgBoxInterval_eq TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_gt TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_gte TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_lt TIMESTAMPTZ DEFAULT NULL,
+    _msgBoxInterval_lte TIMESTAMPTZ DEFAULT NULL,
     _org TEXT DEFAULT NULL,
     _process_currentTask TEXT DEFAULT NULL,
     _process_ended_eq TEXT DEFAULT NULL,
@@ -1441,7 +1447,9 @@ CREATE OR REPLACE FUNCTION storage.readinstancefromquery_v10(
     _search_string TEXT DEFAULT NULL,
     _size INTEGER DEFAULT 100,
     _sort_ascending BOOLEAN DEFAULT FALSE,
+    _status_isActiveOrSoftDeleted BOOLEAN  DEFAULT NULL,
     _status_isArchived BOOLEAN DEFAULT NULL,
+    _status_isArchivedOrSoftDeleted BOOLEAN DEFAULT NULL,
     _status_isHardDeleted BOOLEAN DEFAULT NULL,
     _status_isSoftDeleted BOOLEAN DEFAULT NULL,
     _visibleAfter_eq TEXT DEFAULT NULL,
@@ -1484,6 +1492,7 @@ BEGIN
             AND (_dueBefore_eq   IS NULL OR i.instance ->> 'DueBefore' =  _dueBefore_eq)
             AND (_excludeConfirmedBy IS NULL OR i.instance -> 'CompleteConfirmations' IS NULL OR NOT i.instance -> 'CompleteConfirmations' @> ANY (_excludeConfirmedBy))
             AND (_instanceOwner_partyId IS NULL OR partyId = _instanceOwner_partyId)
+            AND (_instanceOwner_partyIds IS NULL OR partyId = ANY(_instanceOwner_partyIds))
             AND (_lastChanged_gte IS NULL OR i.lastchanged >= _lastChanged_gte)
             AND (_lastChanged_gt  IS NULL OR i.lastchanged >  _lastChanged_gt)
             AND (_lastChanged_lte IS NULL OR i.lastchanged <= _lastChanged_lte)
@@ -1491,6 +1500,11 @@ BEGIN
             AND (_lastChanged_eq  IS NULL OR i.lastchanged =  _lastChanged_eq)
             AND (_mainVersionInclude IS NULL OR i.altinnmainversion = _mainVersionInclude)
             AND (_mainVersionExclude IS NULL OR i.altinnmainversion <> _mainVersionExclude)
+            AND (_msgBoxInterval_gte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >= _msgBoxInterval_gte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >= _msgBoxInterval_gte))
+            AND (_msgBoxInterval_gt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created >  _msgBoxInterval_gt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged >  _msgBoxInterval_gt))
+            AND (_msgBoxInterval_lte IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <= _msgBoxInterval_lte OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <= _msgBoxInterval_lte))
+            AND (_msgBoxInterval_lt  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created <  _msgBoxInterval_lt  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged <  _msgBoxInterval_lt))
+            AND (_msgBoxInterval_eq  IS NULL OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false AND i.created =  _msgBoxInterval_eq  OR (i.instance -> 'Status' -> 'IsArchived')::boolean = true  AND i.lastchanged =  _msgBoxInterval_eq))
             AND (_org IS NULL OR i.org = _org)
             AND (_process_currentTask IS NULL OR i.taskid = _process_currentTask)
             AND (_process_ended_gte IS NULL OR i.instance -> 'Process' ->> 'Ended' >= _process_ended_gte)
@@ -1500,7 +1514,9 @@ BEGIN
             AND (_process_ended_eq  IS NULL OR i.instance -> 'Process' ->> 'Ended' =  _process_ended_eq)
             AND (_process_isComplete IS NULL OR (_process_isComplete = TRUE AND i.instance -> 'Process' -> 'Ended' IS NOT NULL) OR (_process_isComplete = FALSE AND i.instance -> 'Process' -> 'CurrentTask' IS NOT NULL))
             AND (_search_string IS NULL OR (i.appid = ANY(_appIds) OR (EXISTS (SELECT value FROM jsonb_each_text(i.instance -> 'PresentationTexts') WHERE value ilike _search_string))))
+            AND ((_status_isActiveOrSoftDeleted IS NULL OR _status_isActiveOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = false OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
             AND (_status_isArchived IS NULL OR  (i.instance -> 'Status' -> 'IsArchived')::boolean = _status_isArchived)
+            AND ((_status_isArchivedOrSoftDeleted IS NULL OR _status_isArchivedOrSoftDeleted = false) OR ((i.instance -> 'Status' -> 'IsArchived')::boolean = true OR (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = true))
             AND (_status_isHardDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsHardDeleted')::boolean = _status_isHardDeleted)
             AND (_status_isSoftDeleted IS NULL OR  (i.instance -> 'Status' -> 'IsSoftDeleted')::boolean = _status_isSoftDeleted)
             AND (_visibleAfter_gte IS NULL OR i.instance ->> 'VisibleAfter' >= _visibleAfter_gte)
