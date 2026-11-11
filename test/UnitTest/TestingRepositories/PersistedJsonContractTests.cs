@@ -602,6 +602,7 @@ public class PersistedJsonContractTests
                     ContactPage = "https://ttd.no/kontakt",
                 },
             ],
+            Status = AppStatus.Completed,
             Created = _created,
             CreatedBy = "ttd",
             LastChanged = _changed,
