@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Newtonsoft.Json;
+using TextJson = System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Interface.Models;
 
@@ -73,10 +74,29 @@ public class DataType
     public ApplicationLogic AppLogic { get; set; }
 
     /// <summary>
-    /// Gets or sets a reference to the process element id of the task where this data element should be updated.
+    /// Gets or sets the process element id of the task that elements of this data type belong to, as v8 apps
+    /// declare it.
     /// </summary>
+    /// <remarks>
+    /// v9 apps ignore it and use <see cref="TaskIds"/>. In Storage only the sign endpoint reads it: when it is set
+    /// and <see cref="TaskIds"/> is null, a signature document is created only while the instance is in this task.
+    /// </remarks>
+    [Obsolete("Use TaskIds instead. v9 apps ignore TaskId; v8 apps read only TaskId.")]
     [JsonProperty(PropertyName = "taskId")]
     public string TaskId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the process element ids of the tasks that elements of this data type belong to.
+    /// </summary>
+    /// <remarks>
+    /// Null or empty means the data type is not bound to any task. Otherwise Storage refuses to create, change or
+    /// delete its elements, whoever the caller is and whether or not a process transition is running, unless the
+    /// instance's current task is in the list. Once the process has ended, elements of a data type that sets
+    /// <see cref="ApplicationLogic.AutoDeleteOnProcessEnd"/> may also be deleted.
+    /// </remarks>
+    [JsonProperty(PropertyName = "taskIds")]
+    [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]
+    public List<string> TaskIds { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum allowed size of the file in mega bytes. If missing there is no limit on file size.
@@ -116,8 +136,20 @@ public class DataType
     /// <summary>
     /// Gets or sets a value indicating whether the element should trigger PDF generation
     /// </summary>
+    /// <remarks>
+    /// Deprecated. Configure a PDF service task in the process instead, which app backends support
+    /// from v8.9 onwards; v9 app backends ignore this property entirely.
+    /// <para>
+    /// This property is nullable, and an absent value no longer deserializes to <c>true</c>. Callers
+    /// that need the historical v8 default must read it as <c>EnablePdfCreation ?? true</c>.
+    /// </para>
+    /// </remarks>
     [JsonProperty(PropertyName = "enablePdfCreation")]
-    public bool EnablePdfCreation { get; set; } = true;
+    [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]
+    [Obsolete(
+        "Deprecated: configure a PDF service task in the process instead, supported by app backends from v8.9 onwards. Ignored entirely by v9 app backends. Now nullable for backwards compatibility - absent no longer means true, so read it as (EnablePdfCreation ?? true)."
+    )]
+    public bool? EnablePdfCreation { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether file uploaded to this data type should be scanned for malware. Default value is <c>false</c>.

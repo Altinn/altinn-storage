@@ -1,0 +1,14 @@
+{
+  "id": "ttd/app-status",
+  "org": "ttd",
+  "title": {
+    "nb": "app-status"
+  },
+  "dataTypes": [],
+  "partyTypesAllowed": {
+    "bankruptcyEstate": false,
+    "organisation": true,
+    "person": true,
+    "subUnit": false
+  }
+}

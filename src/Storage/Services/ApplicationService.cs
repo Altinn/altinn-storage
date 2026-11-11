@@ -30,6 +30,7 @@ public class ApplicationService : IApplicationService
         string currentTask
     )
     {
+#pragma warning disable CS0618 // Type or member is obsolete
         if (
             application.DataTypes.Exists(e =>
                 e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)
@@ -38,6 +39,7 @@ public class ApplicationService : IApplicationService
         {
             return (true, null);
         }
+#pragma warning restore CS0618 // Type or member is obsolete
 
         return (
             false,

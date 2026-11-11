@@ -33,4 +33,22 @@ public class CopyInstanceSettings
     /// </summary>
     [JsonProperty(PropertyName = "includeAttachments")]
     public bool IncludeAttachments { get; set; }
+
+    /// <summary>
+    /// Gets or sets a boolean indicating if the due date (dueBefore) should be copied from the source instance.
+    /// </summary>
+    [JsonProperty(PropertyName = "includeDueBefore")]
+    public bool IncludeDueBefore { get; set; }
+
+    /// <summary>
+    /// Gets or sets the keys of the data values that should be copied from the source instance.
+    /// </summary>
+    [JsonProperty(PropertyName = "includedDataValues")]
+    public List<string> IncludedDataValues { get; set; }
+
+    /// <summary>
+    /// Gets or sets the keys of the presentation texts that should be copied from the source instance.
+    /// </summary>
+    [JsonProperty(PropertyName = "includedPresentationTexts")]
+    public List<string> IncludedPresentationTexts { get; set; }
 }

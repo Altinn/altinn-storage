@@ -79,6 +79,7 @@ public class ApplicationServiceTests
         Assert.Equal(405, serviceError.ErrorCode);
     }
 
+#pragma warning disable CS0618 // Type or member is obsolete
     private static Application CreateApplication(string org, string appName)
     {
         Application appInfo = new Application
@@ -97,6 +98,7 @@ public class ApplicationServiceTests
 
         return appInfo;
     }
+#pragma warning restore CS0618 // Type or member is obsolete
 
     [Fact]
     public async Task GetApplicationOrErrorAsync_WhenFound_ReturnsApplication()

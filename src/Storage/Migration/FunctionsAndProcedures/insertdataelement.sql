@@ -51,7 +51,8 @@ BEGIN
     IF _currentblobversion IS NOT NULL
     THEN
         UPDATE storage.dataelementblobversions
-            SET detachedat = NULL
+            SET detachedat = NULL,
+                datatype = _element ->> 'DataType'
             WHERE id = _currentblobversion
                 AND instanceguid = _instanceguid
                 AND dataelementid = _alternateid

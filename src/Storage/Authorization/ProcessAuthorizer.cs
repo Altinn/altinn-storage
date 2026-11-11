@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Microsoft.Extensions.Options;
@@ -9,11 +10,13 @@ using Microsoft.Extensions.Options;
 namespace Altinn.Platform.Storage.Authorization;
 
 /// <summary>
-/// Authorizer for process operations.
+/// Authorizer for process operations. The app that owns the instance is always allowed: it commits
+/// process transitions and their data on behalf of a user it has already authorized.
 /// </summary>
 public class ProcessAuthorizer : IProcessAuthorizer
 {
     private readonly IAuthorization _authorizationService;
+    private readonly IClaimsPrincipalProvider _claimsPrincipalProvider;
     private readonly GeneralSettings _generalSettings;
 
     /// <summary>
@@ -21,10 +24,12 @@ public class ProcessAuthorizer : IProcessAuthorizer
     /// </summary>
     public ProcessAuthorizer(
         IAuthorization authorizationService,
+        IClaimsPrincipalProvider claimsPrincipalProvider,
         IOptions<GeneralSettings> settings
     )
     {
         _authorizationService = authorizationService;
+        _claimsPrincipalProvider = claimsPrincipalProvider;
         _generalSettings = settings.Value;
     }
 
@@ -81,6 +86,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
     private async Task<bool> Authorize(InstanceInternal instance)
     {
+        if (IsCalledByApp(instance))
+        {
+            return true;
+        }
+
         string? taskId = instance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
@@ -104,6 +114,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
     private async Task<bool> Authorize(InstanceInternal instance, ProcessState nextProcessState)
     {
+        if (IsCalledByApp(instance))
+        {
+            return true;
+        }
+
         if (instance.Process?.CurrentTask is null)
         {
             return false;
@@ -138,4 +153,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         return false;
     }
+
+    /// <summary>
+    /// Whether the caller is the app that owns the instance. Storage cannot yet tell an app token
+    /// from other service owner tokens, so any token for the org that owns the app qualifies.
+    /// </summary>
+    private bool IsCalledByApp(InstanceInternal instance) =>
+        _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }
