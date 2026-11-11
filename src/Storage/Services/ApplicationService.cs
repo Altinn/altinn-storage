@@ -38,16 +38,10 @@ public class ApplicationService : IApplicationService
             return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
         }
 
-#pragma warning disable CS0618 // Type or member is obsolete
-        if (
-            application.DataTypes.Exists(e =>
-                e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)
-            )
-        )
+        if (application.DataTypes.Exists(e => e.Id == dataType && IsAllowedInTask(e, currentTask)))
         {
             return (true, null);
         }
-#pragma warning restore CS0618 // Type or member is obsolete
 
         return (
             false,
@@ -80,5 +74,18 @@ public class ApplicationService : IApplicationService
         }
 
         return (appInfo, serviceError);
+    }
+
+    private static bool IsAllowedInTask(DataType dataType, string task)
+    {
+        if (dataType.TaskIds is not null)
+        {
+            return dataType.TaskIds.Count == 0 || dataType.TaskIds.Contains(task);
+        }
+
+        // v8 apps upload taskId instead of taskIds.
+#pragma warning disable CS0618 // Type or member is obsolete
+        return string.IsNullOrEmpty(dataType.TaskId) || dataType.TaskId == task;
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 }

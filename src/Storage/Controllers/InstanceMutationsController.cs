@@ -90,6 +90,10 @@ public class InstanceMutationsController(
     /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
     /// not passed. A delete-instance mutation checks instance existence before delete authorization,
     /// so a missing instance returns 404 before a possible delete-policy 403.
+    /// <c>processState.state</c> cannot be combined with data-element creates, updates, or deletes
+    /// (400). A data-element create, update, or delete of a data type with <c>taskIds</c> returns 409
+    /// unless the instance's current task is in <c>taskIds</c>; once the process has ended, elements
+    /// of a data type with <c>autoDeleteOnProcessEnd</c> may still be deleted.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -166,6 +170,12 @@ public class InstanceMutationsController(
         if (deleteInstanceRequestError is not null)
         {
             return deleteInstanceRequestError;
+        }
+
+        ObjectResult processStateRequestError = ValidateProcessStateRequest(mutationRequest);
+        if (processStateRequestError is not null)
+        {
+            return processStateRequestError;
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -433,7 +443,7 @@ public class InstanceMutationsController(
 
         HashSet<string> checkedDataTypeIds = new(StringComparer.Ordinal);
         foreach (
-            string dataTypeId in EnumerateRequestedDataTypeIds(
+            (string dataTypeId, _) in EnumerateRequestedDataTypeWrites(
                 mutationRequest,
                 existingDataElementsById
             )
@@ -461,7 +471,32 @@ public class InstanceMutationsController(
         return null;
     }
 
-    private static IEnumerable<string> EnumerateRequestedDataTypeIds(
+    private ActionResult ValidateTaskBindings(
+        InstanceMutationRequest mutationRequest,
+        Dictionary<Guid, DataElementInternal> existingDataElementsById,
+        InstanceInternal instance,
+        Application application
+    )
+    {
+        foreach (
+            (string dataTypeId, bool isDelete) in EnumerateRequestedDataTypeWrites(
+                mutationRequest,
+                existingDataElementsById
+            )
+        )
+        {
+            // Plan validation rejects undeclared data types with 400.
+            DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
+            if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } conflict)
+            {
+                return Conflict(conflict);
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<(string DataTypeId, bool IsDelete)> EnumerateRequestedDataTypeWrites(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElementsById
     )
@@ -472,7 +507,7 @@ public class InstanceMutationsController(
             ).Where(create => !string.IsNullOrWhiteSpace(create.DataType))
         )
         {
-            yield return create.DataType;
+            yield return (create.DataType, false);
         }
 
         // Updates and deletes resolve the data type from the existing element; elements that no
@@ -488,7 +523,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, false);
             }
         }
 
@@ -503,7 +538,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, true);
             }
         }
     }
@@ -530,6 +565,17 @@ public class InstanceMutationsController(
                 instance,
                 mutationRequest.ExpectedProcessStatus
             );
+
+            ActionResult taskBindingError = ValidateTaskBindings(
+                mutationRequest,
+                existingDataElementsById,
+                instance,
+                application
+            );
+            if (taskBindingError is not null)
+            {
+                return (null, taskBindingError);
+            }
 
             ActionResult validationError = await ValidateMutationPlan(
                 mutationRequest,
@@ -1621,6 +1667,26 @@ public class InstanceMutationsController(
             && preconditions.InstanceVersion is not null
             && preconditions.ProcessStateVersion is not null
             && idempotencyKey is not null;
+    }
+
+    private ObjectResult ValidateProcessStateRequest(InstanceMutationRequest request)
+    {
+        if (
+            request.ProcessState?.State is not null
+            && (
+                request.CreateDataElements?.Count > 0
+                || request.UpdateDataElements?.Count > 0
+                || request.DeleteDataElements?.Count > 0
+            )
+        )
+        {
+            return Problem(
+                detail: "processState.state cannot be combined with data element creates, updates or deletes.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        return null;
     }
 
     private async Task<ActionResult> AuthorizeDeleteInstanceMutation(
