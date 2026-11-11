@@ -176,10 +176,12 @@ BEGIN
         ORDER BY createelement.ordinality;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET detachedat = NULL
+        SET detachedat = NULL,
+            datatype = createelement.datatype
         FROM (
             SELECT
                 (createelement.value ->> 'elementId')::UUID AS dataelementid,
+                createelement.value -> 'element' ->> 'DataType' AS datatype,
                 (createelement.value ->> 'blobVersion')::UUID AS blobversion
             FROM jsonb_array_elements(_createelements) createelement(value)
             WHERE createelement.value ->> 'blobVersion' IS NOT NULL
@@ -262,7 +264,8 @@ BEGIN
             AND superseded.detachedat IS NULL;
 
         UPDATE storage.dataelementblobversions dataelementblobversion
-        SET detachedat = NULL
+        SET detachedat = NULL,
+            datatype = dataelement.element ->> 'DataType'
         FROM (
             SELECT
                 (updateelement.value ->> 'elementId')::UUID AS dataelementid,
@@ -270,6 +273,9 @@ BEGIN
             FROM jsonb_array_elements(_updateelements) updateelement(value)
             WHERE updateelement.value ->> 'newBlobVersion' IS NOT NULL
         ) updateelement
+        JOIN storage.dataelements dataelement
+            ON dataelement.instanceguid = _instanceguid
+            AND dataelement.alternateid = updateelement.dataelementid
         WHERE dataelementblobversion.id = updateelement.newblobversion
             AND dataelementblobversion.instanceguid = _instanceguid
             AND dataelementblobversion.dataelementid = updateelement.dataelementid
@@ -311,12 +317,8 @@ BEGIN
 
         UPDATE storage.dataelementblobversions dataelementblobversion
         SET detachedat = NOW()
-        FROM (
-            SELECT (deleteelement.value ->> 'elementId')::UUID AS dataelementid
-            FROM jsonb_array_elements(_deleteelements) deleteelement(value)
-        ) deleteelement
         WHERE dataelementblobversion.instanceguid = _instanceguid
-            AND dataelementblobversion.dataelementid = deleteelement.dataelementid
+            AND dataelementblobversion.dataelementid = ANY(_deletedids)
             AND dataelementblobversion.detachedat IS NULL;
     END IF;
 

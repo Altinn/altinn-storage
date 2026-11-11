@@ -1,0 +1,22 @@
+{
+  "id": "1a4f2e6c-0d3b-4c8e-9f21-5b7a8c9d0e02",
+  "instanceOwner": {
+    "partyId": "1000001"
+  },
+  "appId": "tdd/authlevel-4-systemuser",
+  "org": "tdd",
+  "created": "2026-10-16T10:00:00.0000000Z",
+  "lastChanged": "2026-10-16T10:00:00.0000000Z",
+  "lastChangedBy": "1000001",
+  "process": {
+    "currentTask": {
+      "elementId": "Task_1",
+      "altinnTaskType": "data"
+    }
+  },
+  "status": {
+    "isArchived": false,
+    "isHardDeleted": false,
+    "isSoftDeleted": false
+  }
+}

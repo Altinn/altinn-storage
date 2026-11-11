@@ -3,18 +3,12 @@
   "extends": [
     "local>Altinn/renovate-config"
   ],
-  "customManagers": [
+  "packageRules": [
     {
-      "customType": "regex",
-      "description": "Manage Alpine OS versions in container image tags",
-      "managerFilePatterns": [
-        "/Dockerfile/"
-      ],
-      "matchStrings": [
-        "(?:FROM\\s+)(?<depName>[\\S]+):(?<currentValue>[\\S]+)@(?<currentDigest>sha256:[a-f0-9]+)"
-      ],
-      "versioningTemplate": "regex:^(?<compatibility>[\\S]*\\d+\\.\\d+(?:\\.\\d+)?(?:[\\S]*)?-alpine-?)(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?$",
-      "datasourceTemplate": "docker"
+      "description": "PDFsharp 6.5.0 switched from MIT to AGPL-3.0/commercial and throws at runtime without a licence call. Hold at 6.2.x until a licensing decision is made.",
+      "matchDatasources": ["nuget"],
+      "matchPackageNames": ["PDFsharp"],
+      "allowedVersions": "<6.5.0"
     }
   ]
 }

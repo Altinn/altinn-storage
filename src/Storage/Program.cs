@@ -50,13 +50,18 @@ using Wolverine.AzureServiceBus;
 using Yuniql.AspNetCore;
 using Yuniql.PostgreSql;
 
-ILogger logger;
+// Logs while the host is being created, before the host's own logging is configured. Disposed when
+// the entry point returns, which stops the console logger's processing thread.
+using ILoggerFactory hostCreationLoggerFactory = LoggerFactory.Create(builder =>
+{
+    builder.AddFilter("Altinn.Platform.Storage.Program", LogLevel.Debug).AddConsole();
+});
+
+ILogger logger = hostCreationLoggerFactory.CreateLogger<Program>();
 
 string applicationInsightsConnectionString = string.Empty;
 
 var builder = WebApplication.CreateBuilder(args);
-
-ConfigureWebHostCreationLogging();
 
 await SetConfigurationProviders(builder.Configuration, builder.Environment.IsDevelopment());
 
@@ -84,16 +89,6 @@ void ConfigureApplicationLogging(ILoggingBuilder logging)
         builder.IncludeFormattedMessage = true;
         builder.IncludeScopes = true;
     });
-}
-
-void ConfigureWebHostCreationLogging()
-{
-    var logFactory = LoggerFactory.Create(builder =>
-    {
-        builder.AddFilter("Altinn.Platform.Storage.Program", LogLevel.Debug).AddConsole();
-    });
-
-    logger = logFactory.CreateLogger<Program>();
 }
 
 async Task SetConfigurationProviders(ConfigurationManager config, bool isDevelopment)
@@ -172,6 +167,7 @@ void AddAzureMonitorTelemetryExporters(
         logging.AddAzureMonitorLogExporter(o =>
         {
             o.ConnectionString = applicationInsightsConnectionString;
+            o.EnableTraceBasedLogsSampler = false;
         })
     );
     services.ConfigureOpenTelemetryMeterProvider(metrics =>
@@ -184,6 +180,8 @@ void AddAzureMonitorTelemetryExporters(
         tracing.AddAzureMonitorTraceExporter(o =>
         {
             o.ConnectionString = applicationInsightsConnectionString;
+            o.SamplingRatio = 1.0f;
+            o.TracesPerSecond = null;
         })
     );
 }
