@@ -519,6 +519,56 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task Get_StorageAccountCannotBeResolved_ThrowsWithoutMarkingElementRead()
+    {
+        // Arrange
+        Mock<IStorageAccountResolver> storageAccountResolver = new();
+        storageAccountResolver
+            .Setup(resolver =>
+                resolver.ForElement(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("Storage account 7 is unreadable."));
+        (
+            DataController testController,
+            Mock<IDataRepository> dataRepositoryMock,
+            Mock<IBlobRepository> blobRepositoryMock
+        ) = GetTestController(["/isRead"], storageAccountResolver: storageAccountResolver.Object);
+
+        // Act
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                testController.Get(12345, Guid.NewGuid(), Guid.NewGuid(), CancellationToken.None)
+        );
+
+        // Assert
+        Assert.Equal("Storage account 7 is unreadable.", exception.Message);
+        dataRepositoryMock.Verify(
+            d =>
+                d.UpdateReadStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        blobRepositoryMock.Verify(
+            repository =>
+                repository.ReadBlob(
+                    It.IsAny<StorageAccount>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task Get_WithBlobVersionId_PassesVersionedPathToReadBlob()
     {
         // Arrange
@@ -2838,7 +2888,8 @@ public class DataControllerUnitTests
         bool applicationExists = true,
         Action<Mock<IInstanceEventService>> configureInstanceEventService = null,
         string blobStoragePathOverride = null,
-        IOnDemandClient onDemandClient = null
+        IOnDemandClient onDemandClient = null,
+        IStorageAccountResolver storageAccountResolver = null
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -3215,7 +3266,7 @@ public class DataControllerUnitTests
             generalSettings,
             onDemandClient,
             authorizationServiceMock.Object,
-            new PatternDefaultStorageAccountResolver()
+            storageAccountResolver ?? new PatternDefaultStorageAccountResolver()
         )
         {
             ControllerContext = controllerContext,

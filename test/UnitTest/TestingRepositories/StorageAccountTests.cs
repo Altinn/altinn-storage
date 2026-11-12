@@ -63,41 +63,40 @@ public class StorageAccountTests(DataElementFixture fixture)
     }
 
     [Fact]
-    public async Task ReadAll_ReturnsDocumentsAsTheirVariant()
+    public async Task ReadAll_ReturnsRowsWithTheirProviderInfo()
     {
-        AzureBlobProviderInfo azure = new("devstoreaccount1", "named-container");
-        FileSystemProviderInfo fileSystem = new("/data/blobs/ttd");
-        short azureId = await _repository.Insert(azure, _org, 1, writable: true);
-        short fileSystemId = await _repository.Insert(fileSystem, _org, 2, writable: false);
+        AzureBlobProviderInfo writable = new("devstoreaccount1", "named-container");
+        AzureBlobProviderInfo readOnly = new("ttdaltinnprodstrg02", "ttd-prod-appsdata-blob-db");
+        short writableId = await _repository.Insert(writable, _org, 1, writable: true);
+        short readOnlyId = await _repository.Insert(readOnly, _org, 2, writable: false);
 
         IReadOnlyList<StorageAccountRow> rows = (await _repository.ReadAll()).Readable;
 
-        StorageAccountRow azureRow = Assert.Single(rows, row => row.Id == azureId);
-        Assert.Equal(azure, azureRow.ProviderInfo);
-        Assert.Equal(_org, azureRow.Org);
-        Assert.Equal(1, azureRow.StorageAccountNumber);
-        Assert.True(azureRow.Writable);
-        StorageAccountRow fileSystemRow = Assert.Single(rows, row => row.Id == fileSystemId);
-        Assert.Equal(fileSystem, fileSystemRow.ProviderInfo);
-        Assert.Equal(2, fileSystemRow.StorageAccountNumber);
-        Assert.False(fileSystemRow.Writable);
-        Assert.Equal(StorageAccountProviderInfo.AzureBlob, azureRow.Provider);
-        Assert.Equal(StorageAccountProviderInfo.FileSystem, fileSystemRow.Provider);
+        StorageAccountRow writableRow = Assert.Single(rows, row => row.Id == writableId);
+        Assert.Equal(writable, writableRow.ProviderInfo);
+        Assert.Equal(StorageAccountProviderInfo.AzureBlob, writableRow.Provider);
+        Assert.Equal(_org, writableRow.Org);
+        Assert.Equal(1, writableRow.StorageAccountNumber);
+        Assert.True(writableRow.Writable);
+        StorageAccountRow readOnlyRow = Assert.Single(rows, row => row.Id == readOnlyId);
+        Assert.Equal(readOnly, readOnlyRow.ProviderInfo);
+        Assert.Equal(2, readOnlyRow.StorageAccountNumber);
+        Assert.False(readOnlyRow.Writable);
         Assert.Equal(
-            StorageAccountProviderInfo.FileSystem,
+            StorageAccountProviderInfo.AzureBlob,
             await PostgresUtil.RunQuery<string>(
-                $"select provider from storage.storageaccounts where id = {fileSystemId}"
+                $"select provider from storage.storageaccounts where id = {readOnlyId}"
             )
         );
         Assert.Equal(
-            "/data/blobs/ttd",
+            "ttdaltinnprodstrg02",
             await PostgresUtil.RunQuery<string>(
-                $"select providerinfo->>'directory' from storage.storageaccounts where id = {fileSystemId}"
+                $"select providerinfo->>'accountName' from storage.storageaccounts where id = {readOnlyId}"
             )
         );
         Assert.False(
             await PostgresUtil.RunQuery<bool>(
-                $"select bool_or(jsonb_exists(providerinfo, 'provider')) from storage.storageaccounts where id in ({azureId}, {fileSystemId})"
+                $"select bool_or(jsonb_exists(providerinfo, 'provider')) from storage.storageaccounts where id in ({writableId}, {readOnlyId})"
             )
         );
     }
@@ -126,6 +125,7 @@ public class StorageAccountTests(DataElementFixture fixture)
 
     [Theory]
     [InlineData("unknown-provider", """{"accountName":"a","container":"c"}""")]
+    [InlineData("file-system", """{"directory":"/data/blobs/ttd"}""")]
     [InlineData(StorageAccountProviderInfo.AzureBlob, """{"accountName":"a"}""")]
     [InlineData(
         StorageAccountProviderInfo.AzureBlob,

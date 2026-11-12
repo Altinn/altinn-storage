@@ -768,6 +768,78 @@ public class SigningServiceTest
     private static string GetPerformedBy(Signee signee) =>
         !string.IsNullOrWhiteSpace(signee.UserId) ? signee.UserId : signee.OrganisationNumber;
 
+    [Fact]
+    public async Task CreateSignDocument_ExistingSignatureInUnresolvableAccount_ThrowsBeforeStaging()
+    {
+        SigningFixture fixture = CreateSigningFixture(existingSignatureCount: 1);
+        Mock<IStorageAccountResolver> storageAccountResolver = new();
+        storageAccountResolver
+            .Setup(resolver =>
+                resolver.ForElement(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ThrowsAsync(new InvalidOperationException("Storage account 7 is unreadable."));
+        SigningService sut = new(
+            fixture.InstanceRepository.Object,
+            fixture.DataService.Object,
+            fixture.ApplicationService.Object,
+            fixture.InstanceEventService.Object,
+            fixture.MutationRepository.Object,
+            fixture.ApplicationRepository.Object,
+            fixture.BlobRepository.Object,
+            storageAccountResolver.Object,
+            Mock.Of<ILogger<SigningService>>()
+        );
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () =>
+                sut.CreateSignDocument(
+                    fixture.InstanceGuid,
+                    fixture.SignRequest,
+                    "1337",
+                    null,
+                    null,
+                    CancellationToken.None
+                )
+        );
+
+        Assert.Equal("Storage account 7 is unreadable.", exception.Message);
+        fixture.DataService.Verify(
+            service =>
+                service.StageDataElementBlob(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<DataElementCreateOptions>(),
+                    It.IsAny<Application>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    It.IsAny<Guid>(),
+                    It.IsAny<long>(),
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        fixture.BlobRepository.Verify(
+            repository =>
+                repository.ReadBlob(
+                    It.IsAny<StorageAccount>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
     private static SigningFixture CreateSigningFixture(
         Signee signee = null,
         int existingSignatureCount = 0

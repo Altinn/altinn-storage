@@ -10,7 +10,7 @@ account holds its blob. This document describes how the table is used.
 ```sql
 CREATE TABLE storage.storageaccounts (
     id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    provider TEXT NOT NULL,                 -- 'azure-blob', 'file-system'; selects the C# type
+    provider TEXT NOT NULL,                 -- 'azure-blob'; selects the C# type
     providerinfo JSONB NOT NULL,            -- that provider's own properties
     org TEXT NOT NULL,                      -- blob storage org
     storageaccountnumber INT NOT NULL,      -- Application.StorageAccountNumber, 1 when the app has none
@@ -28,7 +28,10 @@ workload identity. A document with any other key is rejected.
 | provider | providerinfo | How the service reaches it |
 | --- | --- | --- |
 | `azure-blob` | `{"accountName":"ttdaltinnprodstrg01","container":"ttd-prod-appsdata-blob-db"}` | `https://{accountName}.blob.core.windows.net/{container}` with the pod's workload identity, which needs the Storage Blob Data Contributor role on the account. The Azurite account `devstoreaccount1` uses the endpoint and shared key from `AzureStorageConfiguration`. |
-| `file-system` | `{"directory":"/data/blobs/ttd"}` | A directory under `StorageAccounts:FileSystem:RootDirectory`, with the pod's file permissions. |
+
+`azure-blob` is the only provider this release knows. A row with any other provider is unreadable
+(see [The cache](#the-cache)). The `provider` column exists so that later releases can add providers
+without changing the document format.
 
 Rows are immutable except for `writable`. An id, once handed out, always means the same location.
 
@@ -101,7 +104,8 @@ written through `createblobversion_v2` carries the id of the account the blob we
 
 Each pod reads the whole table into memory, at startup and again when the snapshot is older than
 `GeneralSettings:StorageAccountCacheSeconds` (default 60). The snapshot is small: one row per account
-owned by a service owner, tens of rows at most. No request reads the table directly.
+owned by a service owner, tens of rows at most. No request reads the table directly, and requests
+that find the snapshot expired at the same time share one read.
 
 - **Reads are always correct.** Rows are immutable, so a cached row describes the right location for
   as long as the pod runs. An id that is not in the snapshot (a row inserted after the last refresh)
@@ -114,7 +118,9 @@ owned by a service owner, tens of rows at most. No request reads the table direc
   whose document fails validation, is logged as critical at startup and on every refresh. Only the
   operations that need that row fail: reads of blobs in that account, and uploads for its
   `(org, number)` while it is writable. They never fall back to the pattern default, because the
-  pattern account does not hold those blobs.
+  pattern account does not hold those blobs. A request that needs the row fails with 500 before it
+  changes anything; a download, for example, does not mark the element as read. Cleanup skips the
+  data elements and orphaned versions in that account, cleans up the rest, and then reports 500.
 
 ## Resolving the account of a blob
 
@@ -185,10 +191,42 @@ deleted from the old account and the new ones from the new account.
 The previous release's cleanup functions skip rows with a non-null `storageaccountid`, so a rolling
 deploy never deletes from the wrong account.
 
+A data element or orphaned version group whose account cannot be resolved, or whose cleanup fails
+for another reason, is skipped and retried on the next run. The run cleans up everything else and
+returns 500 when anything was skipped.
+
+Deleting an instance always deletes the instance's prefix from the pattern default account first,
+because legacy blobs without a version row can only be there. If that account is gone or Storage
+has lost access to it, the instance is not deleted. See step 6 of the move procedure below.
+
+## Rolling back
+
+A release older than v0.39 reads every blob from the pattern default. Rolling back is safe while
+`storage.storageaccounts` is empty. Once a row is inserted and versions are written to it, the old
+release cannot download those versions: it looks for them in the pattern account and returns not
+found. Roll forward instead, or copy those blobs to the pattern default account and re-point their
+versions to it before rolling back.
+
 ## Moving an owner's blobs to a new account
 
-Because reads follow the version row, a move is a copy followed by a re-point. Nothing needs to be
-switched at one instant, and the old account is never touched by the service after the re-point.
+Because reads follow the version row, a move is a copy followed by a re-point. Both accounts can
+receive writes at the same time while the move is under way: every version row records where its
+blob went, so reads and cleanup stay correct. What the procedure must get right is the moment when
+the old account no longer receives new blobs, since only blobs that are in the old account at the
+final copy reach the new one.
+
+The old account can still receive new blobs after the new row is inserted:
+
+- **Requests already running.** An upload chooses its account when it starts and writes the blob
+  to that account, however long the upload takes. The mutations API accepts request bodies of up
+  to 2000 MB and keeps staged blobs until it commits.
+- **Pods with an older snapshot,** for up to `StorageAccountCacheSeconds`. A pod never uses a
+  snapshot older than that: when a refresh fails, the request fails.
+- **Pods of a release older than v0.39,** which ignore the table. Never start a move during a
+  deploy that includes such a release.
+
+The old account has *settled* when the insert is older than the cache period plus the longest
+possible request. Only then is a copy complete.
 
 ```mermaid
 sequenceDiagram
@@ -203,28 +241,44 @@ sequenceDiagram
     Note over DB: new row, writable. The previous writable row loses the flag
     DB-->>Pods: picked up on the next refresh (at most one cache period)
     Note over Pods: new uploads go to the new account with the new id
-    Ops->>Old: copy every blob under ttd/ to the new account (azcopy)
+    Ops->>Ops: wait until the old account has settled
+    Ops->>Old: remove Storage's write and delete access
+    Ops->>Old: copy every blob under the org's prefix to the new account (azcopy)
     Old-->>New: blobs copied
+    Ops->>New: audit: every version to re-point has its blob
     Ops->>DB: UPDATE version rows of (ttd, 1) that still name the old location, set the new id
     Note over Pods: reads now follow the new row. The old account is idle
-    Ops->>Old: delete or retire, after the audit
+    Ops->>Old: retire, after the conditions in step 7
 ```
 
 1. **Create the account** and give Storage's workload identity and file-scan's identity the Storage
    Blob Data Contributor role on it.
 2. **Insert the row.** `storage.insertstorageaccount` takes the writable flag over from the previous
-   row for the pair in the same transaction. From the next cache refresh, new versions land in the new
-   account. Inserting it with `_writable => false` is also fine when the copy should finish first; the
-   flag is then set with an `UPDATE` later.
-3. **Copy the blobs.** The versioned blob path is the same in every account, so the copy is a prefix
-   copy of `{org}/`. Blobs uploaded after step 2 are already in the new account; a second
-   incremental copy catches those written between the first copy and step 4.
-4. **Re-point the version rows** in batches. The condition on `storageaccountid` keeps the update to
+   row for the pair in the same transaction. From the next cache refresh, new versions land in the
+   new account. To set the flag on an existing row instead, clear it on the previous row and set it
+   on the new one in a single transaction; the unique index `storageaccounts_writable` rejects two
+   writable rows for a pair.
+3. **Wait until the old account has settled:** at least `StorageAccountCacheSeconds` plus the longest
+   request after the insert. An early copy can be made in the meantime to shorten the final one.
+4. **Make the old account read-only for Storage.** Remove Storage's write and delete access, keeping
+   read access. An upload that still reaches the old account then fails, and orphan cleanup
+   later removes its detached version row, instead of a blob landing there that the final copy
+   misses. Cleanup cannot delete from the old
+   account while it is read-only: those deletes fail and are retried after the re-point, against the
+   new account. Without this, a blob that cleanup deletes after it was copied stays in the new
+   account forever. Hard-delete cleanup reports 500 for the skipped elements until the move is done.
+5. **Copy the blobs and audit.** The versioned blob path is the same in every account, so the copy is
+   a prefix copy. Then confirm that every version to be re-pointed has its blob in the new account.
+6. **Re-point the version rows** in batches. The condition on `storageaccountid` keeps the update to
    rows that still name the old location (`NULL` for the pattern default), so rows written to the new
-   account are not touched. Every read of those elements now goes to the new account.
-5. **Audit and retire.** Confirm each re-pointed version's blob exists in the new account, then
-   delete the old account or remove the service's access. Legacy non-versioned blobs are still read
-   from the pattern default and must be converted to versions before a pattern account is retired.
+   account are not touched. Every read of those elements now goes to the new account, and cleanup
+   deletes from it.
+7. **Retire the old account.** Remove Storage's access or delete the account only when nothing is
+   read from it any more. A pattern default account is still used after its versions are re-pointed:
+   legacy non-versioned blobs are read from it, and instance cleanup deletes from it for every
+   instance of the org. Before a pattern default account is retired, its legacy blobs must be
+   converted to versions, and instance cleanup must stop depending on it; this release has no
+   support for either.
 
 Rows are never deleted. A row that no longer receives writes and has no versions pointing at it is
 simply unused.

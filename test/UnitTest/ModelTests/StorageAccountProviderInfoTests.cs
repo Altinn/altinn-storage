@@ -24,15 +24,6 @@ public class StorageAccountProviderInfoTests
         Assert.Equal(info, StorageAccountProviderInfo.Deserialize(info.Provider, info.Serialize()));
     }
 
-    [Fact]
-    public void FileSystem_SerializesWithoutDiscriminator()
-    {
-        StorageAccountProviderInfo info = new FileSystemProviderInfo("/data/blobs/ttd");
-
-        Assert.Equal(StorageAccountProviderInfo.FileSystem, info.Provider);
-        Assert.Equal("""{"directory":"/data/blobs/ttd"}""", info.Serialize());
-    }
-
     public static TheoryData<string, string, StorageAccountProviderInfo> ReorderedDocuments =>
         new()
         {
@@ -40,11 +31,6 @@ public class StorageAccountProviderInfoTests
                 StorageAccountProviderInfo.AzureBlob,
                 """{"container":"ttd-container","accountName":"ttdaccount"}""",
                 new AzureBlobProviderInfo("ttdaccount", "ttd-container")
-            },
-            {
-                StorageAccountProviderInfo.FileSystem,
-                """{"directory":"/data/blobs/ttd"}""",
-                new FileSystemProviderInfo("/data/blobs/ttd")
             },
         };
 
@@ -109,14 +95,16 @@ public class StorageAccountProviderInfoTests
         Assert.Throws<ArgumentException>(() => new AzureBlobProviderInfo("ttdaccount", container!));
     }
 
-    [Fact]
-    public void Deserialize_UnknownProvider_ThrowsNotSupported()
+    [Theory]
+    [InlineData("s3", """{"bucket":"b"}""")]
+    [InlineData("file-system", """{"directory":"/data/blobs/ttd"}""")]
+    public void Deserialize_UnknownProvider_ThrowsNotSupported(string provider, string json)
     {
         NotSupportedException exception = Assert.Throws<NotSupportedException>(() =>
-            StorageAccountProviderInfo.Deserialize("s3", """{"bucket":"b"}""")
+            StorageAccountProviderInfo.Deserialize(provider, json)
         );
 
-        Assert.Contains("'s3'", exception.Message);
+        Assert.Contains($"'{provider}'", exception.Message);
     }
 
     [Theory]
@@ -141,15 +129,6 @@ public class StorageAccountProviderInfoTests
     [InlineData(
         StorageAccountProviderInfo.AzureBlob,
         """{"accountName":"ttdaccount","container":"../other"}"""
-    )]
-    [InlineData(StorageAccountProviderInfo.FileSystem, "{}")]
-    [InlineData(
-        StorageAccountProviderInfo.FileSystem,
-        """{"directory":"/data/blobs/ttd","extra":1}"""
-    )]
-    [InlineData(
-        StorageAccountProviderInfo.FileSystem,
-        """{"accountName":"ttdaccount","container":"container"}"""
     )]
     public void Deserialize_InvalidDocumentForProvider_ThrowsJsonException(
         string provider,

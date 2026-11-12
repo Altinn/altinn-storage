@@ -79,6 +79,23 @@ public class StorageAccountResolverTests
     }
 
     [Fact]
+    public async Task ConcurrentCacheMisses_ReadRowsOnce()
+    {
+        TaskCompletionSource<StorageAccountRows> read = new(
+            TaskCreationOptions.RunContinuationsAsynchronously
+        );
+        _repository.Setup(r => r.ReadAll(It.IsAny<CancellationToken>())).Returns(read.Task);
+
+        Task<StorageAccount> byId = _resolver.GetById(5);
+        Task<StorageAccount> forWrite = _resolver.ForWrite("ttd", 1);
+        read.SetResult(Rows([Row(5, _namedAccount, "ttd", 1, writable: true)]));
+
+        Assert.Equal(new StorageAccount(5, _namedAccount), await byId);
+        Assert.Equal(new StorageAccount(5, _namedAccount), await forWrite);
+        _repository.Verify(r => r.ReadAll(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetById_MissingFromCache_RereadsRows()
     {
         _repository
@@ -87,14 +104,23 @@ public class StorageAccountResolverTests
             .ReturnsAsync(
                 Rows([
                     Row(1, _namedAccount, "ttd", 1, writable: false),
-                    Row(2, new FileSystemProviderInfo("/data/ttd"), "ttd", 1, writable: true),
+                    Row(
+                        2,
+                        new AzureBlobProviderInfo("ttdaltinndevstrg02", "ttd-container"),
+                        "ttd",
+                        1,
+                        writable: true
+                    ),
                 ])
             );
         await _resolver.GetById(1);
 
         StorageAccount account = await _resolver.GetById(2);
 
-        Assert.Equal(new StorageAccount(2, new FileSystemProviderInfo("/data/ttd")), account);
+        Assert.Equal(
+            new StorageAccount(2, new AzureBlobProviderInfo("ttdaltinndevstrg02", "ttd-container")),
+            account
+        );
         _repository.Verify(r => r.ReadAll(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
@@ -254,7 +280,13 @@ public class StorageAccountResolverTests
         SetupRows(
             [
                 Row(1, _namedAccount, "ttd", 2, writable: true),
-                Row(2, new FileSystemProviderInfo("/data/skd"), "skd", 1, writable: true),
+                Row(
+                    2,
+                    new AzureBlobProviderInfo("skdaltinndevstrg01", "skd-container"),
+                    "skd",
+                    1,
+                    writable: true
+                ),
             ],
             [Unreadable(7, "ttd", 1, writable: true), Unreadable(8, "ttd", 3, writable: false)]
         );
@@ -279,7 +311,7 @@ public class StorageAccountResolverTests
         Assert.Equal(new StorageAccount(1, _namedAccount), await _resolver.GetById(1));
         Assert.Equal(new StorageAccount(1, _namedAccount), await _resolver.ForWrite("ttd", 2));
         Assert.Equal(
-            new StorageAccount(2, new FileSystemProviderInfo("/data/skd")),
+            new StorageAccount(2, new AzureBlobProviderInfo("skdaltinndevstrg01", "skd-container")),
             await _resolver.ForWrite("skd", 1)
         );
         Assert.Equal(_resolver.PatternDefault("ttd", 3), await _resolver.ForWrite("ttd", 3));

@@ -24,12 +24,12 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
     : IClassFixture<BlobRepositoryAzuriteFixture>
 {
     [Fact]
-    public async Task FileSystemAccount_EveryOperation_ThrowsNotSupported()
+    public async Task UnsupportedProviderAccount_EveryOperation_ThrowsNotSupported()
     {
-        StorageAccount account = new(7, new FileSystemProviderInfo("/data/blobs/ttd"));
-        string blobStoragePath = fixture.NewBlobPath("file-system");
+        StorageAccount account = new(7, new UnsupportedProviderInfo());
+        string blobStoragePath = fixture.NewBlobPath("unsupported");
         const string expectedMessage =
-            "Storage account provider is not supported: FileSystemProviderInfo";
+            "Storage account provider is not supported: UnsupportedProviderInfo";
 
         Func<Task>[] operations =
         [
@@ -308,6 +308,11 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
                 TimeSpan.FromSeconds(seconds)
             )
         );
+    }
+
+    private sealed record UnsupportedProviderInfo : StorageAccountProviderInfo
+    {
+        public override string Provider => "unsupported";
     }
 }
 

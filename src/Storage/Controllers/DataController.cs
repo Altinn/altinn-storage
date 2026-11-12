@@ -359,6 +359,23 @@ public class DataController : ControllerBase
             return StatusCode(StatusCodes.Status412PreconditionFailed);
         }
 
+        if (
+            (instance.AppId.Contains(@"/a1-") || instance.AppId.Contains(@"/a2-"))
+            && _generalSettings.A2UseTtdAsServiceOwner
+        )
+        {
+            instance.Org = "ttd";
+        }
+
+        // Resolved before the read status is updated, so that a download that fails on the storage
+        // account leaves the element unread.
+        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
+            dataElement,
+            instance.Org,
+            StorageAccountNaming.NumberOf(application),
+            cancellationToken
+        );
+
         if (!dataElement.IsRead && !appOwnerRequestingElement)
         {
             try
@@ -376,14 +393,6 @@ public class DataController : ControllerBase
                 VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
                 return NotFound($"Unable to find any data element with id: {dataGuid}.");
             }
-        }
-
-        if (
-            (instance.AppId.Contains(@"/a1-") || instance.AppId.Contains(@"/a2-"))
-            && _generalSettings.A2UseTtdAsServiceOwner
-        )
-        {
-            instance.Org = "ttd";
         }
 
         if (dataElement.BlobStoragePath.StartsWith("ondemand"))
@@ -406,12 +415,6 @@ public class DataController : ControllerBase
 
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
 
-        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
-            dataElement,
-            instance.Org,
-            StorageAccountNaming.NumberOf(application),
-            cancellationToken
-        );
         Stream dataStream = await _blobRepository.ReadBlob(
             storageAccount,
             dataElement.BlobStoragePath,

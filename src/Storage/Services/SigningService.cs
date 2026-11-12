@@ -302,14 +302,16 @@ public class SigningService : ISigningService
             signingDocDataElements
                 .Select(async dataElement =>
                 {
+                    // Outside the try: when the account cannot be resolved, signing fails before
+                    // anything is written, instead of treating the document as not from this signee.
+                    StorageAccount storageAccount = await _storageAccountResolver.ForElement(
+                        dataElement,
+                        instance.Org,
+                        StorageAccountNaming.NumberOf(application),
+                        cancellationToken
+                    );
                     try
                     {
-                        StorageAccount storageAccount = await _storageAccountResolver.ForElement(
-                            dataElement,
-                            instance.Org,
-                            StorageAccountNaming.NumberOf(application),
-                            cancellationToken
-                        );
                         await using Stream stream = await _blobRepository.ReadBlob(
                             storageAccount,
                             dataElement.BlobStoragePath,

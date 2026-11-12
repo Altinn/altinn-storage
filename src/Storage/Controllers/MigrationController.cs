@@ -275,13 +275,13 @@ public class MigrationController : ControllerBase
         {
             hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
             string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
-            blobStorageAccount = await _storageAccountResolver.ForWrite(
-                blobOrg,
-                StorageAccountNaming.NumberOf(app),
-                cancellationToken
-            );
             if (hasBlob)
             {
+                blobStorageAccount = await _storageAccountResolver.ForWrite(
+                    blobOrg,
+                    StorageAccountNaming.NumberOf(app),
+                    cancellationToken
+                );
                 blobVersionId = await _dataRepository.CreateBlobVersionId(
                     instanceGuid,
                     dataElementId,

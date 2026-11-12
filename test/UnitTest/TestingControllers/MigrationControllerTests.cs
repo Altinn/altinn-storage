@@ -368,6 +368,78 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         blobRepository.VerifyAll();
     }
 
+    [Fact]
+    public async Task CreateDataElement_OnDemandElementWithoutBlob_DoesNotResolveStorageAccount()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Id = instanceGuid;
+        instance.InternalId = 42;
+        instance.Org = "tdd";
+        instance.AppId = "tdd/a2-named-account-test";
+        Mock<IInstanceRepository> instanceRepository = new();
+        instanceRepository
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(instance);
+        Mock<IApplicationRepository> applicationRepository = new();
+        applicationRepository
+            .Setup(repository =>
+                repository.FindOne(instance.AppId, instance.Org, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application { Id = instance.AppId, Org = instance.Org });
+        Mock<IDataRepository> dataRepository = new(MockBehavior.Strict);
+        dataRepository
+            .Setup(repository =>
+                repository.Create(
+                    It.Is<DataElementInternal>(dataElement =>
+                        dataElement.BlobStoragePath == "ondemand/formdatahtml"
+                        && dataElement.BlobVersionId == null
+                    ),
+                    instance.InternalId,
+                    It.IsAny<int?>(),
+                    It.IsAny<int?>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                (DataElementInternal dataElement, long _, int? _, int? _, CancellationToken _) =>
+                    new DataElementWriteResult(dataElement, null)
+            );
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        MigrationController controller = CreateController(
+            Mock.Of<IA2Repository>(),
+            memoryCache,
+            instanceRepository.Object,
+            dataRepository.Object,
+            applicationRepository.Object,
+            new Mock<IBlobRepository>(MockBehavior.Strict).Object,
+            new Mock<IStorageAccountResolver>(MockBehavior.Strict).Object,
+            false
+        );
+        DefaultHttpContext httpContext = new();
+        httpContext.Request.Body = new MemoryStream();
+        httpContext.Request.ContentLength = 0;
+        httpContext.Request.ContentType = "text/html";
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+
+        ActionResult<DataElement> result = await controller.CreateDataElement(
+            instanceGuid,
+            DateTime.UtcNow.Ticks,
+            DateTime.UtcNow.Ticks,
+            "ref-data-as-html",
+            null,
+            null,
+            null,
+            null,
+            CancellationToken.None
+        );
+
+        Assert.IsType<CreatedResult>(result.Result);
+        dataRepository.VerifyAll();
+    }
+
     [Theory]
     [InlineData(false, "tdd")]
     [InlineData(true, "ttd")]
