@@ -513,10 +513,19 @@ public class DataController : ControllerBase
             dataTypeId = dataElement.DataType;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataTypeId,
-            cancellationToken: cancellationToken
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application is null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
+            application,
+            dataTypeId
         );
         if (dataTypeDefinition is null)
         {
