@@ -792,6 +792,14 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             return Task.FromResult(true);
         }
 
+        public Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
+            string org,
+            string blobStoragePath,
+            int? storageAccountNumber,
+            TimeSpan lifetime,
+            CancellationToken cancellationToken = default
+        ) => throw new NotSupportedException();
+
         private static string Key(string org, string blobStoragePath) => $"{org}/{blobStoragePath}";
     }
 }

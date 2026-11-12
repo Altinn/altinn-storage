@@ -23,9 +23,10 @@ namespace Altinn.Platform.Storage.UnitTest.Fixture;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Azurite serves HTTPS with a certificate created for the run, as Azure Storage only serves HTTPS.
-/// Clients trust the certificate through <see cref="AzuriteClientOptions"/> or
-/// <see cref="CreateAzuriteHttpClient"/>.
+/// Azurite serves HTTPS with a certificate created for the run, and accepts bearer tokens
+/// (<c>--oauth basic</c>), so that user delegation keys can be requested from it as from Azure. Clients
+/// trust the certificate through <see cref="AzuriteClientOptions"/> or
+/// <see cref="CreateAzuriteHttpClient"/>, and get tokens from <see cref="AzuriteTokenCredential"/>.
 /// </para>
 /// <para>
 /// The images are pinned by digest; Renovate updates them through a custom manager in renovate.json.
@@ -124,7 +125,9 @@ public static class TestContainers
                 "--cert",
                 "/certs/azurite.pem",
                 "--key",
-                "/certs/azurite-key.pem"
+                "/certs/azurite-key.pem",
+                "--oauth",
+                "basic"
             )
             .WithPortBinding(_azuriteBlobPort, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("successfully listens"))

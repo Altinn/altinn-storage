@@ -2,15 +2,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Common.AccessToken.Constants;
 using Altinn.Common.AccessToken.Services;
 using Altinn.Common.PEP.Interfaces;
 using Altinn.Platform.Storage.Clients;
@@ -31,6 +35,7 @@ using AltinnCore.Authentication.JwtCookie;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Moq;
 using Wolverine;
 using Xunit;
@@ -1269,6 +1274,54 @@ public class DataControllerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
     }
 
+    public static TheoryData<FileScanStatusOutcome> FileScanStatusOutcomes =>
+        new(Enum.GetValues<FileScanStatusOutcome>());
+
+    /// <summary>
+    /// Every outcome is a 200 whose status is the camel-cased name of the outcome, so the file scanner can tell
+    /// whether its result was set, and the status stays the same JSON string whatever the enum's numeric values are.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(FileScanStatusOutcomes))]
+    public async Task PutFileScanStatus_EveryOutcome_ReturnsStatusAsCamelCaseString(
+        FileScanStatusOutcome outcome
+    )
+    {
+        // Arrange
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.UpdateFileScanStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<FileScanStatus>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(new FileScanStatusUpdateResult(outcome));
+        HttpClient client = GetTestClient(dataRepositoryMock: dataRepositoryMock);
+        HttpRequestMessage request = new(
+            HttpMethod.Put,
+            $"{_versionPrefix}/instances/1337/{Guid.NewGuid()}/dataelements/{Guid.NewGuid()}/filescanstatus"
+        )
+        {
+            Content = JsonContent.Create(
+                new FileScanStatus { FileScanResult = FileScanResult.Clean }
+            ),
+        };
+        request.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            $$"""{"status":"{{JsonNamingPolicy.CamelCase.ConvertName(outcome.ToString())}}"}""",
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
     [Fact]
     public async Task Get_DataElementExists_PlatformAccessIncluded_Ok()
     {
@@ -1366,6 +1419,374 @@ public class DataControllerTests : IAsyncLifetime
         // Assert
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         repoMock.VerifyAll();
+    }
+
+    [Fact]
+    public async Task GetFileScanTarget_PendingCurrentVersion_ReturnsPendingWithReadUrlOfTheVersionedBlob()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Uri expectedUrl = new("https://ttdaltinndevstrg02.blob.core.windows.net/c/b?sig=x");
+        DateTimeOffset expectedExpiry = DateTimeOffset.UtcNow.AddMinutes(5);
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataGuid,
+                    InstanceGuid = instanceGuid,
+                    BlobVersionId = blobVersionId,
+                    FileScanResult = FileScanResult.Pending,
+                }
+            );
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.ReadBlobVersion(
+                    instanceGuid,
+                    dataGuid,
+                    blobVersionId,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(
+                new DataElementBlobVersion
+                {
+                    InstanceGuid = instanceGuid,
+                    DataElementId = dataGuid,
+                    AppId = "ttd/app",
+                    BlobStorageOrg = "ttd",
+                    StorageAccountNumber = 2,
+                }
+            );
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        blobRepositoryMock
+            .Setup(repository =>
+                repository.GetReadUrl(
+                    "ttd",
+                    DataElementHelper.GetVersionedBlobPath("ttd/app", instanceGuid, blobVersionId),
+                    2,
+                    TimeSpan.FromSeconds(300),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((expectedUrl, expectedExpiry));
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: dataRepositoryMock,
+            blobRepositoryMock: blobRepositoryMock
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(instanceGuid, dataGuid, blobVersionId)
+        );
+        request.Headers.Add("PlatformAccessToken", FileScanAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using JsonDocument body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("pending", body.RootElement.GetProperty("status").GetString());
+        Assert.Equal(expectedUrl, new Uri(body.RootElement.GetProperty("readUrl").GetString()));
+        Assert.Equal(expectedExpiry, body.RootElement.GetProperty("expiresAt").GetDateTimeOffset());
+        blobRepositoryMock.VerifyAll();
+    }
+
+    public enum FileScanTargetCase
+    {
+        Missing,
+        Clean,
+        Infected,
+        NotApplicable,
+        Superseded,
+        SupersededAndScanned,
+    }
+
+    /// <summary>
+    /// Every decision is a 200 whose status is a string, so the scanner can tell skips from errors, and the
+    /// status stays the same JSON string whatever the enum's numeric values are.
+    /// </summary>
+    [Theory]
+    [InlineData(FileScanTargetCase.Missing, "deleted")]
+    [InlineData(FileScanTargetCase.Clean, "notPending")]
+    [InlineData(FileScanTargetCase.Infected, "notPending")]
+    [InlineData(FileScanTargetCase.NotApplicable, "notPending")]
+    [InlineData(FileScanTargetCase.Superseded, "superseded")]
+    [InlineData(FileScanTargetCase.SupersededAndScanned, "superseded")]
+    public async Task GetFileScanTarget_VersionNotAwaitingScan_ReturnsStatusWithoutReadUrl(
+        FileScanTargetCase targetCase,
+        string expectedStatus
+    )
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        DataElementInternal dataElement = new()
+        {
+            Id = dataGuid,
+            InstanceGuid = instanceGuid,
+            BlobVersionId = targetCase
+                is FileScanTargetCase.Superseded
+                    or FileScanTargetCase.SupersededAndScanned
+                ? BlobVersionId.Encode(Guid.CreateVersion7())
+                : blobVersionId,
+            FileScanResult = targetCase switch
+            {
+                FileScanTargetCase.Clean => FileScanResult.Clean,
+                FileScanTargetCase.Infected => FileScanResult.Infected,
+                FileScanTargetCase.NotApplicable => FileScanResult.NotApplicable,
+                FileScanTargetCase.SupersededAndScanned => FileScanResult.Clean,
+                _ => FileScanResult.Pending,
+            },
+        };
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(targetCase == FileScanTargetCase.Missing ? null : dataElement);
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: dataRepositoryMock,
+            blobRepositoryMock: new Mock<IBlobRepository>(MockBehavior.Strict)
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(instanceGuid, dataGuid, blobVersionId)
+        );
+        request.Headers.Add("PlatformAccessToken", FileScanAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            $$"""{"status":"{{expectedStatus}}"}""",
+            await response.Content.ReadAsStringAsync()
+        );
+    }
+
+    [Fact]
+    public async Task GetFileScanTarget_ElementOfAnotherInstance_NotFound()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataGuid,
+                    InstanceGuid = Guid.NewGuid(),
+                    BlobVersionId = blobVersionId,
+                    FileScanResult = FileScanResult.Pending,
+                }
+            );
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: dataRepositoryMock,
+            blobRepositoryMock: new Mock<IBlobRepository>(MockBehavior.Strict)
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(instanceGuid, dataGuid, blobVersionId)
+        );
+        request.Headers.Add("PlatformAccessToken", FileScanAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFileScanTarget_CurrentVersionWithoutVersionRow_InternalServerError()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
+        Mock<IDataRepository> dataRepositoryMock = new();
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataGuid,
+                    InstanceGuid = instanceGuid,
+                    BlobVersionId = blobVersionId,
+                    FileScanResult = FileScanResult.Pending,
+                }
+            );
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.ReadBlobVersion(
+                    instanceGuid,
+                    dataGuid,
+                    blobVersionId,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync((DataElementBlobVersion)null);
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: dataRepositoryMock,
+            blobRepositoryMock: new Mock<IBlobRepository>(MockBehavior.Strict)
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(instanceGuid, dataGuid, blobVersionId)
+        );
+        request.Headers.Add("PlatformAccessToken", FileScanAccessToken());
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    public static TheoryData<string, string> TokensNotFromFileScan =>
+        new()
+        {
+            { "other-app", FileScanAccessToken(app: "other-app") },
+            { "issuer ttd", FileScanAccessToken(issuer: "ttd") },
+            { "no app claim", PrincipalUtil.GetAccessToken() },
+            {
+                "signed with another key",
+                FileScanAccessToken(
+                    certificateFile: "selfSignedTestCertificate.pfx",
+                    certificatePassword: "qwer1234"
+                )
+            },
+            {
+                "expired",
+                FileScanAccessToken(
+                    notBefore: DateTime.UtcNow.AddMinutes(-10),
+                    expires: DateTime.UtcNow.AddMinutes(-5)
+                )
+            },
+        };
+
+    [Theory]
+    [MemberData(nameof(TokensNotFromFileScan))]
+    public async Task GetFileScanTarget_TokenNotAValidFileScanToken_Forbidden(
+        string description,
+        string accessToken
+    )
+    {
+        // Arrange
+        Assert.NotEmpty(description);
+        Mock<IDataRepository> dataRepositoryMock = new(MockBehavior.Strict);
+        Mock<IBlobRepository> blobRepositoryMock = new(MockBehavior.Strict);
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: dataRepositoryMock,
+            blobRepositoryMock: blobRepositoryMock,
+            bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3)
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(Guid.NewGuid(), Guid.NewGuid(), "version")
+        );
+        request.Headers.Add("PlatformAccessToken", accessToken);
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFileScanTarget_TwoFileScanTokens_Forbidden()
+    {
+        // Arrange
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: new Mock<IDataRepository>(MockBehavior.Strict),
+            blobRepositoryMock: new Mock<IBlobRepository>(MockBehavior.Strict),
+            bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3)
+        );
+        HttpRequestMessage request = new(
+            HttpMethod.Get,
+            FileScanTargetPath(Guid.NewGuid(), Guid.NewGuid(), "version")
+        );
+        request.Headers.Add("PlatformAccessToken", [FileScanAccessToken(), FileScanAccessToken()]);
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFileScanTarget_EndUserWithoutAccessToken_Forbidden()
+    {
+        // Arrange
+        HttpClient client = GetTestClient(
+            dataRepositoryMock: new Mock<IDataRepository>(MockBehavior.Strict),
+            blobRepositoryMock: new Mock<IBlobRepository>(MockBehavior.Strict),
+            bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3)
+        );
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(
+            FileScanTargetPath(Guid.NewGuid(), Guid.NewGuid(), "version")
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    private static string FileScanTargetPath(
+        Guid instanceGuid,
+        Guid dataGuid,
+        string blobVersionId
+    ) =>
+        $"{_versionPrefix}/instances/1337/{instanceGuid}/dataelements/{dataGuid}/blobversions/{blobVersionId}/filescan";
+
+    private static string FileScanAccessToken(
+        string issuer = "platform",
+        string app = "file-scan",
+        string certificateFile = "platform-org.pfx",
+        string certificatePassword = "",
+        DateTime? notBefore = null,
+        DateTime? expires = null
+    )
+    {
+        X509Certificate2 certificate = X509CertificateLoader.LoadPkcs12FromFile(
+            certificateFile,
+            certificatePassword
+        );
+        JwtSecurityTokenHandler tokenHandler = new();
+        SecurityTokenDescriptor descriptor = new()
+        {
+            Subject = new ClaimsIdentity([
+                new Claim(AccessTokenClaimTypes.App, app, ClaimValueTypes.String, issuer),
+            ]),
+            NotBefore = notBefore ?? DateTime.UtcNow.AddSeconds(-5),
+            Expires = expires ?? DateTime.UtcNow.AddMinutes(5),
+            SigningCredentials = new X509SigningCredentials(
+                certificate,
+                SecurityAlgorithms.RsaSha256
+            ),
+            Audience = "platform.altinn.no",
+            Issuer = issuer,
+        };
+
+        return tokenHandler.WriteToken(tokenHandler.CreateToken(descriptor));
     }
 
     private HttpClient GetTestClient(

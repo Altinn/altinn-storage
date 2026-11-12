@@ -831,7 +831,14 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileScanStatusResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -3655,6 +3662,25 @@
           }
         },
         "additionalProperties": false
+      },
+      "FileScanStatusOutcome": {
+        "enum": [
+          "updated",
+          "superseded",
+          "deleted"
+        ],
+        "type": "string",
+        "description": "Whether a file scan status was set on a data element, and if not, why."
+      },
+      "FileScanStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/FileScanStatusOutcome"
+          }
+        },
+        "additionalProperties": false,
+        "description": "The response to setting the file scan status of a data element."
       },
       "HideSettings": {
         "type": "object",

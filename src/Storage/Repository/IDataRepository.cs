@@ -117,8 +117,11 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element id</param>
     /// <param name="fileScanStatus">The file scan status, optionally including the scanned blob version id.</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
-    /// <returns>The updated data element, or null if the element is missing or its blob version does not match.</returns>
-    Task<DataElementWriteResult?> UpdateFileScanStatus(
+    /// <returns>
+    /// Whether the status was set, with the updated data element when it was. It is not set when the element or its
+    /// instance is missing, or when the given blob version is no longer the element's current version.
+    /// </returns>
+    Task<FileScanStatusUpdateResult> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,

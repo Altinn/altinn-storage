@@ -85,7 +85,7 @@ internal static class MoqVersionResultExtensions
         );
 
     public static IReturnsResult<TMock> ReturnsAsync<TMock>(
-        this ISetup<TMock, Task<DataElementWriteResult>> setup,
+        this ISetup<TMock, Task<FileScanStatusUpdateResult>> setup,
         Func<Guid, Guid, FileScanStatus, CancellationToken, DataElement> value
     )
         where TMock : class =>
@@ -97,10 +97,13 @@ internal static class MoqVersionResultExtensions
                 CancellationToken cancellationToken
             ) =>
                 Task.FromResult(
-                    new DataElementWriteResult(
-                        value(instanceGuid, dataElementId, fileScanStatus, cancellationToken)
-                            .FromApiModel(),
-                        new StorageVersions(1, 1)
+                    new FileScanStatusUpdateResult(
+                        FileScanStatusOutcome.Updated,
+                        new DataElementWriteResult(
+                            value(instanceGuid, dataElementId, fileScanStatus, cancellationToken)
+                                .FromApiModel(),
+                            new StorageVersions(1, 1)
+                        )
                     )
                 )
         );

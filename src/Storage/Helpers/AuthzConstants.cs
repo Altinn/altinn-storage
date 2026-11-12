@@ -51,4 +51,9 @@ public static class AuthzConstants
     /// Policy tag for authorizing correspondence calls to SBL bridge
     /// </summary>
     public const string POLICY_CORRESPONDENCE_SBLBRIDGE = "CorrespondenceSblBridge";
+
+    /// <summary>
+    /// Policy tag for calls from the file scanner, with a platform access token naming the app <c>file-scan</c>
+    /// </summary>
+    public const string POLICY_PLATFORM_FILE_SCAN = "PlatformFileScan";
 }
