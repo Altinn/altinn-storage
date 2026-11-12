@@ -122,7 +122,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         if (nextProcessState.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
         {
-            return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
+            return await AuthorizeAnyAction(instance, ["reject"], taskId);
         }
 
         if (

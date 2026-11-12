@@ -191,6 +191,31 @@ public class ProcessAuthorizerTests
     }
 
     [Fact]
+    public async Task AuthorizeProcessNext_AbandonFlow_NoDecision_ThrowsWithoutAskingOtherActions()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        var nextState = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
+        };
+        SetupNoDecision("reject", "Task_1");
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            CreateSut().AuthorizeProcessNext(instance, nextState)
+        );
+        _authorizationMock.Verify(
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
     public async Task AuthorizeProcessNext_NonStandardFlowType_UsesNextProcessStateTaskType()
     {
         var instance = CreateInstance(taskId: "Task_1", altinnTaskType: "data");
