@@ -2228,6 +2228,58 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         );
     }
 
+    [Theory]
+    [InlineData("asc:lastChanged", 2)]
+    [InlineData("asc:lastChanged", 3)]
+    [InlineData("desc:lastChanged", 2)]
+    [InlineData("desc:lastChanged", 3)]
+    public async Task Instance_GetInstancesFromQuery_ContinuationWithTiedLastChanged_ReturnsEachInstanceOnce(
+        string sortBy,
+        int size
+    )
+    {
+        // Arrange
+        DateTime earlier = new(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        DateTime tied = new(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+        DateTime later = new(2024, 1, 3, 0, 0, 0, DateTimeKind.Utc);
+        List<string> expected = [];
+        foreach (DateTime lastChanged in new[] { tied, earlier, tied, later, tied, tied })
+        {
+            Instance instance = TestData.Instance_1_1.Clone();
+            instance.Id = $"{instance.InstanceOwner.PartyId}/{Guid.NewGuid()}";
+            instance.LastChanged = lastChanged;
+            await CreateApiInstance(instance, CancellationToken.None);
+            expected.Add(instance.Id.Split('/').Last());
+        }
+
+        // Insertion order matches the internal id that breaks lastChanged ties.
+        expected = sortBy.StartsWith("asc:")
+            ? [expected[1], expected[0], expected[2], expected[4], expected[5], expected[3]]
+            : [expected[3], expected[0], expected[2], expected[4], expected[5], expected[1]];
+
+        InstanceQueryParameters queryParams = new()
+        {
+            Size = size,
+            SortBy = sortBy,
+            IncludeDataElements = false,
+        };
+
+        // Act
+        List<string> actual = [];
+        do
+        {
+            InstanceQueryResult page = await _instanceFixture.InstanceRepo.GetInstancesFromQuery(
+                queryParams,
+                CancellationToken.None
+            );
+            actual.AddRange(page.Instances.Select(i => i.Id.ToString()));
+            queryParams.ContinuationToken = page.ContinuationToken;
+        } while (queryParams.ContinuationToken != null && actual.Count <= expected.Count);
+
+        // Assert
+        Assert.Equal(expected, actual);
+    }
+
     /// <summary>
     /// Test GetInstancesFromQuery with appId
     /// </summary>
