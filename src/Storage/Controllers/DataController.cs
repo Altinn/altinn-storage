@@ -1167,6 +1167,7 @@ public class DataController : ControllerBase
             { "/deleteStatus", dataElement.DeleteStatus },
             { "/lastChanged", dataElement.LastChanged },
             { "/lastChangedBy", dataElement.LastChangedBy },
+            { "/filename", HttpUtility.UrlDecode(dataElement.Filename) },
         };
 
         DataElementWriteResult updatedDataElementResult;
