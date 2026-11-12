@@ -31,7 +31,7 @@ public sealed class PgInstanceMutationRepository(
 ) : IInstanceMutationRepository
 {
     internal const string _applyMutationSql =
-        "select * from storage.applyinstancemutation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
+        "select * from storage.applyinstancemutation_v2($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
     private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new(
         PersistedJson.Options
     )
@@ -41,7 +41,7 @@ public sealed class PgInstanceMutationRepository(
 
     private const string _tryReplayAdmissionSql =
         "select storage.tryreplayinstancemutation($1, $2, $3, $4, $5) as createddataelementids";
-    private const string _readInstanceSql = "select * from storage.readinstance_v2($1)";
+    private const string _readInstanceSql = "select * from storage.readinstance_v3($1)";
     private const string _deleteIdempotencyRecordsCreatedBeforeSql =
         "select storage.deleteinstancemutationidempotency($1, $2)";
 
@@ -217,7 +217,8 @@ public sealed class PgInstanceMutationRepository(
                     {
                         replayed = row.GetBoolean(row.GetOrdinal("replayed"));
                         createdDataElementIds = ReadTextArray(row, "createddataelementids");
-                    }
+                    },
+                    includeBlobStorageLocation: true
                 )
                 ?? throw new UnreachableException(
                     "Apply mutation function returned no instance rows."
@@ -678,7 +679,8 @@ public sealed class PgInstanceMutationRepository(
         return await InstanceResultReader.ReadAsync(
             reader,
             includeElements: true,
-            cancellationToken
+            cancellationToken,
+            includeBlobStorageLocation: true
         );
     }
 

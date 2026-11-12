@@ -55,6 +55,7 @@ public class MigrationController : ControllerBase
     private readonly AzureStorageConfiguration _azureStorageSettings;
     private readonly HttpClient _httpClient;
     private readonly IMemoryCache _memoryCache;
+    private readonly IStorageAccountResolver _storageAccountResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MigrationController"/> class
@@ -72,6 +73,7 @@ public class MigrationController : ControllerBase
     /// <param name="generalSettings">Settings with endpoint uri</param>
     /// <param name="httpClient">The HttpClient to use in communication with the PDF generator service.</param>
     /// <param name="memoryCache">the memory cache</param>
+    /// <param name="storageAccountResolver">Resolves the storage accounts blobs are written to.</param>
     public MigrationController(
         IInstanceRepository instanceRepository,
         IInstanceEventRepository instanceEventRepository,
@@ -85,7 +87,8 @@ public class MigrationController : ControllerBase
         IOptions<AzureStorageConfiguration> azureStorageSettings,
         IOptions<GeneralSettings> generalSettings,
         HttpClient httpClient,
-        IMemoryCache memoryCache
+        IMemoryCache memoryCache,
+        IStorageAccountResolver storageAccountResolver
     )
     {
         _instanceRepository = instanceRepository;
@@ -101,6 +104,7 @@ public class MigrationController : ControllerBase
         _httpClient = httpClient;
         _httpClient.BaseAddress = new Uri(generalSettings.Value.PdfGeneratorEndpoint);
         _memoryCache = memoryCache;
+        _storageAccountResolver = storageAccountResolver;
     }
 
     /// <summary>
@@ -264,21 +268,27 @@ public class MigrationController : ControllerBase
 
         Guid dataElementId = Guid.NewGuid();
         bool hasBlob = false;
-        string blobOrg = null;
+        StorageAccount blobStorageAccount = null;
         string blobVersionId = null;
         string blobStoragePath = null;
         try
         {
             hasBlob = Request.ContentLength > 0 || dataType == "binary-data";
-            blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
+            string blobOrg = $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}";
             if (hasBlob)
             {
+                blobStorageAccount = await _storageAccountResolver.ForWrite(
+                    blobOrg,
+                    StorageAccountNaming.NumberOf(app),
+                    cancellationToken
+                );
                 blobVersionId = await _dataRepository.CreateBlobVersionId(
                     instanceGuid,
                     dataElementId,
                     instance.AppId,
                     blobOrg,
                     app.StorageAccountNumber,
+                    blobStorageAccount.Id,
                     cancellationToken
                 );
                 blobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -351,10 +361,9 @@ public class MigrationController : ControllerBase
                 try
                 {
                     (dataElement.Size, _) = await _blobRepository.WriteBlob(
-                        blobOrg,
+                        blobStorageAccount,
                         theStream,
-                        blobStoragePath,
-                        app.StorageAccountNumber
+                        blobStoragePath
                     );
                 }
                 catch
@@ -362,11 +371,10 @@ public class MigrationController : ControllerBase
                     await DataService.DeleteAllocatedBlobVersion(
                         _blobRepository,
                         _dataRepository,
-                        blobOrg,
+                        blobStorageAccount,
                         dataElementId,
                         blobStoragePath,
-                        blobVersionId,
-                        app.StorageAccountNumber
+                        blobVersionId
                     );
                     throw;
                 }
@@ -387,11 +395,10 @@ public class MigrationController : ControllerBase
                 await DataService.DeleteAllocatedBlobVersion(
                     _blobRepository,
                     _dataRepository,
-                    blobOrg,
+                    blobStorageAccount,
                     dataElementId,
                     blobStoragePath,
-                    blobVersionId,
-                    app.StorageAccountNumber
+                    blobVersionId
                 );
             }
 
@@ -766,18 +773,34 @@ public class MigrationController : ControllerBase
             cancellationToken
         );
 
-        if (_generalSettings.A2UseTtdAsServiceOwner)
+        string blobOrg = _generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org;
+        HashSet<(StorageAccount Account, string AppId)> contexts =
+        [
+            (
+                _storageAccountResolver.PatternDefault(blobOrg, StorageAccountNaming.NumberOf(app)),
+                instance.AppId
+            ),
+        ];
+        foreach (
+            BlobVersionReferencesInternal blobVersion in await _instanceRepository.GetBlobVersionsForInstance(
+                instanceGuid,
+                cancellationToken
+            )
+        )
         {
-            instance.Org = "ttd";
+            contexts.Add(
+                (
+                    await _storageAccountResolver.ForVersion(blobVersion, cancellationToken),
+                    blobVersion.AppId
+                )
+            );
         }
 
-        await _blobRepository.DeleteDataBlobs(
-            instance.Org,
-            instance.AppId,
-            instanceGuid,
-            app.StorageAccountNumber,
-            cancellationToken
-        );
+        foreach ((StorageAccount account, string appId) in contexts)
+        {
+            await _blobRepository.DeleteDataBlobs(account, appId, instanceGuid, cancellationToken);
+        }
+
         await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);
         await _instanceEventRepository.DeleteAllInstanceEvents(instanceGuid);
         await _instanceRepository.Delete(instanceGuid, cancellationToken);

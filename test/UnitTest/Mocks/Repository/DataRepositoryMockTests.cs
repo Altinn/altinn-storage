@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -30,7 +30,7 @@ public class DataRepositoryMockTests
             dataElementId,
             "other/app",
             "other",
-            null
+            1
         );
         string secondBlobVersionId = await AllocateBlobVersion(
             repository,
@@ -66,7 +66,7 @@ public class DataRepositoryMockTests
                 Assert.Equal(instanceGuid, otherContext.InstanceGuid);
                 Assert.Equal("other/app", otherContext.AppId);
                 Assert.Equal("other", otherContext.BlobStorageOrg);
-                Assert.Null(otherContext.StorageAccountNumber);
+                Assert.Equal(1, otherContext.StorageAccountNumber);
                 Assert.Equal([otherContextBlobVersionId], otherContext.BlobVersionIds);
             }
         );
@@ -90,7 +90,7 @@ public class DataRepositoryMockTests
             dataElementId,
             "other/app",
             "other",
-            null
+            1
         );
 
         await repository.Create(
@@ -147,17 +147,17 @@ public class DataRepositoryMockTests
         DataElementInternal createdElement = (
             await repository.Create(CreateDataElement(instanceGuid, dataElementId, blobVersionId))
         ).DataElement;
-        DataElementInternal updatedElement = (
-            await repository.UpdateFileScanStatus(
-                instanceGuid,
-                dataElementId,
-                new FileScanStatus
-                {
-                    BlobVersionId = blobVersionId,
-                    FileScanResult = FileScanResult.Clean,
-                }
-            )
-        )!.DataElement;
+        FileScanStatusUpdateResult updateResult = await repository.UpdateFileScanStatus(
+            instanceGuid,
+            dataElementId,
+            new FileScanStatus
+            {
+                BlobVersionId = blobVersionId,
+                FileScanResult = FileScanResult.Clean,
+            }
+        );
+        Assert.Equal(FileScanStatusOutcome.Updated, updateResult.Outcome);
+        DataElementInternal updatedElement = updateResult.WriteResult!.DataElement;
 
         Assert.Equal(blobVersionId, createdElement.BlobVersionId);
         Assert.Equal(
@@ -259,7 +259,8 @@ public class DataRepositoryMockTests
 
         Assert.Equal(HttpStatusCode.NotFound, updateException.StatusCodeSuggestion);
         Assert.Equal($"Data element {dataElementId} was not found.", updateException.Message);
-        Assert.Null(scanResult);
+        Assert.Equal(FileScanStatusOutcome.Deleted, scanResult.Outcome);
+        Assert.Null(scanResult.WriteResult);
         DataElementInternal storedElement = await repository.Read(ownerInstanceGuid, dataElementId);
         Assert.Equal(currentVersion, storedElement.BlobVersionId);
         Assert.NotEqual(FileScanResult.Infected, storedElement.FileScanResult);
@@ -638,7 +639,7 @@ public class DataRepositoryMockTests
             secondId,
             "other/app",
             "other",
-            null
+            1
         );
         string secondDetached = await AllocateBlobVersion(
             repo,
@@ -646,7 +647,7 @@ public class DataRepositoryMockTests
             secondId,
             "other/app",
             "other",
-            null
+            1
         );
         string lastDetached = await AllocateBlobVersion(repo, instance, detachedOnlyId);
         await repo.Create(CreateDataElement(instance, firstId, firstAttached));
@@ -740,13 +741,14 @@ public class DataRepositoryMockTests
         Guid dataElementId,
         string appId = "ttd/app",
         string blobStorageOrg = "ttd",
-        int? storageAccountNumber = 42
+        int storageAccountNumber = 42
     ) =>
         repository.CreateBlobVersionId(
             instanceGuid,
             dataElementId,
             appId,
             blobStorageOrg,
-            storageAccountNumber
+            storageAccountNumber,
+            null
         );
 }

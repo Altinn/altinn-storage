@@ -12,6 +12,8 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -46,6 +48,7 @@ public class CleanupControllerUnitTests
             "stored/app",
             "storage-org",
             blobStorageAccountNumber,
+            null,
             [firstBlobVersionId, secondBlobVersionId]
         );
         BlobVersionReferencesInternal alreadyDeletedByCurrentContext = new(
@@ -53,6 +56,7 @@ public class CleanupControllerUnitTests
             instance.AppId,
             instance.Org,
             storageAccountNumber,
+            null,
             [thirdBlobVersionId]
         );
 
@@ -95,10 +99,9 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteDataBlobs(
-                    instance.Org,
+                    TestStorageAccounts.PatternDefault(instance.Org),
                     instance.AppId,
                     instance.Id,
-                    storageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -106,10 +109,9 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteDataBlobs(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     "stored/app",
                     instanceGuid,
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -138,16 +140,14 @@ public class CleanupControllerUnitTests
         blobRepositoryMock.Verify(
             repository =>
                 repository.DeleteBlobsIfExists(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<IReadOnlyList<string>>(),
-                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
         );
         blobRepositoryMock.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
         instanceRepositoryMock.Verify(
@@ -182,6 +182,7 @@ public class CleanupControllerUnitTests
             "stored/app",
             "storage-org",
             blobStorageAccountNumber,
+            null,
             [blobVersionId]
         );
 
@@ -221,10 +222,9 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteDataBlobs(
-                    instance.Org,
+                    TestStorageAccounts.PatternDefault(instance.Org),
                     instance.AppId,
                     instance.Id,
-                    storageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -232,10 +232,9 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteDataBlobs(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     "stored/app",
                     instanceGuid,
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -321,10 +320,9 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteDataBlobs(
-                    instance.Org,
+                    TestStorageAccounts.PatternDefault(instance.Org),
                     instance.AppId,
                     instanceGuid,
-                    storageAccountNumber,
                     CancellationToken.None
                 )
             )
@@ -429,6 +427,7 @@ public class CleanupControllerUnitTests
                     "stored/app",
                     "storage-org",
                     blobStorageAccountNumber,
+                    null,
                     [firstBlobVersionId, secondBlobVersionId]
                 ),
             ]
@@ -481,11 +480,10 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.Is<IReadOnlyList<string>>(paths =>
                         paths.SequenceEqual(expectedBlobStoragePaths)
                     ),
-                    blobStorageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -494,9 +492,8 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteBlob(
-                    "storage-org",
-                    legacyBlobStoragePath,
-                    blobStorageAccountNumber
+                    TestStorageAccounts.PatternDefault("storage-org"),
+                    legacyBlobStoragePath
                 )
             )
             .Callback(() => Assert.Equal(1, callOrder++))
@@ -585,8 +582,7 @@ public class CleanupControllerUnitTests
             Times.Never
         );
         blobRepositoryMock.Verify(
-            repository =>
-                repository.DeleteBlob(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int?>()),
+            repository => repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>()),
             Times.Never
         );
         dataRepositoryMock.Verify(
@@ -612,6 +608,7 @@ public class CleanupControllerUnitTests
             "ttd/app",
             "storage-org",
             storageAccountNumber,
+            null,
             [firstBlobVersionId, secondBlobVersionId]
         );
         string[] expectedBlobStoragePaths =
@@ -638,11 +635,10 @@ public class CleanupControllerUnitTests
         blobRepositoryMock
             .Setup(repository =>
                 repository.DeleteBlobsIfExists(
-                    "storage-org",
+                    TestStorageAccounts.PatternDefault("storage-org"),
                     It.Is<IReadOnlyList<string>>(paths =>
                         paths.SequenceEqual(expectedBlobStoragePaths)
                     ),
-                    storageAccountNumber,
                     It.IsAny<CancellationToken>()
                 )
             )
@@ -678,6 +674,188 @@ public class CleanupControllerUnitTests
             repository =>
                 repository.DeleteForCleanup(
                     It.IsAny<DataElementInternal>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDataelements_UnreadableStorageAccount_SkipsItsItemsAndCleansUpTheRest()
+    {
+        // Arrange
+        const short unreadableAccountId = 9;
+        Guid instanceGuid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"1337/{instanceGuid}",
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DataElementInternal unreadableElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"ttd/app/{instanceGuid}/data/unreadable",
+        }.FromApiModel(null);
+        DataElementInternal readableElement = new DataElement
+        {
+            Id = Guid.NewGuid().ToString(),
+            InstanceGuid = instanceGuid.ToString(),
+            BlobStoragePath = $"ttd/app/{instanceGuid}/data/readable",
+        }.FromApiModel(null);
+        string unreadableVersion = BlobVersionId.Encode(Guid.CreateVersion7());
+        string readableVersion = BlobVersionId.Encode(Guid.CreateVersion7());
+        string unreadableOrphan = BlobVersionId.Encode(Guid.CreateVersion7());
+        string readableOrphan = BlobVersionId.Encode(Guid.CreateVersion7());
+
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        Mock<IStorageAccountRepository> storageAccountRepositoryMock = new();
+
+        storageAccountRepositoryMock
+            .Setup(repository => repository.ReadAll(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new StorageAccountRows(
+                    [],
+                    [
+                        new UnreadableStorageAccountRow(
+                            unreadableAccountId,
+                            "unknown-provider",
+                            "ttd",
+                            1,
+                            false,
+                            "The provider is not supported."
+                        ),
+                    ]
+                )
+            );
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetHardDeletedDataElements(It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new DeletedDataElementInternal(
+                    unreadableElement,
+                    [
+                        new BlobVersionReferencesInternal(
+                            instanceGuid,
+                            "ttd/app",
+                            "ttd",
+                            null,
+                            unreadableAccountId,
+                            [unreadableVersion]
+                        ),
+                    ]
+                ),
+                new DeletedDataElementInternal(
+                    readableElement,
+                    [
+                        new BlobVersionReferencesInternal(
+                            instanceGuid,
+                            "ttd/app",
+                            "ttd",
+                            null,
+                            null,
+                            [readableVersion]
+                        ),
+                    ]
+                ),
+            ]);
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(InstanceInternalTestFactory.Create(instance, [], InternalId: 0L));
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetOrphanBlobVersionsForCleanup(It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "ttd/app",
+                    "ttd",
+                    null,
+                    unreadableAccountId,
+                    [unreadableOrphan]
+                ),
+                new BlobVersionReferencesInternal(
+                    instanceGuid,
+                    "ttd/app",
+                    "ttd",
+                    null,
+                    null,
+                    [readableOrphan]
+                ),
+            ]);
+        applicationRepositoryMock
+            .Setup(repository =>
+                repository.FindOne(instance.AppId, instance.Org, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application { Id = instance.AppId, Org = instance.Org });
+        blobRepositoryMock
+            .Setup(repository =>
+                repository.DeleteBlobsIfExists(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    It.IsAny<IReadOnlyList<string>>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync([true]);
+        blobRepositoryMock
+            .Setup(repository =>
+                repository.DeleteBlob(TestStorageAccounts.PatternDefault("ttd"), It.IsAny<string>())
+            )
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.DeleteForCleanup(readableElement, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.DeleteOrphanBlobVersions(
+                    It.Is<IReadOnlyList<string>>(versions =>
+                        versions.SequenceEqual(new[] { readableOrphan })
+                    ),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(1);
+
+        CleanupController controller = CreateController(
+            instanceRepositoryMock: instanceRepositoryMock,
+            applicationRepositoryMock: applicationRepositoryMock,
+            blobRepositoryMock: blobRepositoryMock,
+            dataRepositoryMock: dataRepositoryMock,
+            storageAccountResolver: TestStorageAccounts.CreateResolver(
+                storageAccountRepositoryMock.Object
+            )
+        );
+
+        // Act
+        ActionResult result = await controller.CleanupDataelements(CancellationToken.None);
+
+        // Assert
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+        Assert.Equal(
+            "CleanupController // CleanupDataelements // Errors occured when deleting 1 data elements and 1 orphan blob version groups",
+            objectResult.Value
+        );
+        dataRepositoryMock.VerifyAll();
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.DeleteForCleanup(unreadableElement, It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.DeleteOrphanBlobVersions(
+                    It.Is<IReadOnlyList<string>>(versions => versions.Contains(unreadableOrphan)),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -741,12 +919,18 @@ public class CleanupControllerUnitTests
             .ReturnsAsync(new Application { Id = instance.AppId, Org = instance.Org });
         blobRepositoryMock
             .Setup(repository =>
-                repository.DeleteBlob("ttd", firstDataElement.BlobStoragePath, null)
+                repository.DeleteBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    firstDataElement.BlobStoragePath
+                )
             )
             .ReturnsAsync(true);
         blobRepositoryMock
             .Setup(repository =>
-                repository.DeleteBlob("ttd", secondDataElement.BlobStoragePath, null)
+                repository.DeleteBlob(
+                    TestStorageAccounts.PatternDefault("ttd"),
+                    secondDataElement.BlobStoragePath
+                )
             )
             .ReturnsAsync(true);
         dataRepositoryMock
@@ -869,7 +1053,8 @@ public class CleanupControllerUnitTests
         Mock<IInstanceEventRepository> instanceEventRepositoryMock = null,
         Mock<IInstanceMutationRepository> instanceMutationRepositoryMock = null,
         StorageCleanupSettings cleanupSettings = null,
-        Mock<ILogger<CleanupController>> loggerMock = null
+        Mock<ILogger<CleanupController>> loggerMock = null,
+        IStorageAccountResolver storageAccountResolver = null
     ) =>
         new(
             (instanceRepositoryMock ?? new Mock<IInstanceRepository>(MockBehavior.Strict)).Object,
@@ -887,6 +1072,7 @@ public class CleanupControllerUnitTests
                 ?? new Mock<IInstanceMutationRepository>(MockBehavior.Strict)
             ).Object,
             Options.Create(cleanupSettings ?? new StorageCleanupSettings()),
-            loggerMock?.Object ?? NullLogger<CleanupController>.Instance
+            loggerMock?.Object ?? NullLogger<CleanupController>.Instance,
+            storageAccountResolver ?? new PatternDefaultStorageAccountResolver()
         );
 }

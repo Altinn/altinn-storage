@@ -3,7 +3,9 @@
 using System;
 using System.Collections.Generic;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
+using Altinn.Platform.Storage.UnitTest.Fixture;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,12 +45,19 @@ public static class ServiceUtil
         return "appsettings.unittest.json";
     }
 
+    /// <summary>
+    /// Adds appsettings.unittest.json, pointed at the PostgreSQL and Azurite test containers.
+    /// </summary>
+    public static IConfigurationBuilder AddTestSettings(this IConfigurationBuilder builder)
+    {
+        return builder
+            .AddJsonFile(GetAppsettingsPath())
+            .AddInMemoryCollection(TestContainers.Settings);
+    }
+
     private static ServiceProvider BuildServiceProvider()
     {
-        var config = new ConfigurationBuilder()
-            .AddJsonFile(GetAppsettingsPath())
-            .AddEnvironmentVariables()
-            .Build();
+        var config = new ConfigurationBuilder().AddTestSettings().AddEnvironmentVariables().Build();
 
         WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
 
@@ -59,6 +68,10 @@ public static class ServiceUtil
         services.AddMemoryCache();
 
         services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
+        services.Configure<AzureStorageConfiguration>(
+            config.GetSection("AzureStorageConfiguration")
+        );
+        services.AddSingleton<IStorageAccountResolver, StorageAccountResolver>();
 
         return services.BuildServiceProvider();
     }

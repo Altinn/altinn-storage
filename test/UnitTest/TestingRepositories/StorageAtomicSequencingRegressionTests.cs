@@ -20,6 +20,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Extensions;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -388,9 +389,8 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         Assert.Equal(0, await CountInstanceEvents(instanceGuid, InstanceEventType.Signed));
         Assert.Equal(0, await CountInstanceEvents(instanceGuid, InstanceEventType.Deleted));
         await using Stream oldBlob = await blobRepository.ReadBlob(
-            instance.Org,
+            TestStorageAccounts.PatternDefault(instance.Org),
             oldSignature.BlobStoragePath,
-            null,
             CancellationToken.None
         );
         Assert.NotNull(oldBlob);
@@ -432,6 +432,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             _fixture.InstanceMutationRepo,
             CreateApplicationRepository().Object,
             blobRepository,
+            _fixture.StorageAccountResolver,
             NullLogger<SigningService>.Instance
         );
 
@@ -440,7 +441,12 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
 
     private DataService CreateDataService(InMemoryBlobRepository blobRepository)
     {
-        return new DataService(Mock.Of<IFileScanQueueClient>(), _fixture.DataRepo, blobRepository);
+        return new DataService(
+            Mock.Of<IFileScanQueueClient>(),
+            _fixture.DataRepo,
+            blobRepository,
+            _fixture.StorageAccountResolver
+        );
     }
 
     private static Mock<IApplicationService> CreateApplicationService()
@@ -550,6 +556,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             dataElementId,
             instance.AppId,
             instance.Org,
+            1,
             null,
             CancellationToken.None
         );
@@ -559,7 +566,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             blobVersionId
         );
         blobRepository.Put(
-            instance.Org,
+            TestStorageAccounts.PatternDefault(instance.Org),
             blobStoragePath,
             blobContent ?? "test content"u8.ToArray()
         );
@@ -723,33 +730,31 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
     {
         private readonly ConcurrentDictionary<string, byte[]> _content = new();
 
-        public void Put(string org, string blobStoragePath, byte[] content)
+        public void Put(StorageAccount account, string blobStoragePath, byte[] content)
         {
-            _content[Key(org, blobStoragePath)] = content;
+            _content[Key(account, blobStoragePath)] = content;
         }
 
         public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-            string org,
+            StorageAccount account,
             Stream stream,
-            string blobStoragePath,
-            int? storageAccountNumber
+            string blobStoragePath
         )
         {
             using MemoryStream buffer = new();
             await stream.CopyToAsync(buffer);
             byte[] content = buffer.ToArray();
-            Put(org, blobStoragePath, content);
+            Put(account, blobStoragePath, content);
             return (content.Length, DateTimeOffset.UtcNow);
         }
 
         public Task<Stream> ReadBlob(
-            string org,
+            StorageAccount account,
             string blobStoragePath,
-            int? storageAccountNumber,
             CancellationToken cancellationToken = default
         )
         {
-            if (!_content.TryGetValue(Key(org, blobStoragePath), out byte[] content))
+            if (!_content.TryGetValue(Key(account, blobStoragePath), out byte[] content))
             {
                 return Task.FromResult<Stream>(null);
             }
@@ -757,16 +762,15 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             return Task.FromResult<Stream>(new MemoryStream(content));
         }
 
-        public Task<bool> DeleteBlob(string org, string blobStoragePath, int? storageAccountNumber)
+        public Task<bool> DeleteBlob(StorageAccount account, string blobStoragePath)
         {
-            _content.TryRemove(Key(org, blobStoragePath), out _);
+            _content.TryRemove(Key(account, blobStoragePath), out _);
             return Task.FromResult(true);
         }
 
         public Task<bool[]> DeleteBlobsIfExists(
-            string org,
+            StorageAccount account,
             IReadOnlyList<string> blobStoragePaths,
-            int? storageAccountNumber,
             CancellationToken cancellationToken = default
         )
         {
@@ -774,7 +778,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             int index = 0;
             foreach (string blobStoragePath in blobStoragePaths)
             {
-                _content.TryRemove(Key(org, blobStoragePath), out _);
+                _content.TryRemove(Key(account, blobStoragePath), out _);
                 result[index++] = true;
             }
 
@@ -782,17 +786,31 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         }
 
         public Task<bool> DeleteDataBlobs(
-            string org,
+            StorageAccount account,
             string appId,
             Guid instanceGuid,
-            int? storageAccountNumber,
             CancellationToken cancellationToken = default
         )
         {
             return Task.FromResult(true);
         }
 
-        private static string Key(string org, string blobStoragePath) => $"{org}/{blobStoragePath}";
+        public Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
+            StorageAccount account,
+            string blobStoragePath,
+            TimeSpan lifetime,
+            CancellationToken cancellationToken = default
+        ) => throw new NotSupportedException();
+
+        private static string Key(StorageAccount account, string blobStoragePath)
+        {
+            string location = account.ProviderInfo switch
+            {
+                AzureBlobProviderInfo info => $"{info.AccountName}/{info.Container}",
+                _ => throw new NotSupportedException(),
+            };
+            return $"{location}/{blobStoragePath}";
+        }
     }
 }
 
@@ -804,17 +822,21 @@ public class StorageAtomicSequencingFixture
 
     public IDataRepository DataRepo { get; }
 
+    public IStorageAccountResolver StorageAccountResolver { get; }
+
     public StorageAtomicSequencingFixture()
     {
         List<object> serviceList = ServiceUtil.GetServices([
             typeof(IInstanceRepository),
             typeof(IInstanceMutationRepository),
             typeof(IDataRepository),
+            typeof(IStorageAccountResolver),
         ]);
         InstanceRepo = (IInstanceRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceRepository));
         InstanceMutationRepo = (IInstanceMutationRepository)
             serviceList.First(i => i.GetType() == typeof(PgInstanceMutationRepository));
         DataRepo = (IDataRepository)serviceList.First(i => i.GetType() == typeof(PgDataRepository));
+        StorageAccountResolver = serviceList.OfType<IStorageAccountResolver>().First();
     }
 }

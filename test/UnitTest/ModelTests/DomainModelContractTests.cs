@@ -137,14 +137,26 @@ public class DomainModelContractTests
             apiProperties,
             domainProperties,
             apiOnly: ["SelfLinks"],
-            domainOnly: []
+            domainOnly:
+            [
+                "BlobStorageAccountNumber",
+                "BlobStorageLoaded",
+                "BlobStorageOrg",
+                "StorageAccountId",
+            ]
         );
         AssertMatchingTypes(
             apiProperties,
             domainProperties,
             new Dictionary<string, Type> { ["Id"] = typeof(Guid), ["InstanceGuid"] = typeof(Guid) }
         );
-        AssertJsonIgnoredProperties<DataElementInternal>("BlobVersionId");
+        AssertJsonIgnoredProperties<DataElementInternal>(
+            "BlobStorageAccountNumber",
+            "BlobStorageLoaded",
+            "BlobStorageOrg",
+            "BlobVersionId",
+            "StorageAccountId"
+        );
         Assert.All(domainProperties.Values, property => Assert.True(property.CanWrite));
         Assert.False(typeof(DataElement).IsAssignableFrom(typeof(DataElementInternal)));
         Assert.Null(
@@ -351,12 +363,31 @@ public class DomainModelContractTests
                 .ParameterType
         );
         Assert.All(
-            methods.Where(method => method.Name.StartsWith("Update", StringComparison.Ordinal)),
+            methods.Where(method =>
+                method.Name.StartsWith("Update", StringComparison.Ordinal)
+                && method.Name != nameof(IDataRepository.UpdateFileScanStatus)
+            ),
             method =>
                 Assert.Equal(
                     typeof(DataElementWriteResult),
                     method.ReturnType.GetGenericArguments().Single()
                 )
+        );
+        Assert.Equal(
+            typeof(FileScanStatusUpdateResult),
+            Assert
+                .Single(
+                    methods,
+                    method => method.Name == nameof(IDataRepository.UpdateFileScanStatus)
+                )
+                .ReturnType.GetGenericArguments()
+                .Single()
+        );
+        Assert.Equal(
+            typeof(DataElementWriteResult),
+            typeof(FileScanStatusUpdateResult)
+                .GetProperty(nameof(FileScanStatusUpdateResult.WriteResult))!
+                .PropertyType
         );
     }
 

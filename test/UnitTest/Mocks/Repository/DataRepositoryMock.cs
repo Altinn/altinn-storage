@@ -227,7 +227,7 @@ public class DataRepositoryMock : IDataRepository
             UpdateStoredDataElement(instanceGuid, dataElementId, element => element.Locked = locked)
         );
 
-    public Task<DataElementWriteResult?> UpdateFileScanStatus(
+    public Task<FileScanStatusUpdateResult> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,
@@ -248,17 +248,25 @@ public class DataRepositoryMock : IDataRepository
                     out StoredDataElement storedDataElement
                 )
                 || storedDataElement.InstanceGuid != instanceGuid
-                || (
-                    expectedBlobVersionId is not null
-                    && !string.Equals(
-                        expectedBlobVersionId,
-                        storedDataElement.CurrentBlobVersion,
-                        StringComparison.Ordinal
-                    )
+            )
+            {
+                return Task.FromResult(
+                    new FileScanStatusUpdateResult(FileScanStatusOutcome.Deleted)
+                );
+            }
+
+            if (
+                expectedBlobVersionId is not null
+                && !string.Equals(
+                    expectedBlobVersionId,
+                    storedDataElement.CurrentBlobVersion,
+                    StringComparison.Ordinal
                 )
             )
             {
-                return Task.FromResult<DataElementWriteResult?>(null);
+                return Task.FromResult(
+                    new FileScanStatusUpdateResult(FileScanStatusOutcome.Superseded)
+                );
             }
 
             stagedElement = DeserializeStoredDataElement(storedDataElement);
@@ -272,8 +280,11 @@ public class DataRepositoryMock : IDataRepository
             versions = CurrentStorageVersionsLocked();
         }
 
-        return Task.FromResult<DataElementWriteResult?>(
-            new DataElementWriteResult(stagedElement, versions)
+        return Task.FromResult(
+            new FileScanStatusUpdateResult(
+                FileScanStatusOutcome.Updated,
+                new DataElementWriteResult(stagedElement, versions)
+            )
         );
     }
 
@@ -283,6 +294,7 @@ public class DataRepositoryMock : IDataRepository
         string appId,
         string blobStorageOrg,
         int? storageAccountNumber,
+        short? storageAccountId,
         CancellationToken cancellationToken = default
     )
     {
@@ -300,6 +312,7 @@ public class DataRepositoryMock : IDataRepository
                     AppId = appId,
                     BlobStorageOrg = blobStorageOrg,
                     StorageAccountNumber = storageAccountNumber,
+                    StorageAccountId = storageAccountId,
                     Created = created,
                     DetachedAt = created,
                 }
@@ -424,7 +437,8 @@ public class DataRepositoryMock : IDataRepository
                         version.InstanceGuid,
                         version.AppId,
                         version.BlobStorageOrg,
-                        version.StorageAccountNumber
+                        version.StorageAccountNumber,
+                        version.StorageAccountId
                     )
                 )
                 .Select(group => new BlobVersionReferencesInternal(
@@ -432,6 +446,7 @@ public class DataRepositoryMock : IDataRepository
                     group.Key.AppId,
                     group.Key.BlobStorageOrg,
                     group.Key.StorageAccountNumber,
+                    group.Key.StorageAccountId,
                     [.. group.Select(version => BlobVersionId.Encode(version.Id))]
                 )),
         ];

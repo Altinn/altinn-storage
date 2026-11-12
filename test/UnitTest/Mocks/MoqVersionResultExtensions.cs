@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Altinn.Platform.Storage.UnitTest.Mocks;
 using Moq.Language.Flow;
 
 namespace Moq;
@@ -85,7 +86,7 @@ internal static class MoqVersionResultExtensions
         );
 
     public static IReturnsResult<TMock> ReturnsAsync<TMock>(
-        this ISetup<TMock, Task<DataElementWriteResult>> setup,
+        this ISetup<TMock, Task<FileScanStatusUpdateResult>> setup,
         Func<Guid, Guid, FileScanStatus, CancellationToken, DataElement> value
     )
         where TMock : class =>
@@ -97,10 +98,13 @@ internal static class MoqVersionResultExtensions
                 CancellationToken cancellationToken
             ) =>
                 Task.FromResult(
-                    new DataElementWriteResult(
-                        value(instanceGuid, dataElementId, fileScanStatus, cancellationToken)
-                            .FromApiModel(),
-                        new StorageVersions(1, 1)
+                    new FileScanStatusUpdateResult(
+                        FileScanStatusOutcome.Updated,
+                        new DataElementWriteResult(
+                            value(instanceGuid, dataElementId, fileScanStatus, cancellationToken)
+                                .FromApiModel(),
+                            new StorageVersions(1, 1)
+                        )
                     )
                 )
         );
@@ -112,7 +116,7 @@ internal static class MoqVersionResultExtensions
             Stream,
             DataElementCreateOptions,
             long,
-            int?,
+            Application,
             CancellationToken,
             (DataElementInternal DataElement, DateTimeOffset BlobTimestamp)
         > value
@@ -124,7 +128,7 @@ internal static class MoqVersionResultExtensions
                 Stream stream,
                 DataElementCreateOptions options,
                 long instanceInternalId,
-                int? storageAccountNumber,
+                Application application,
                 int? expectedInstanceVersion,
                 int? expectedProcessStateVersion,
                 CancellationToken cancellationToken
@@ -135,11 +139,16 @@ internal static class MoqVersionResultExtensions
                     stream,
                     options,
                     instanceInternalId,
-                    storageAccountNumber,
+                    application,
                     cancellationToken
                 );
                 return Task.FromResult(
-                    new DataUploadResult(dataElement, blobTimestamp, new StorageVersions(1, 1))
+                    new DataUploadResult(
+                        dataElement,
+                        blobTimestamp,
+                        new StorageVersions(1, 1),
+                        TestStorageAccounts.PatternDefault(instanceInternal.Org)
+                    )
                 );
             }
         );

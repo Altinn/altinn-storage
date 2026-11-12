@@ -254,6 +254,8 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
 
     services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
+    services.AddSingleton<IAuthorizationHandler, PlatformAccessTokenAppHandler>();
+    services.AddSingleton<IAccessTokenValidator, AccessTokenValidator>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
 
     services
@@ -324,6 +326,13 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         .AddPolicy(
             "PlatformAccess",
             policy => policy.Requirements.Add(new AccessTokenRequirement())
+        )
+        .AddPolicy(
+            AuthzConstants.POLICY_PLATFORM_FILE_SCAN,
+            policy =>
+                policy.Requirements.Add(
+                    new PlatformAccessTokenAppRequirement("platform", "file-scan")
+                )
         );
 
     services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
@@ -358,6 +367,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IProcessAuthorizer, ProcessAuthorizer>();
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
+    services.AddSingleton<IStorageAccountResolver, StorageAccountResolver>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
@@ -379,6 +389,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSwaggerGen(SwaggerExtensions.StorageSwaggerGen);
     services.AddSwaggerGenNewtonsoftSupport();
 
+    builder.Services.AddHostedService<StorageAccountStartupCheck>();
     builder.Services.AddHostedService<OutboxService>();
 }
 

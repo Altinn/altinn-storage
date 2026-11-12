@@ -17,6 +17,7 @@ public sealed record BlobVersionReferencesInternal
         string appId,
         string blobStorageOrg,
         int? storageAccountNumber,
+        short? storageAccountId,
         IEnumerable<string>? blobVersionIds
     )
     {
@@ -24,6 +25,7 @@ public sealed record BlobVersionReferencesInternal
         AppId = appId ?? throw new ArgumentNullException(nameof(appId));
         BlobStorageOrg = blobStorageOrg ?? throw new ArgumentNullException(nameof(blobStorageOrg));
         StorageAccountNumber = storageAccountNumber;
+        StorageAccountId = storageAccountId;
         BlobVersionIds =
             blobVersionIds
                 ?.Where(versionId => !string.IsNullOrEmpty(versionId))
@@ -51,6 +53,11 @@ public sealed record BlobVersionReferencesInternal
     /// Gets the storage account number, if any.
     /// </summary>
     public int? StorageAccountNumber { get; }
+
+    /// <summary>
+    /// Gets the id of the storage account the blob versions were written to, or null for the pattern default.
+    /// </summary>
+    public short? StorageAccountId { get; }
 
     /// <summary>
     /// Gets the blob version ids in this storage context.

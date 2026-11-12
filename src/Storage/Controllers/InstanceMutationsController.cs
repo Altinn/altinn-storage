@@ -41,6 +41,7 @@ namespace Altinn.Platform.Storage.Controllers;
 /// <param name="authorizationService">The authorization service</param>
 /// <param name="policyAuthorizationService">The ASP.NET Core policy authorization service.</param>
 /// <param name="processAuthorizer">The process-state authorizer.</param>
+/// <param name="storageAccountResolver">Resolves the storage accounts blobs are written to.</param>
 [Route("storage/api/v1/instances/{instanceOwnerPartyId:int}/{instanceGuid:guid}/mutations")]
 [ApiController]
 public class InstanceMutationsController(
@@ -54,7 +55,8 @@ public class InstanceMutationsController(
     IOptions<GeneralSettings> generalSettings,
     IAuthorization authorizationService,
     IAuthorizationService policyAuthorizationService,
-    IProcessAuthorizer processAuthorizer
+    IProcessAuthorizer processAuthorizer,
+    IStorageAccountResolver storageAccountResolver
 ) : ControllerBase
 {
     private const long _requestSizeLimit = 2000 * 1024 * 1024;
@@ -898,7 +900,7 @@ public class InstanceMutationsController(
             await dataService.DeleteLegacyDataElementBlob(
                 updatedInstanceInternal,
                 dataElementInternal,
-                application.StorageAccountNumber
+                StorageAccountNaming.NumberOf(application)
             );
         }
     }
@@ -1719,11 +1721,10 @@ public class InstanceMutationsController(
             DataService.DeleteAllocatedBlobVersion(
                 blobRepository,
                 dataRepository,
-                stagedBlob.Org,
+                stagedBlob.StorageAccount,
                 stagedBlob.DataElementId,
                 stagedBlob.BlobStoragePath,
-                stagedBlob.BlobVersionId,
-                stagedBlob.StorageAccountNumber
+                stagedBlob.BlobVersionId
             )
         );
     }
@@ -1743,12 +1744,18 @@ public class InstanceMutationsController(
         CancellationToken cancellationToken
     )
     {
+        StorageAccount storageAccount = await storageAccountResolver.ForWrite(
+            instance.Org,
+            StorageAccountNaming.NumberOf(application),
+            cancellationToken
+        );
         string blobVersionId = await dataRepository.CreateBlobVersionId(
             instance.Id,
             dataElementId,
             instance.AppId,
             instance.Org,
             application.StorageAccountNumber,
+            storageAccount.Id,
             cancellationToken
         );
         string versionedBlobStoragePath = DataElementHelper.GetVersionedBlobPath(
@@ -1760,10 +1767,9 @@ public class InstanceMutationsController(
         try
         {
             (long blobSize, DateTimeOffset blobTimestamp) = await blobRepository.WriteBlob(
-                instance.Org,
+                storageAccount,
                 content,
-                versionedBlobStoragePath,
-                application.StorageAccountNumber
+                versionedBlobStoragePath
             );
 
             if (blobSize == 0)
@@ -1771,11 +1777,10 @@ public class InstanceMutationsController(
                 await DataService.DeleteAllocatedBlobVersion(
                     blobRepository,
                     dataRepository,
-                    instance.Org,
+                    storageAccount,
                     dataElementId,
                     versionedBlobStoragePath,
-                    blobVersionId,
-                    application.StorageAccountNumber
+                    blobVersionId
                 );
                 return (
                     null,
@@ -1788,11 +1793,10 @@ public class InstanceMutationsController(
 
             blobStaging.Track(
                 new StagedBlob(
-                    instance.Org,
+                    storageAccount,
                     dataElementId,
                     blobVersionId,
-                    versionedBlobStoragePath,
-                    application.StorageAccountNumber
+                    versionedBlobStoragePath
                 )
             );
             return (blobVersionId, versionedBlobStoragePath, blobSize, blobTimestamp, null);
@@ -1802,11 +1806,10 @@ public class InstanceMutationsController(
             await DataService.DeleteAllocatedBlobVersion(
                 blobRepository,
                 dataRepository,
-                instance.Org,
+                storageAccount,
                 dataElementId,
                 versionedBlobStoragePath,
-                blobVersionId,
-                application.StorageAccountNumber
+                blobVersionId
             );
             throw;
         }
@@ -1993,11 +1996,10 @@ public class InstanceMutationsController(
     }
 
     private sealed record StagedBlob(
-        string Org,
+        StorageAccount StorageAccount,
         Guid DataElementId,
         string BlobVersionId,
-        string BlobStoragePath,
-        int? StorageAccountNumber
+        string BlobStoragePath
     );
 
     private sealed class BlobStagingScope
