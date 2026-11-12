@@ -72,13 +72,6 @@ public abstract record StorageAccountProviderInfo
     /// <returns>The provider info document.</returns>
     public string Serialize() => JsonSerializer.Serialize(this, GetType(), JsonOptions);
 
-    /// <summary>
-    /// Writes the provider info document, without the provider, as a JSON element.
-    /// </summary>
-    /// <returns>The provider info document.</returns>
-    public JsonElement SerializeToElement() =>
-        JsonSerializer.SerializeToElement(this, GetType(), JsonOptions);
-
     private static T Deserialize<T>(string json)
         where T : StorageAccountProviderInfo
     {

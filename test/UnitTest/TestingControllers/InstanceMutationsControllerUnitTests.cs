@@ -1164,8 +1164,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -2984,8 +2983,7 @@ public class InstanceMutationsControllerUnitTests
                         && element.BlobStoragePath != "legacy/path"
                     ),
                     It.IsAny<DateTimeOffset>(),
-                    It.Is<Application>(app => app.StorageAccountNumber == 7),
-                    It.IsAny<StorageAccount>(),
+                    7,
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -4288,8 +4286,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -4394,8 +4391,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
@@ -5618,8 +5614,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<DataType>(),
                     It.IsAny<DataElementInternal>(),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 )
             )

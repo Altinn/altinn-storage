@@ -59,8 +59,7 @@ public class DataService : IDataService
         DataType dataType,
         DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
-        Application application,
-        StorageAccount storageAccount,
+        int? storageAccountNumber,
         CancellationToken ct
     )
     {
@@ -75,10 +74,7 @@ public class DataService : IDataService
                 BlobVersionId = dataElement.BlobVersionId,
                 Filename = dataElement.Filename,
                 Org = instance.Org,
-                StorageAccountNumber = application.StorageAccountNumber,
-                StorageAccountProvider = storageAccount.ProviderInfo.Provider,
-                StorageAccountProviderInfo = storageAccount.ProviderInfo.SerializeToElement(),
-                StorageAccountId = storageAccount.Id,
+                StorageAccountNumber = storageAccountNumber,
             };
 
             string serialisedRequest = JsonSerializer.Serialize(

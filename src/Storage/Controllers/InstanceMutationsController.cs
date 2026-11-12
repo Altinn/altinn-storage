@@ -963,8 +963,7 @@ public class InstanceMutationsController(
                 fileScanCandidate.DataType,
                 fileScanCandidate.DataElement,
                 fileScanCandidate.BlobTimestamp,
-                application,
-                fileScanCandidate.StorageAccount,
+                application.StorageAccountNumber,
                 CancellationToken.None
             );
         }
@@ -1082,12 +1081,7 @@ public class InstanceMutationsController(
                 BlobVersionId = staged.BlobVersionId,
             };
 
-            work.AddCreatedDataElement(
-                dataElement,
-                plannedCreate.DataType,
-                staged.BlobTimestamp,
-                staged.StorageAccount
-            );
+            work.AddCreatedDataElement(dataElement, plannedCreate.DataType, staged.BlobTimestamp);
         }
     }
 
@@ -1267,12 +1261,7 @@ public class InstanceMutationsController(
             staged.BlobStoragePath
         );
         scanElement.BlobVersionId = staged.BlobVersionId;
-        work.AddUpdatedContent(
-            scanElement,
-            plannedUpdate.DataType,
-            staged.BlobTimestamp,
-            staged.StorageAccount
-        );
+        work.AddUpdatedContent(scanElement, plannedUpdate.DataType, staged.BlobTimestamp);
     }
 
     private async Task<ActionResult> ValidateDeleteDataElements(
@@ -1588,7 +1577,6 @@ public class InstanceMutationsController(
                     string blobStoragePath,
                     long size,
                     DateTimeOffset blobTimestamp,
-                    StorageAccount storageAccount,
                     ActionResult stageError
                 ) = await StageBlob(
                     instance,
@@ -1609,7 +1597,6 @@ public class InstanceMutationsController(
                     blobStoragePath,
                     size,
                     blobTimestamp,
-                    storageAccount,
                     section.ContentType,
                     fileName
                 );
@@ -1861,7 +1848,6 @@ public class InstanceMutationsController(
         string BlobStoragePath,
         long Size,
         DateTimeOffset BlobTimestamp,
-        StorageAccount StorageAccount,
         ActionResult Error
     )> StageBlob(
         InstanceInternal instance,
@@ -1915,7 +1901,6 @@ public class InstanceMutationsController(
                     null,
                     0,
                     default,
-                    null,
                     UnprocessableEntity("Could not process attached file")
                 );
             }
@@ -1928,14 +1913,7 @@ public class InstanceMutationsController(
                     versionedBlobStoragePath
                 )
             );
-            return (
-                blobVersionId,
-                versionedBlobStoragePath,
-                blobSize,
-                blobTimestamp,
-                storageAccount,
-                null
-            );
+            return (blobVersionId, versionedBlobStoragePath, blobSize, blobTimestamp, null);
         }
         catch
         {
@@ -2187,7 +2165,6 @@ public class InstanceMutationsController(
         string BlobStoragePath,
         long Size,
         DateTimeOffset BlobTimestamp,
-        StorageAccount StorageAccount,
         string ContentType,
         string FileName
     );
@@ -2233,14 +2210,11 @@ public class InstanceMutationsController(
         public void AddCreatedDataElement(
             DataElementInternal dataElement,
             DataType dataType,
-            DateTimeOffset blobTimestamp,
-            StorageAccount storageAccount
+            DateTimeOffset blobTimestamp
         )
         {
             _createDataElements.Add(dataElement);
-            _fileScanCandidates.Add(
-                new FileScanCandidate(dataElement, dataType, blobTimestamp, storageAccount)
-            );
+            _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
             _transactionalEvents.Add((InstanceEventType.Created, dataElement));
         }
 
@@ -2250,13 +2224,10 @@ public class InstanceMutationsController(
         public void AddUpdatedContent(
             DataElementInternal dataElement,
             DataType dataType,
-            DateTimeOffset blobTimestamp,
-            StorageAccount storageAccount
+            DateTimeOffset blobTimestamp
         )
         {
-            _fileScanCandidates.Add(
-                new FileScanCandidate(dataElement, dataType, blobTimestamp, storageAccount)
-            );
+            _fileScanCandidates.Add(new FileScanCandidate(dataElement, dataType, blobTimestamp));
             _transactionalEvents.Add((InstanceEventType.Saved, dataElement));
         }
 
@@ -2313,7 +2284,6 @@ public class InstanceMutationsController(
     private sealed record FileScanCandidate(
         DataElementInternal DataElement,
         DataType DataType,
-        DateTimeOffset BlobTimestamp,
-        StorageAccount StorageAccount
+        DateTimeOffset BlobTimestamp
     );
 }

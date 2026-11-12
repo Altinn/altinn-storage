@@ -177,8 +177,9 @@ agree. `number` is `Application.StorageAccountNumber`, or 1 when the application
 writable row for the pair, `storageaccountid` is `NULL` and the blob goes to the pattern default,
 which is the behaviour of every environment until operations insert a row.
 
-The file-scan queue message carries the provider name and document of the account the blob was
-written to, so the scanner reads from the same location.
+The file scanner reads blobs from the pattern default account, using the org and storage account
+number in the queue message. It cannot read a blob in a named account, so no row may be inserted in
+an environment where file scanning is on until the scanner gets blobs through Storage instead.
 
 ## Cleanup
 
@@ -236,7 +237,7 @@ sequenceDiagram
     participant New as New account
     participant Pods as Storage pods
 
-    Ops->>New: create the account, grant Storage and file-scan their roles
+    Ops->>New: create the account, grant Storage its role
     Ops->>DB: storage.insertstorageaccount('azure-blob', '{...}', 'ttd', 1)
     Note over DB: new row, writable. The previous writable row loses the flag
     DB-->>Pods: picked up on the next refresh (at most one cache period)
@@ -251,8 +252,8 @@ sequenceDiagram
     Ops->>Old: retire, after the conditions in step 7
 ```
 
-1. **Create the account** and give Storage's workload identity and file-scan's identity the Storage
-   Blob Data Contributor role on it.
+1. **Create the account** and give Storage's workload identity the Storage Blob Data Contributor
+   role on it.
 2. **Insert the row.** `storage.insertstorageaccount` takes the writable flag over from the previous
    row for the pair in the same transaction. From the next cache refresh, new versions land in the
    new account. To set the flag on an existing row instead, clear it on the previous row and set it
@@ -303,6 +304,6 @@ WHERE blobstorageorg = 'ttd' AND COALESCE(storageaccountnumber, 1) = 1
 GROUP BY storageaccountid;
 ```
 
-Before the first row is inserted in an environment where file scanning is on, the scanner must be
-released with support for the location in the queue message and verified end to end against a blob
-in a named account.
+Before the first row is inserted in an environment where file scanning is on, the scanner must get
+blobs through Storage rather than from the pattern default account, and be verified end to end
+against a blob in a named account.
