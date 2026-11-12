@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.UnitTest.Fixture;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
@@ -153,12 +154,9 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
 {
     public const string Org = "ttd";
 
-    private const string _accountName = "devstoreaccount1";
-    private const string _accountKey =
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-    private static readonly string _blobEndPoint =
-        Environment.GetEnvironmentVariable("ALTINN_STORAGE_AZURITE_BLOB_ENDPOINT")
-        ?? "http://127.0.0.1:10000/devstoreaccount1";
+    private const string _accountName = TestContainers.AzuriteAccountName;
+    private const string _accountKey = TestContainers.AzuriteAccountKey;
+    private static readonly string _blobEndPoint = TestContainers.AzuriteBlobEndpoint;
     private readonly string _containerName = $"blobrepo-{Guid.NewGuid():N}"[..21];
     private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
     private BlobContainerClient _container = null!;
