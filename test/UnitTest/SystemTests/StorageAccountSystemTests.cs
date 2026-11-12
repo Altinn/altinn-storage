@@ -58,6 +58,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private const int _partyId = 1337;
     private const string _app = "system-test";
     private const string _defaultDataType = "default";
+    private const string _scannedDataType = "scanned";
     private const string _instancesPath = "storage/api/v1/instances";
     private const string _cleanupPath = "storage/api/v1/cleanup";
 
@@ -481,6 +482,65 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         }
     }
 
+    [Fact]
+    public async Task FileScanReadUrl_VersionInNamedAccount_ReadsFromThatAccountUntilScanned()
+    {
+        // Arrange
+        StorageHost host = await StartHost(seedApplication: true);
+        BlobContainerClient named = await CreateContainer($"named-{Guid.NewGuid():N}");
+        Guid instance = await CreateInstance(host);
+        await InsertWritableAccount(host, named.Name);
+        Guid element = await Upload(host, instance, "scan me", _scannedDataType);
+        string versionId = Assert.Single(await ReadVersionRows(element)).VersionId;
+
+        // Act
+        Uri url = await GetReadUrl(host, instance, element, versionId, HttpStatusCode.OK);
+        using HttpClient blobClient = new();
+        string content = await blobClient.GetStringAsync(url);
+        using HttpRequestMessage setStatus = new(
+            HttpMethod.Put,
+            $"{InstancePath(instance)}/dataelements/{element}/filescanstatus"
+        )
+        {
+            Content = new StringContent(
+                $$"""{"fileScanResult":"Clean","blobVersionId":"{{versionId}}"}""",
+                Encoding.UTF8,
+                "application/json"
+            ),
+        };
+        setStatus.Headers.Add("PlatformAccessToken", FileScanToken());
+        using HttpResponseMessage setStatusResponse = await host.Client.SendAsync(setStatus);
+
+        // Assert
+        Assert.StartsWith($"/{_storageConfiguration.AccountName}/{named.Name}/", url.AbsolutePath);
+        Assert.Equal("scan me", content);
+        Assert.Equal(HttpStatusCode.OK, setStatusResponse.StatusCode);
+        await GetReadUrl(host, instance, element, versionId, HttpStatusCode.NotFound);
+    }
+
+    private static async Task<Uri> GetReadUrl(
+        StorageHost host,
+        Guid instance,
+        Guid element,
+        string versionId,
+        HttpStatusCode expectedStatus
+    )
+    {
+        using HttpRequestMessage request = new(
+            HttpMethod.Get,
+            $"{InstancePath(instance)}/dataelements/{element}/blobversions/{versionId}/readurl"
+        );
+        request.Headers.Add("PlatformAccessToken", FileScanToken());
+        using HttpResponseMessage response = await host.Client.SendAsync(request);
+        string body = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == expectedStatus, body);
+        return expectedStatus == HttpStatusCode.OK
+            ? new Uri(JsonNode.Parse(body)!["url"]!.GetValue<string>())
+            : null!;
+    }
+
+    private static string FileScanToken() => PrincipalUtil.GetAccessToken("platform", "file-scan");
+
     private static Dictionary<string, string?> Settings(int cacheSeconds) =>
         new()
         {
@@ -543,7 +603,11 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
                         Id = AppId,
                         Org = _org,
                         Title = new Dictionary<string, string> { ["nb"] = "System test" },
-                        DataTypes = [new DataType { Id = _defaultDataType }],
+                        DataTypes =
+                        [
+                            new DataType { Id = _defaultDataType },
+                            new DataType { Id = _scannedDataType, EnableFileScan = true },
+                        ],
                     }
                 );
         }

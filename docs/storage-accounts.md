@@ -177,9 +177,13 @@ agree. `number` is `Application.StorageAccountNumber`, or 1 when the application
 writable row for the pair, `storageaccountid` is `NULL` and the blob goes to the pattern default,
 which is the behaviour of every environment until operations insert a row.
 
-The file scanner reads blobs from the pattern default account, using the org and storage account
-number in the queue message. It cannot read a blob in a named account, so no row may be inserted in
-an environment where file scanning is on until the scanner gets blobs through Storage instead.
+The file scanner does not reach storage accounts itself. For the blob version in the queue message it
+asks Storage whether the version awaits its scan
+(`GET …/dataelements/{id}/blobversions/{versionId}/filescan`). While that version is the data
+element's current version and its file scan is pending, the answer carries a short-lived read URL,
+which Storage creates for the account the version row names, so a version in a named account is
+scanned like any other. Scanners that read blobs directly from the pattern default
+account cannot scan versions in named accounts.
 
 ## Cleanup
 
@@ -304,6 +308,6 @@ WHERE blobstorageorg = 'ttd' AND COALESCE(storageaccountnumber, 1) = 1
 GROUP BY storageaccountid;
 ```
 
-Before the first row is inserted in an environment where file scanning is on, the scanner must get
-blobs through Storage rather than from the pattern default account, and be verified end to end
-against a blob in a named account.
+Before the first row is inserted in an environment where file scanning is on, that environment's
+file scanner must read blobs through Storage's read URL, and be verified end to end against a blob in
+a named account.
