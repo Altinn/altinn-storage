@@ -1207,30 +1207,30 @@ public class DataController : ControllerBase
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to update.</param>
     /// <param name="fileScanStatus">The file scan results for this data element.</param>
-    /// <returns>The updated data element.</returns>
+    /// <returns>
+    /// Whether the status was set. It is not set when the data element is gone, or when
+    /// <see cref="FileScanStatus.BlobVersionId"/> is no longer the element's current blob version.
+    /// </returns>
     [Authorize(Policy = "PlatformAccess")]
     [HttpPut("dataelements/{dataGuid}/filescanstatus")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
-    public async Task<ActionResult> SetFileScanStatus(
+    public async Task<ActionResult<FileScanStatusResponse>> SetFileScanStatus(
         Guid instanceGuid,
         Guid dataGuid,
         [FromBody] FileScanStatus fileScanStatus
     )
     {
+        FileScanStatusUpdateResult result;
         try
         {
-            DataElementWriteResult result = await _dataRepository.UpdateFileScanStatus(
+            result = await _dataRepository.UpdateFileScanStatus(
                 instanceGuid,
                 dataGuid,
                 fileScanStatus
             );
-            if (result is not null)
-            {
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
-            }
         }
         catch (RepositoryException exception)
             when (exception.StatusCodeSuggestion == HttpStatusCode.BadRequest)
@@ -1238,7 +1238,15 @@ public class DataController : ControllerBase
             return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
-        return Ok();
+        if (result.WriteResult is not null)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                result.WriteResult.Versions
+            );
+        }
+
+        return Ok(new FileScanStatusResponse(result.Outcome));
     }
 
     /// <summary>
@@ -1247,6 +1255,11 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken.</param>
     /// <returns>True if the data element exists, false otherwise</returns>
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 call this; newer ones learn that a data
+    /// element is gone from <see cref="GetFileScanTarget"/>. Keep it until #466 runs in every environment, so that
+    /// Storage can be released before the scanner.
+    /// </remarks>
     [Authorize(Policy = "PlatformAccess")]
     [HttpGet("dataelementexists/{dataGuid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -1259,6 +1272,84 @@ public class DataController : ControllerBase
     {
         bool result = await _dataRepository.Exists(dataGuid, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Tells the file scanner whether a blob version awaits its scan, and if it does, gives a short-lived URL that
+    /// reads it.
+    /// </summary>
+    /// <remarks>
+    /// Only the data element's current blob version, while its file scan is pending, awaits a scan: that is the
+    /// only version the scanner has a result to report for. The URL grants read access to that blob and nothing
+    /// else until it expires, after <see cref="GeneralSettings.FileScanReadUrlLifetimeSeconds"/>. Every decision is
+    /// a <c>200</c>, so any other response is an error the scanner retries.
+    /// </remarks>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
+    /// <param name="blobVersionId">The blob version the scan request is for.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>Whether the version awaits its scan, with the read URL when it does.</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
+    [HttpGet("dataelements/{dataGuid:guid}/blobversions/{blobVersionId}/filescan")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<FileScanTarget>> GetFileScanTarget(
+        Guid instanceGuid,
+        Guid dataGuid,
+        string blobVersionId,
+        CancellationToken cancellationToken
+    )
+    {
+        DataElementInternal dataElement = await _dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        if (dataElement is null)
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.Deleted));
+        }
+
+        if (dataElement.InstanceGuid != instanceGuid)
+        {
+            return NotFound($"Data element {dataGuid} does not belong to instance {instanceGuid}.");
+        }
+
+        if (!string.Equals(dataElement.BlobVersionId, blobVersionId, StringComparison.Ordinal))
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.Superseded));
+        }
+
+        if (dataElement.FileScanResult != FileScanResult.Pending)
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.NotPending));
+        }
+
+        DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            cancellationToken
+        );
+        if (blobVersion is null)
+        {
+            return Problem(
+                $"Blob version {blobVersionId} is the current version of data element {dataGuid}, but has no version row.",
+                statusCode: StatusCodes.Status500InternalServerError
+            );
+        }
+
+        (Uri url, DateTimeOffset expiresAt) = await _blobRepository.GetReadUrl(
+            blobVersion.BlobStorageOrg,
+            DataElementHelper.GetVersionedBlobPath(blobVersion.AppId, instanceGuid, blobVersionId),
+            blobVersion.StorageAccountNumber,
+            TimeSpan.FromSeconds(_generalSettings.FileScanReadUrlLifetimeSeconds),
+            cancellationToken
+        );
+
+        return Ok(new FileScanTarget(FileScanTargetStatus.Pending, url, expiresAt));
     }
 
     private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationAsync(

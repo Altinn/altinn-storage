@@ -13,6 +13,7 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
+using Azure.Storage.Sas;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -28,10 +29,17 @@ namespace Altinn.Platform.Storage.Repository;
 /// <param name="memoryCache">Memory cache</param>
 /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
 /// <param name="logger">The logger to use when writing to logs.</param>
+/// <param name="credential">
+/// The credential for storage accounts and for requesting user delegation keys, or <c>null</c> for a
+/// <see cref="DefaultAzureCredential"/>.
+/// </param>
+/// <param name="clientOptions">The options for every blob client, or <c>null</c> for the defaults.</param>
 public class BlobRepository(
     IMemoryCache memoryCache,
     IOptions<AzureStorageConfiguration> storageConfiguration,
-    ILogger<BlobRepository> logger
+    ILogger<BlobRepository> logger,
+    TokenCredential credential = null,
+    BlobClientOptions clientOptions = null
 ) : IBlobRepository
 {
     private const string _authenticationFailedErrorCode = "AuthenticationFailed";
@@ -40,10 +48,17 @@ public class BlobRepository(
     private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
     private readonly IMemoryCache _memoryCache = memoryCache;
     private readonly ILogger<BlobRepository> _logger = logger;
+    private readonly TokenCredential _credential = credential;
+    private readonly BlobClientOptions _clientOptions = clientOptions;
     private static readonly MemoryCacheEntryOptions _cacheEntryOptionsCreds =
         new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
             .SetAbsoluteExpiration(new TimeSpan(10, 0, 0));
+
+    // Allows for clocks that are behind Azure's when a URL or key is used right after it was created.
+    private static readonly TimeSpan _sasClockSkew = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan _maxReadUrlLifetime = TimeSpan.FromHours(1);
+    private static readonly TimeSpan _userDelegationKeyLifetime = TimeSpan.FromDays(1);
 
     private static readonly MemoryCacheEntryOptions _cacheEntryOptionsBlobClient =
         new MemoryCacheEntryOptions()
@@ -277,6 +292,41 @@ public class BlobRepository(
         return true;
     }
 
+    /// <inheritdoc/>
+    public async Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
+        string org,
+        string blobStoragePath,
+        int? storageAccountNumber,
+        TimeSpan lifetime,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, _maxReadUrlLifetime);
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset expiresOn = now.Add(lifetime);
+        BlobClient blob = CreateBlobClient(org, blobStoragePath, storageAccountNumber);
+        BlobSasBuilder sasBuilder = new(BlobSasPermissions.Read, expiresOn)
+        {
+            BlobContainerName = blob.BlobContainerName,
+            BlobName = blob.Name,
+            Resource = "b",
+            StartsOn = now.Subtract(_sasClockSkew),
+            Protocol = SasProtocol.Https,
+        };
+
+        BlobUriBuilder uriBuilder = new(blob.Uri)
+        {
+            Sas = sasBuilder.ToSasQueryParameters(
+                await GetUserDelegationKey(org, storageAccountNumber, expiresOn, cancellationToken),
+                blob.AccountName
+            ),
+        };
+
+        return (uriBuilder.ToUri(), expiresOn);
+    }
+
     private async Task<BlobProperties> UploadFromStreamAsync(
         string org,
         Stream stream,
@@ -451,7 +501,11 @@ public class BlobRepository(
                     Path = $"{containerName}",
                 };
 
-                client = new BlobContainerClient(fullUri.Uri, GetCachedCredentials());
+                client = new BlobContainerClient(
+                    fullUri.Uri,
+                    GetCachedCredentials(),
+                    _clientOptions
+                );
                 _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
             }
 
@@ -463,7 +517,7 @@ public class BlobRepository(
             _storageConfiguration.AccountKey
         );
         Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
+        BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials, _clientOptions);
         BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(
             string.Format(_storageConfiguration.OrgStorageContainer, org)
         );
@@ -481,7 +535,11 @@ public class BlobRepository(
                 Host = $"{accountName}.blob.core.windows.net",
             };
 
-            return new BlobServiceClient(fullUri.Uri, GetCachedCredentials()).GetBlobBatchClient();
+            return new BlobServiceClient(
+                fullUri.Uri,
+                GetCachedCredentials(),
+                _clientOptions
+            ).GetBlobBatchClient();
         }
 
         StorageSharedKeyCredential storageCredentials = new(
@@ -489,7 +547,11 @@ public class BlobRepository(
             _storageConfiguration.AccountKey
         );
         Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        return new BlobServiceClient(storageUrl, storageCredentials).GetBlobBatchClient();
+        return new BlobServiceClient(
+            storageUrl,
+            storageCredentials,
+            _clientOptions
+        ).GetBlobBatchClient();
     }
 
     private string GetStorageAccountName(string org, int? storageAccountNumber)
@@ -504,8 +566,80 @@ public class BlobRepository(
         return accountName;
     }
 
-    private DefaultAzureCredential GetCachedCredentials()
+    /// <summary>
+    /// Gets a user delegation key for the account that is valid at least until <paramref name="validUntil"/>.
+    /// A key is requested for a day and reused for half of it, so every URL signed with it expires first.
+    /// </summary>
+    private async Task<UserDelegationKey> GetUserDelegationKey(
+        string org,
+        int? storageAccountNumber,
+        DateTimeOffset validUntil,
+        CancellationToken cancellationToken
+    )
     {
+        Uri serviceUri = GetServiceUri(org, storageAccountNumber);
+        string cacheKey = $"user-delegation-key-{serviceUri}";
+        if (
+            _memoryCache.TryGetValue(cacheKey, out UserDelegationKey key)
+            && key.SignedExpiresOn >= validUntil
+        )
+        {
+            return key;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset startsOn = now.Subtract(_sasClockSkew);
+        DateTimeOffset expiresOn = now.Add(_userDelegationKeyLifetime);
+        try
+        {
+            key = (
+                await new BlobServiceClient(
+                    serviceUri,
+                    GetCachedCredentials(),
+                    _clientOptions
+                ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
+            ).Value;
+        }
+        catch (RequestFailedException requestFailedException)
+            when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
+        {
+            _logger.LogWarning(
+                "Authentication failed. Invalidating credentials and retrying user delegation key request."
+            );
+            _memoryCache.Remove(_credsCacheKey);
+            key = (
+                await new BlobServiceClient(
+                    serviceUri,
+                    GetCachedCredentials(),
+                    _clientOptions
+                ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
+            ).Value;
+        }
+
+        _memoryCache.Set(cacheKey, key, now.Add(_userDelegationKeyLifetime / 2));
+        return key;
+    }
+
+    /// <summary>
+    /// Gets the URI of the blob service of the account, which is Azurite's endpoint for the development
+    /// account.
+    /// </summary>
+    private Uri GetServiceUri(string org, int? storageAccountNumber)
+    {
+        return _storageConfiguration.AccountName.Equals("devstoreaccount1")
+            ? new Uri(_storageConfiguration.BlobEndPoint)
+            : new Uri(
+                $"https://{GetStorageAccountName(org, storageAccountNumber)}.blob.core.windows.net"
+            );
+    }
+
+    private TokenCredential GetCachedCredentials()
+    {
+        if (_credential is not null)
+        {
+            return _credential;
+        }
+
         if (!_memoryCache.TryGetValue(_credsCacheKey, out DefaultAzureCredential creds))
         {
             creds = new();

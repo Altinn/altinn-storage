@@ -73,4 +73,18 @@ public class BlobRepositoryMock : IBlobRepository
         int? storageAccountNumber,
         CancellationToken cancellationToken = default
     ) => throw new NotImplementedException();
+
+    public Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
+        string org,
+        string blobStoragePath,
+        int? storageAccountNumber,
+        TimeSpan lifetime,
+        CancellationToken cancellationToken = default
+    ) =>
+        Task.FromResult(
+            (
+                new Uri($"https://{org}.blob.example/{blobStoragePath}?sig=test"),
+                DateTimeOffset.UtcNow.Add(lifetime)
+            )
+        );
 }

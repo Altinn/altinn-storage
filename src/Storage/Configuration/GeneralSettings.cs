@@ -115,4 +115,10 @@ public class GeneralSettings
     /// Gets or sets the cache lifetime for the Altinn CDN organisation list.
     /// </summary>
     public int OrganisationsCacheLifeTimeInSeconds { get; set; } = 600;
+
+    /// <summary>
+    /// Gets or sets how long, in seconds, a blob read URL handed to the file scanner stays valid. A download
+    /// that has started when the URL expires completes.
+    /// </summary>
+    public int FileScanReadUrlLifetimeSeconds { get; set; } = 300;
 }

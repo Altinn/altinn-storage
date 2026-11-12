@@ -273,9 +273,7 @@ public class OutboxTests
         string path
     )
     {
-        var builder = new ConfigurationBuilder()
-            .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-            .AddEnvironmentVariables();
+        var builder = new ConfigurationBuilder().AddTestSettings().AddEnvironmentVariables();
 
         var config = builder.Build();
 

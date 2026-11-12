@@ -99,9 +99,7 @@ public class StorageHeaderApiDescriptionTests : IAsyncLifetime
         WebApplicationFactory<ProcessController> webApplicationFactory =
             _factory.WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
+                IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
                 builder.ConfigureAppConfiguration(
                     (hostingContext, config) => config.AddConfiguration(configuration)
                 );

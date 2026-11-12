@@ -53,7 +53,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format â€
 - `dotnet build Altinn.Platform.Storage.slnx` - Build the solution (also regenerates the SQL functions script via DbTools as a post-build step)
 - `dotnet run --project src/Storage` - Run the API locally at http://localhost:5010 (swagger at `/swagger`)
 - `dotnet watch --project src/Storage` - Run with hot reload
-- `docker compose up -d` - Start local infrastructure (Postgres on 5432, pgAdmin on 8888, Azurite). Usually not needed if a local Postgres instance is already running.
+- `docker compose up -d` - Start local infrastructure for running the API (Postgres on 5432, pgAdmin on 8888, Azurite). The tests don't use it.
 
 ### Testing
 
@@ -75,7 +75,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format â€
 
 ## Testing Guidelines
 
-- Most repository, controller, and service tests are **DB-backed**: they connect to `storagedb` (users `platform_storage_admin` and `platform_storage`, password `Password`) via `PostgresUtil` and fail with Npgsql connection errors if Postgres is not running (`docker compose up -d`). Controller tests using mocked repositories (e.g. the `GetInstances` query-endpoint tests) run without a database.
+- Most repository, controller, and service tests are **DB-backed**. The tests start PostgreSQL and Azurite containers through Testcontainers (`test/UnitTest/Fixture/TestContainers.cs`) on first use, so they need a running Docker or Podman but no other setup; every run starts from an empty database. Build configuration for tests with `ServiceUtil.AddTestSettings()`, which points `appsettings.unittest.json` at the containers. Controller tests using mocked repositories (e.g. the `GetInstances` query-endpoint tests) don't start the containers unless they build that configuration.
 - Mock external dependencies using `Moq`
 - Follow the Arrange, Act, Assert pattern
 - Place test files in the same folder structure as the source files

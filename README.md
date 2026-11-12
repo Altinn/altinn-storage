@@ -50,7 +50,11 @@ cd altinn-storage
 
 ### Run tests
 
-The tests depend on the storage_postgres container in docker to run locally. See the 'Running the application in a docker container' section below to start it. You can run the tests by executing the following commands.
+The tests start their own PostgreSQL and Azurite containers through [Testcontainers](https://dotnet.testcontainers.org/), so they only need a running Docker or Podman. Every test run starts from an empty database, and the containers are removed when the run ends. Azurite serves HTTPS, as Azure Storage does, with a certificate the tests create for the run and trust. They don't use the containers from `docker compose`.
+
+With Podman, Testcontainers needs the Podman socket: run `systemctl --user enable --now podman.socket` and set `DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock` (rootless). If Testcontainers' cleanup container (Ryuk) can't run on your setup, set `TESTCONTAINERS_RYUK_DISABLED=true` and remove leftover containers yourself.
+
+You can run the tests by executing the following command.
 
 ```bash
 dotnet test Altinn.Platform.Storage.slnx
