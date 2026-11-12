@@ -1400,7 +1400,6 @@ public class DataControllerTests : IAsyncLifetime
 
         // No setup required for these services. They are not in use by the InstanceController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-        Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = new Mock<IMessageBus>();
 
         var factory = _factory.WithWebHostBuilder(builder =>
@@ -1441,7 +1440,6 @@ public class DataControllerTests : IAsyncLifetime
                 services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProviderMock>();
 
                 services.AddSingleton(keyVaultWrapper.Object);
-                services.AddSingleton(partiesWrapper.Object);
                 services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                 services.AddSingleton(busMock.Object);
             });
