@@ -502,7 +502,9 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
                 (
                     InstanceEventType eventType,
                     InstanceInternal targetInstance,
-                    DataElementInternal dataElement
+                    DataElementInternal dataElement,
+                    PlatformUser _,
+                    string _
                 ) =>
                     new InstanceEvent
                     {
