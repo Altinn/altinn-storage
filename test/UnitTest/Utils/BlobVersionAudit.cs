@@ -8,6 +8,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
+using Altinn.Platform.Storage.UnitTest.Fixture;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Npgsql;
@@ -97,9 +98,11 @@ public static class BlobVersionAudit
 
         async Task<bool> Exists(Uri containerUri, string blobStoragePath)
         {
-            BlobClient blob = new BlobContainerClient(containerUri, credential).GetBlobClient(
-                blobStoragePath
-            );
+            BlobClient blob = new BlobContainerClient(
+                containerUri,
+                credential,
+                TestContainers.AzuriteClientOptions
+            ).GetBlobClient(blobStoragePath);
             return await blob.ExistsAsync(cancellationToken);
         }
     }
