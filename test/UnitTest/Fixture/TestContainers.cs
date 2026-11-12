@@ -1,8 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading.Tasks;
+using Azure.Core.Pipeline;
+using Azure.Storage.Blobs;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
@@ -15,7 +22,14 @@ namespace Altinn.Platform.Storage.UnitTest.Fixture;
 /// empty database that the migrations in the working tree are applied to.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Azurite serves HTTPS with a certificate created for the run, as Azure Storage only serves HTTPS.
+/// Clients trust the certificate through <see cref="AzuriteClientOptions"/> or
+/// <see cref="CreateAzuriteHttpClient"/>.
+/// </para>
+/// <para>
 /// The images are pinned by digest; Renovate updates them through a custom manager in renovate.json.
+/// </para>
 /// </remarks>
 public static class TestContainers
 {
@@ -46,12 +60,41 @@ public static class TestContainers
     public static string AzuriteBlobEndpoint => _endpoints.Value.AzuriteBlobEndpoint;
 
     /// <summary>
+    /// Gets client options that trust Azurite's certificate.
+    /// </summary>
+    public static BlobClientOptions AzuriteClientOptions => _endpoints.Value.AzuriteClientOptions;
+
+    /// <summary>
     /// Gets the settings that point the configuration in appsettings.unittest.json at the containers.
     /// </summary>
     public static IReadOnlyDictionary<string, string?> Settings => _endpoints.Value.Settings;
 
+    /// <summary>
+    /// Creates an HTTP client that trusts Azurite's certificate, for requests without the Azure SDK.
+    /// </summary>
+    public static HttpClient CreateAzuriteHttpClient()
+    {
+        return new HttpClient(CreateAzuriteHandler(_endpoints.Value.AzuriteCertificateThumbprint));
+    }
+
     private static Endpoints Start()
     {
+        using RSA azuriteKey = RSA.Create(2048);
+        CertificateRequest certificateRequest = new(
+            "CN=azurite",
+            azuriteKey,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1
+        );
+        SubjectAlternativeNameBuilder subjectAlternativeNames = new();
+        subjectAlternativeNames.AddIpAddress(IPAddress.Loopback);
+        subjectAlternativeNames.AddDnsName("localhost");
+        certificateRequest.CertificateExtensions.Add(subjectAlternativeNames.Build());
+        using X509Certificate2 azuriteCertificate = certificateRequest.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddDays(7)
+        );
+
         PostgreSqlContainer postgres = new PostgreSqlBuilder(_postgresImage)
             .WithUsername(_postgresAdminUser)
             .WithPassword(_postgresPassword)
@@ -63,13 +106,25 @@ public static class TestContainers
             .Build();
 
         IContainer azurite = new ContainerBuilder(_azuriteImage)
+            .WithResourceMapping(
+                Encoding.ASCII.GetBytes(azuriteCertificate.ExportCertificatePem()),
+                "/certs/azurite.pem"
+            )
+            .WithResourceMapping(
+                Encoding.ASCII.GetBytes(azuriteKey.ExportPkcs8PrivateKeyPem()),
+                "/certs/azurite-key.pem"
+            )
             .WithCommand(
                 "azurite-blob",
                 "--blobHost",
                 "0.0.0.0",
                 "--blobPort",
                 $"{_azuriteBlobPort}",
-                "--skipApiVersionCheck"
+                "--skipApiVersionCheck",
+                "--cert",
+                "/certs/azurite.pem",
+                "--key",
+                "/certs/azurite-key.pem"
             )
             .WithPortBinding(_azuriteBlobPort, true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilMessageIsLogged("successfully listens"))
@@ -80,10 +135,16 @@ public static class TestContainers
         string postgresServer =
             $"Host={postgres.Hostname};Port={postgres.GetMappedPublicPort(PostgreSqlBuilder.PostgreSqlPort)}";
         string azuriteBlobEndpoint =
-            $"http://{azurite.Hostname}:{azurite.GetMappedPublicPort(_azuriteBlobPort)}/{AzuriteAccountName}";
+            $"https://{azurite.Hostname}:{azurite.GetMappedPublicPort(_azuriteBlobPort)}/{AzuriteAccountName}";
 
+        string thumbprint = azuriteCertificate.Thumbprint;
         return new Endpoints(
             azuriteBlobEndpoint,
+            thumbprint,
+            new BlobClientOptions
+            {
+                Transport = new HttpClientTransport(CreateAzuriteHandler(thumbprint)),
+            },
             new Dictionary<string, string?>
             {
                 ["PostgreSQLSettings:AdminConnectionString"] =
@@ -95,6 +156,15 @@ public static class TestContainers
                 ["AzureStorageConfiguration:BlobEndPoint"] = azuriteBlobEndpoint,
             }
         );
+    }
+
+    private static HttpClientHandler CreateAzuriteHandler(string certificateThumbprint)
+    {
+        return new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, certificate, _, _) =>
+                certificate?.Thumbprint == certificateThumbprint,
+        };
     }
 
     private static byte[] ReadEmbeddedResource(string name)
@@ -109,6 +179,8 @@ public static class TestContainers
 
     private sealed record Endpoints(
         string AzuriteBlobEndpoint,
+        string AzuriteCertificateThumbprint,
+        BlobClientOptions AzuriteClientOptions,
         IReadOnlyDictionary<string, string?> Settings
     );
 }

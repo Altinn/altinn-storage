@@ -175,7 +175,8 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
         Repository = new BlobRepository(
             _memoryCache,
             Options.Create(configuration),
-            NullLogger<BlobRepository>.Instance
+            NullLogger<BlobRepository>.Instance,
+            TestContainers.AzuriteClientOptions
         );
 
         ContainerName = string.Format(configuration.OrgStorageContainer, Org);
@@ -188,7 +189,11 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         StorageSharedKeyCredential storageCredentials = new(_accountName, _accountKey);
-        BlobServiceClient blobServiceClient = new(new Uri(_blobEndPoint), storageCredentials);
+        BlobServiceClient blobServiceClient = new(
+            new Uri(_blobEndPoint),
+            storageCredentials,
+            TestContainers.AzuriteClientOptions
+        );
 
         _container = blobServiceClient.GetBlobContainerClient(ContainerName);
         await _container.CreateIfNotExistsAsync();
