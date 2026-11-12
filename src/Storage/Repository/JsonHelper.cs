@@ -44,7 +44,7 @@ public class JsonHelper
 
         private static string Serialize(object obj, Func<Type, List<string>> resolveProperties)
         {
-            JsonSerializerOptions options = new()
+            JsonSerializerOptions options = new(PersistedJson.Options)
             {
                 TypeInfoResolver = new DefaultJsonTypeInfoResolver
                 {

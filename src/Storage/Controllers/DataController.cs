@@ -169,11 +169,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -317,11 +315,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -517,10 +513,19 @@ public class DataController : ControllerBase
             dataTypeId = dataElement.DataType;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataTypeId,
-            cancellationToken: cancellationToken
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application is null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
+            application,
+            dataTypeId
         );
         if (dataTypeDefinition is null)
         {
@@ -670,11 +675,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataType
         );
         if (dataTypeDefinition == null)
         {
@@ -842,11 +845,9 @@ public class DataController : ControllerBase
             return dataElementError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -1131,10 +1132,19 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
-            cancellationToken: cancellationToken
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application == null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
+            application,
+            dataElement.DataType
         );
         if (dataTypeDefinition is null)
         {
@@ -1377,26 +1387,11 @@ public class DataController : ControllerBase
         return Ok(updatedDataElement.ToApiModel());
     }
 
-    private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
-        InstanceInternal instance,
-        string dataTypeId,
-        Application application = null,
-        CancellationToken cancellationToken = default
+    private (DataType DataType, ActionResult ErrorMessage) GetDataType(
+        Application application,
+        string dataTypeId
     )
     {
-        if (application is null)
-        {
-            (application, ActionResult applicationError) = await GetApplicationAsync(
-                instance.AppId,
-                instance.Org,
-                cancellationToken
-            );
-            if (application is null)
-            {
-                return (null, applicationError);
-            }
-        }
-
         DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
 
         return dataTypeDefinition is null
