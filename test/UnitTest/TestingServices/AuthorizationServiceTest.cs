@@ -557,6 +557,125 @@ public class AuthorizationServiceTest
         );
     }
 
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task AuthorizeInstanceAction_NoDecision_Throws(string decision)
+    {
+        AuthorizationService service = CreateServiceWithPdpResponse(CreateResponse(decision));
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            service.AuthorizeInstanceAction(CreateDomainInstance(), "write")
+        );
+    }
+
+    [Theory]
+    [InlineData("NotApplicable")]
+    [InlineData("Deny")]
+    public async Task AuthorizeInstanceAction_Refused_ReturnsFalse(string decision)
+    {
+        AuthorizationService service = CreateServiceWithPdpResponse(CreateResponse(decision));
+
+        Assert.False(await service.AuthorizeInstanceAction(CreateDomainInstance(), "write"));
+    }
+
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task AuthorizeEnrichedInstanceAction_NoDecision_ThrowsAndIsNotCached(
+        string decision
+    )
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        Mock<IPDP> pdp = new();
+        using MemoryCache cache = new(new MemoryCacheOptions());
+        AuthorizationService service = CreateServiceWithPdpResponse(
+            CreateResponse(decision),
+            pdp,
+            cache
+        );
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+
+        pdp.Verify(
+            p => p.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Theory]
+    [InlineData("Indeterminate")]
+    [InlineData(null)]
+    public async Task AuthorizeAnyOfInstanceActions_NoDecision_Throws(string decision)
+    {
+        AuthorizationService service = CreateServiceWithPdpResponse(CreateResponse(decision));
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            service.AuthorizeAnyOfInstanceActions(CreateDomainInstance(), ["write", "reject"])
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeAnyOfInstanceActions_OneDenyAndOneIndeterminate_Throws()
+    {
+        AuthorizationService service = CreateServiceWithPdpResponse(
+            CreateResponse("Deny", "Indeterminate")
+        );
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            service.AuthorizeAnyOfInstanceActions(CreateDomainInstance(), ["write", "reject"])
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeAnyOfInstanceActions_OnePermitAndOneIndeterminate_ReturnsTrue()
+    {
+        AuthorizationService service = CreateServiceWithPdpResponse(
+            CreateResponse("Indeterminate", "Permit")
+        );
+
+        Assert.True(
+            await service.AuthorizeAnyOfInstanceActions(CreateDomainInstance(), ["write", "reject"])
+        );
+    }
+
+    /// <summary>
+    /// A response with one result for each decision, or no response when the only decision is
+    /// <c>null</c>.
+    /// </summary>
+    private static XacmlJsonResponse CreateResponse(params string[] decisions)
+    {
+        return decisions is [null]
+            ? null
+            : new XacmlJsonResponse
+            {
+                Response = decisions
+                    .Select(decision => new XacmlJsonResult { Decision = decision })
+                    .ToList(),
+            };
+    }
+
+    private AuthorizationService CreateServiceWithPdpResponse(
+        XacmlJsonResponse response,
+        Mock<IPDP> pdp = null,
+        IMemoryCache memoryCache = null
+    )
+    {
+        pdp ??= new Mock<IPDP>();
+        AuthorizationService service = CreateRequestCapturingService([], pdp, memoryCache);
+
+        // CreateRequestCapturingService answers with an empty response when it is given none.
+        pdp.Setup(instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(response);
+
+        return service;
+    }
+
     private AuthorizationService CreateRequestCapturingService(
         List<XacmlJsonRequestRoot> requests,
         Mock<IPDP> pdp = null,

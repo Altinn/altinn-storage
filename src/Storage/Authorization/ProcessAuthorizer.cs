@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
@@ -101,15 +102,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
         // we don't know if this is an abandon flow, so we include "reject" as a fallback.
         actions.Add("reject");
 
-        foreach (string action in actions)
-        {
-            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return await AuthorizeAnyAction(instance, actions, taskId);
     }
 
     private async Task<bool> Authorize(InstanceInternal instance, ProcessState nextProcessState)
@@ -129,7 +122,7 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         if (nextProcessState.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
         {
-            return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
+            return await AuthorizeAnyAction(instance, ["reject"], taskId);
         }
 
         if (
@@ -143,12 +136,42 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
+        return await AuthorizeAnyAction(instance, actions, taskId);
+    }
+
+    /// <summary>
+    /// Whether the user has any of the actions. An action that Altinn Authorization gives no
+    /// decision for does not stop the rest from being asked, because any one of them can permit.
+    /// </summary>
+    /// <exception cref="AuthorizationUnavailableException">
+    /// No action permits, and at least one of them got no decision.
+    /// </exception>
+    private async Task<bool> AuthorizeAnyAction(
+        InstanceInternal instance,
+        List<string> actions,
+        string? taskId
+    )
+    {
+        AuthorizationUnavailableException? noDecision = null;
+
         foreach (string action in actions)
         {
-            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
+            try
             {
-                return true;
+                if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
+                {
+                    return true;
+                }
             }
+            catch (AuthorizationUnavailableException exception)
+            {
+                noDecision ??= exception;
+            }
+        }
+
+        if (noDecision is not null)
+        {
+            ExceptionDispatchInfo.Throw(noDecision);
         }
 
         return false;
