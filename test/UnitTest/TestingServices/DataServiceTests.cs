@@ -47,8 +47,7 @@ public class DataServiceTests
             dataType,
             dataElement,
             blobTimestamp,
-            new Application(),
-            TestStorageAccounts.PatternDefault("ttd"),
+            null,
             CancellationToken.None
         );
 
@@ -93,8 +92,7 @@ public class DataServiceTests
             dataType,
             dataElement,
             blobTimestamp,
-            new Application(),
-            TestStorageAccounts.PatternDefault("ttd"),
+            null,
             CancellationToken.None
         );
 
@@ -115,56 +113,6 @@ public class DataServiceTests
                 ),
             Times.Once()
         );
-    }
-
-    [Fact]
-    public async Task StartFileScan_QueuesMessageWithProviderInfoOfTheWriteAccount()
-    {
-        // Arrange
-        Mock<IFileScanQueueClient> fileScanMock = new();
-        string queuedMessage = null!;
-        fileScanMock
-            .Setup(f => f.EnqueueFileScan(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, CancellationToken>((content, _) => queuedMessage = content)
-            .Returns(Task.CompletedTask);
-        DataService target = new(
-            fileScanMock.Object,
-            Mock.Of<IDataRepository>(),
-            Mock.Of<IBlobRepository>(),
-            new PatternDefaultStorageAccountResolver()
-        );
-        InstanceInternal instance = new()
-        {
-            Id = Guid.NewGuid(),
-            Org = "ttd",
-            InstanceOwner = new InstanceOwner { PartyId = "343243" },
-        };
-        StorageAccount account = new(
-            4,
-            new AzureBlobProviderInfo("ttdnamedaccount", "ttd-named-container")
-        );
-
-        // Act
-        await target.StartFileScan(
-            instance,
-            new DataType { EnableFileScan = true },
-            new DataElementInternal { Id = Guid.NewGuid(), BlobVersionId = "blob-version-id" },
-            DateTimeOffset.UtcNow,
-            new Application { StorageAccountNumber = 2 },
-            account,
-            CancellationToken.None
-        );
-
-        // Assert
-        Assert.Contains("\"storageAccountProvider\":\"azure-blob\"", queuedMessage);
-        Assert.Contains(
-            "\"storageAccountProviderInfo\":{\"accountName\":\"ttdnamedaccount\",\"container\":\"ttd-named-container\"}",
-            queuedMessage
-        );
-        Assert.DoesNotContain("\"provider\"", queuedMessage);
-        Assert.Contains("\"storageAccountId\":4", queuedMessage);
-        Assert.Contains("\"org\":\"ttd\"", queuedMessage);
-        Assert.Contains("\"storageAccountNumber\":2", queuedMessage);
     }
 
     [Fact]

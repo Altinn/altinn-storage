@@ -1454,8 +1454,7 @@ public class DataControllerUnitTests
                             It.IsAny<DataType>(),
                             It.IsAny<DataElementInternal>(),
                             It.IsAny<DateTimeOffset>(),
-                            It.IsAny<Application>(),
-                            It.IsAny<StorageAccount>(),
+                            It.IsAny<int?>(),
                             It.IsAny<CancellationToken>()
                         )
                     )
@@ -1566,8 +1565,7 @@ public class DataControllerUnitTests
                     It.IsAny<DataType>(),
                     It.Is<DataElementInternal>(de => de.BlobVersionId == allocatedBlobVersionId),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -2293,8 +2291,7 @@ public class DataControllerUnitTests
                     It.IsAny<DataType>(),
                     It.Is<DataElementInternal>(de => de.BlobVersionId == allocatedBlobVersionId),
                     It.IsAny<DateTimeOffset>(),
-                    It.IsAny<Application>(),
-                    It.IsAny<StorageAccount>(),
+                    It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
                 ),
             Times.Once
@@ -3104,8 +3101,7 @@ public class DataControllerUnitTests
                 It.IsAny<DataType>(),
                 It.IsAny<DataElementInternal>(),
                 It.IsAny<DateTimeOffset>(),
-                It.IsAny<Application>(),
-                It.IsAny<StorageAccount>(),
+                It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()
             )
         );

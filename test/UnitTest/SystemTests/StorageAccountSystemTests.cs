@@ -30,8 +30,6 @@ using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Azure.Storage.Queues;
-using Azure.Storage.Queues.Models;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Caching.Memory;
@@ -60,15 +58,8 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private const int _partyId = 1337;
     private const string _app = "system-test";
     private const string _defaultDataType = "default";
-    private const string _scannedDataType = "scanned";
     private const string _instancesPath = "storage/api/v1/instances";
     private const string _cleanupPath = "storage/api/v1/cleanup";
-
-    /// <summary>
-    /// When set, the file-scan test writes the message it read from the queue to this path, for
-    /// checking it against the scanner's own model outside the test.
-    /// </summary>
-    private const string _fileScanMessageOutVariable = "STORAGE_FILESCAN_MESSAGE_OUT";
 
     private static readonly AzureStorageConfiguration _storageConfiguration =
         TestStorageAccounts.AzureConfiguration;
@@ -490,90 +481,12 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         }
     }
 
-    [Fact]
-    public async Task UploadWithFileScan_WritableRow_QueueMessageNamesTheAccount()
-    {
-        // Arrange
-        string queueName = $"file-scan-inbound-{Guid.NewGuid():N}";
-        StorageHost host = await StartHost(seedApplication: true, fileScanQueueName: queueName);
-        QueueStorageSettings queueSettings = host
-            .Services.GetRequiredService<IOptions<QueueStorageSettings>>()
-            .Value;
-        QueueClient queue = new(queueSettings.ConnectionString, queueName);
-        BlobContainerClient named = await CreateContainer($"named-{Guid.NewGuid():N}");
-        Guid instance = await CreateInstance(host);
-
-        try
-        {
-            // Act
-            Guid patternElement = await Upload(host, instance, "pattern", _scannedDataType);
-            short accountId = await InsertWritableAccount(host, named.Name);
-            Guid namedElement = await Upload(host, instance, "named", _scannedDataType);
-            QueueMessage[] messages = (await queue.ReceiveMessagesAsync(maxMessages: 10)).Value;
-
-            // Assert
-            Assert.Equal(2, messages.Length);
-            Dictionary<JsonNode, string> messageTexts = messages
-                .Select(message =>
-                    Encoding.UTF8.GetString(Convert.FromBase64String(message.Body.ToString()))
-                )
-                .ToDictionary(text => JsonNode.Parse(text)!);
-            JsonNode[] requests = [.. messageTexts.Keys];
-            JsonNode patternRequest = Assert.Single(
-                requests,
-                r => r["dataElementId"]!.GetValue<string>() == patternElement.ToString()
-            );
-            JsonNode namedRequest = Assert.Single(
-                requests,
-                r => r["dataElementId"]!.GetValue<string>() == namedElement.ToString()
-            );
-
-            Assert.Equal(_org, patternRequest["org"]!.GetValue<string>());
-            Assert.Null(patternRequest["storageAccountId"]);
-            Assert.Equal($"{_partyId}/{instance}", namedRequest["instanceId"]!.GetValue<string>());
-            Assert.Equal(_org, namedRequest["org"]!.GetValue<string>());
-            Assert.Equal(accountId, namedRequest["storageAccountId"]!.GetValue<short>());
-            Assert.Equal(
-                StorageAccountProviderInfo.AzureBlob,
-                namedRequest["storageAccountProvider"]!.GetValue<string>()
-            );
-            Assert.Equal(
-                named.Name,
-                namedRequest["storageAccountProviderInfo"]!["container"]!.GetValue<string>()
-            );
-            VersionRow namedRow = Assert.Single(await ReadVersionRows(namedElement));
-            Assert.Equal(namedRow.VersionId, namedRequest["blobVersionId"]!.GetValue<string>());
-            Assert.Equal(
-                BlobPath(instance, namedRow.VersionId),
-                namedRequest["blobStoragePath"]!.GetValue<string>()
-            );
-
-            string? messageOut = Environment.GetEnvironmentVariable(_fileScanMessageOutVariable);
-            if (!string.IsNullOrEmpty(messageOut))
-            {
-                await File.WriteAllTextAsync(messageOut, messageTexts[namedRequest]);
-            }
-        }
-        finally
-        {
-            await queue.DeleteIfExistsAsync();
-        }
-    }
-
-    private static Dictionary<string, string?> Settings(int cacheSeconds, string? fileScanQueueName)
-    {
-        Dictionary<string, string?> settings = new()
+    private static Dictionary<string, string?> Settings(int cacheSeconds) =>
+        new()
         {
             ["GeneralSettings:StorageAccountCacheSeconds"] = cacheSeconds.ToString(),
             ["GeneralSettings:DisableA2Endpoints"] = "true",
         };
-        if (fileScanQueueName is not null)
-        {
-            settings["QueueStorageSettings:FileScanQueueName"] = fileScanQueueName;
-        }
-
-        return settings;
-    }
 
     private static WebApplicationFactory<DataController> Configure(
         TestApplicationFactory<DataController> root,
@@ -606,14 +519,13 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private async Task<StorageHost> StartHost(
         int cacheSeconds = 60,
         bool seedApplication = false,
-        string? fileScanQueueName = null,
         CapturingLoggerProvider? logs = null
     )
     {
         TestApplicationFactory<DataController> root = new();
         WebApplicationFactory<DataController> factory = Configure(
             root,
-            Settings(cacheSeconds, fileScanQueueName),
+            Settings(cacheSeconds),
             logs
         );
         HttpClient client = factory.CreateClient();
@@ -631,11 +543,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
                         Id = AppId,
                         Org = _org,
                         Title = new Dictionary<string, string> { ["nb"] = "System test" },
-                        DataTypes =
-                        [
-                            new DataType { Id = _defaultDataType },
-                            new DataType { Id = _scannedDataType, EnableFileScan = true },
-                        ],
+                        DataTypes = [new DataType { Id = _defaultDataType }],
                     }
                 );
         }

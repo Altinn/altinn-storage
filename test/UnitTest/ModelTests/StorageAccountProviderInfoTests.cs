@@ -20,7 +20,6 @@ public class StorageAccountProviderInfoTests
             """{"accountName":"ttdaltinnprodstrg01","container":"ttd-prod-appsdata-blob-db"}""",
             info.Serialize()
         );
-        Assert.Equal(info.Serialize(), info.SerializeToElement().GetRawText());
         Assert.Equal(info, StorageAccountProviderInfo.Deserialize(info.Provider, info.Serialize()));
     }
 

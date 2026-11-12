@@ -23,8 +23,7 @@ public interface IDataService
     /// </param>
     /// <param name="dataElement">The data element metadata document.</param>
     /// <param name="blobTimestamp">Timestamp when blob upload completed.</param>
-    /// <param name="application">The application the instance belongs to.</param>
-    /// <param name="storageAccount">The storage account the blob was written to.</param>
+    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
     /// <param name="ct">A cancellation token should the request be cancelled.</param>
     /// <returns>A task representing the asynconous call to file scan service.</returns>
     Task StartFileScan(
@@ -32,8 +31,7 @@ public interface IDataService
         DataType dataType,
         DataElementInternal dataElement,
         DateTimeOffset blobTimestamp,
-        Application application,
-        StorageAccount storageAccount,
+        int? storageAccountNumber,
         CancellationToken ct
     );
 

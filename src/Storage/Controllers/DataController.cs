@@ -737,7 +737,6 @@ public class DataController : ControllerBase
         DataElementInternal dataElement;
         DateTimeOffset blobTimestamp;
         StorageVersions versions;
-        StorageAccount storageAccount;
         try
         {
             DataUploadResult uploadResult = await _dataService.UploadDataAndCreateDataElement(
@@ -754,7 +753,6 @@ public class DataController : ControllerBase
             dataElement = uploadResult.DataElement;
             blobTimestamp = uploadResult.BlobTimestamp;
             versions = uploadResult.Versions;
-            storageAccount = uploadResult.StorageAccount;
         }
         catch (InvalidDataException exception)
         {
@@ -774,8 +772,7 @@ public class DataController : ControllerBase
             dataTypeDefinition,
             dataElement,
             blobTimestamp,
-            application,
-            storageAccount,
+            application.StorageAccountNumber,
             CancellationToken.None
         );
 
@@ -1074,8 +1071,7 @@ public class DataController : ControllerBase
             dataTypeDefinition,
             updatedElement,
             blobTimestamp,
-            application,
-            storageAccount,
+            application.StorageAccountNumber,
             CancellationToken.None
         );
 
