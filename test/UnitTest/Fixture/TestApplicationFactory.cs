@@ -16,9 +16,7 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        IConfiguration configuration = new ConfigurationBuilder()
-            .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-            .Build();
+        IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
         builder.ConfigureAppConfiguration(
             (hostingContext, config) =>
             {

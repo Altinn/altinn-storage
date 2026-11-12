@@ -28,10 +28,12 @@ namespace Altinn.Platform.Storage.Repository;
 /// <param name="memoryCache">Memory cache</param>
 /// <param name="storageConfiguration">the storage configuration for azure blob storage.</param>
 /// <param name="logger">The logger to use when writing to logs.</param>
+/// <param name="clientOptions">The options for every blob client, or <c>null</c> for the defaults.</param>
 public class BlobRepository(
     IMemoryCache memoryCache,
     IOptions<AzureStorageConfiguration> storageConfiguration,
-    ILogger<BlobRepository> logger
+    ILogger<BlobRepository> logger,
+    BlobClientOptions clientOptions = null
 ) : IBlobRepository
 {
     private const string _authenticationFailedErrorCode = "AuthenticationFailed";
@@ -40,6 +42,7 @@ public class BlobRepository(
     private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
     private readonly IMemoryCache _memoryCache = memoryCache;
     private readonly ILogger<BlobRepository> _logger = logger;
+    private readonly BlobClientOptions _clientOptions = clientOptions;
     private static readonly MemoryCacheEntryOptions _cacheEntryOptionsCreds =
         new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
@@ -451,7 +454,11 @@ public class BlobRepository(
                     Path = $"{containerName}",
                 };
 
-                client = new BlobContainerClient(fullUri.Uri, GetCachedCredentials());
+                client = new BlobContainerClient(
+                    fullUri.Uri,
+                    GetCachedCredentials(),
+                    _clientOptions
+                );
                 _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
             }
 
@@ -463,7 +470,7 @@ public class BlobRepository(
             _storageConfiguration.AccountKey
         );
         Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials);
+        BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials, _clientOptions);
         BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(
             string.Format(_storageConfiguration.OrgStorageContainer, org)
         );
@@ -481,7 +488,11 @@ public class BlobRepository(
                 Host = $"{accountName}.blob.core.windows.net",
             };
 
-            return new BlobServiceClient(fullUri.Uri, GetCachedCredentials()).GetBlobBatchClient();
+            return new BlobServiceClient(
+                fullUri.Uri,
+                GetCachedCredentials(),
+                _clientOptions
+            ).GetBlobBatchClient();
         }
 
         StorageSharedKeyCredential storageCredentials = new(
@@ -489,7 +500,11 @@ public class BlobRepository(
             _storageConfiguration.AccountKey
         );
         Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        return new BlobServiceClient(storageUrl, storageCredentials).GetBlobBatchClient();
+        return new BlobServiceClient(
+            storageUrl,
+            storageCredentials,
+            _clientOptions
+        ).GetBlobBatchClient();
     }
 
     private string GetStorageAccountName(string org, int? storageAccountNumber)
