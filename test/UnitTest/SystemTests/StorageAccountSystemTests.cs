@@ -63,7 +63,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private const string _cleanupPath = "storage/api/v1/cleanup";
 
     private static readonly AzureStorageConfiguration _storageConfiguration =
-        TestStorageAccounts.AzureConfiguration;
+        AzuriteConfiguration();
 
     private readonly string _org = $"sys{Guid.NewGuid():N}"[..12];
     private readonly NpgsqlDataSource _dataSource = ServiceUtil.GetSharedDataSource();
@@ -313,7 +313,8 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         Assert.Equal("kept", await ReadData(host, instance, existing));
         BlobContainerClient missing = new(
             BlobRepositoryAzuriteFixture.ContainerUri(missingContainer),
-            SharedKey()
+            SharedKey(),
+            TestContainers.AzuriteClientOptions
         );
         Assert.False(await missing.ExistsAsync());
     }
@@ -483,7 +484,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task FileScanReadUrl_VersionInNamedAccount_ReadsFromThatAccountUntilScanned()
+    public async Task FileScanTarget_VersionInNamedAccount_ReadsFromThatAccountUntilScanned()
     {
         // Arrange
         StorageHost host = await StartHost(seedApplication: true);
@@ -494,8 +495,9 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         string versionId = Assert.Single(await ReadVersionRows(element)).VersionId;
 
         // Act
-        Uri url = await GetReadUrl(host, instance, element, versionId, HttpStatusCode.OK);
-        using HttpClient blobClient = new();
+        JsonNode pending = await GetFileScanTarget(host, instance, element, versionId);
+        Uri url = new(pending["readUrl"]!.GetValue<string>());
+        using HttpClient blobClient = TestContainers.CreateAzuriteHttpClient();
         string content = await blobClient.GetStringAsync(url);
         using HttpRequestMessage setStatus = new(
             HttpMethod.Put,
@@ -512,31 +514,45 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         using HttpResponseMessage setStatusResponse = await host.Client.SendAsync(setStatus);
 
         // Assert
+        Assert.Equal("pending", pending["status"]!.GetValue<string>());
         Assert.StartsWith($"/{_storageConfiguration.AccountName}/{named.Name}/", url.AbsolutePath);
         Assert.Equal("scan me", content);
         Assert.Equal(HttpStatusCode.OK, setStatusResponse.StatusCode);
-        await GetReadUrl(host, instance, element, versionId, HttpStatusCode.NotFound);
+        Assert.Equal(
+            """{"status":"updated"}""",
+            await setStatusResponse.Content.ReadAsStringAsync()
+        );
+        JsonNode scanned = await GetFileScanTarget(host, instance, element, versionId);
+        Assert.Equal("notPending", scanned["status"]!.GetValue<string>());
+        Assert.Null(scanned["readUrl"]);
     }
 
-    private static async Task<Uri> GetReadUrl(
+    private static async Task<JsonNode> GetFileScanTarget(
         StorageHost host,
         Guid instance,
         Guid element,
-        string versionId,
-        HttpStatusCode expectedStatus
+        string versionId
     )
     {
         using HttpRequestMessage request = new(
             HttpMethod.Get,
-            $"{InstancePath(instance)}/dataelements/{element}/blobversions/{versionId}/readurl"
+            $"{InstancePath(instance)}/dataelements/{element}/blobversions/{versionId}/filescan"
         );
         request.Headers.Add("PlatformAccessToken", FileScanToken());
         using HttpResponseMessage response = await host.Client.SendAsync(request);
         string body = await response.Content.ReadAsStringAsync();
-        Assert.True(response.StatusCode == expectedStatus, body);
-        return expectedStatus == HttpStatusCode.OK
-            ? new Uri(JsonNode.Parse(body)!["url"]!.GetValue<string>())
-            : null!;
+        Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+        return JsonNode.Parse(body)!;
+    }
+
+    /// <summary>
+    /// The unit test configuration, pointed at the Azurite test container that the hosts use.
+    /// </summary>
+    private static AzureStorageConfiguration AzuriteConfiguration()
+    {
+        AzureStorageConfiguration configuration = TestStorageAccounts.AzureConfiguration;
+        configuration.BlobEndPoint = TestContainers.AzuriteBlobEndpoint;
+        return configuration;
     }
 
     private static string FileScanToken() => PrincipalUtil.GetAccessToken("platform", "file-scan");
@@ -568,7 +584,15 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
                 services.AddSingleton(Mock.Of<IKeyVaultClientWrapper>());
                 services.AddSingleton(Mock.Of<IPartiesWithInstancesClient>());
                 services.AddSingleton(Mock.Of<IMessageBus>());
+                services.AddSingleton(Mock.Of<IFileScanQueueClient>());
                 services.AddSingleton<IPDP, PermitAllPdp>();
+                services.AddSingleton<IBlobRepository>(provider => new BlobRepository(
+                    provider.GetRequiredService<IMemoryCache>(),
+                    provider.GetRequiredService<IOptions<AzureStorageConfiguration>>(),
+                    provider.GetRequiredService<ILogger<BlobRepository>>(),
+                    new AzuriteTokenCredential(),
+                    TestContainers.AzuriteClientOptions
+                ));
                 if (logs is not null)
                 {
                     services.AddSingleton<ILoggerProvider>(logs);
