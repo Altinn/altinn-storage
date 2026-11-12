@@ -176,6 +176,7 @@ public class DataServiceTests
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
         Guid id = Guid.NewGuid();
+        Guid instanceGuid = Guid.NewGuid();
         string blobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
         string blobStoragePath = $"ttd/some-app/instance/data-elements/{blobVersionId}";
         byte[] blobStorageBytes = "whatever"u8.ToArray();
@@ -185,6 +186,7 @@ public class DataServiceTests
         DataElementInternal dataElement = new()
         {
             Id = id,
+            InstanceGuid = instanceGuid,
             BlobStoragePath = blobStoragePath,
             BlobVersionId = blobVersionId,
         };
@@ -214,7 +216,7 @@ public class DataServiceTests
         // Act
         (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash(
             "ttd",
-            Guid.NewGuid(),
+            instanceGuid,
             id,
             new Application()
         );
@@ -263,6 +265,48 @@ public class DataServiceTests
     }
 
     [Fact]
+    public async Task GenerateSha256Hash_DataElementOfOtherInstance_ReturnsNotFoundWithoutReadingBlob()
+    {
+        // Arrange
+        Mock<IFileScanQueueClient> fileScanQueueClientMock = new Mock<IFileScanQueueClient>();
+        Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
+        Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
+        Guid dataElementId = Guid.NewGuid();
+
+        dataRepositoryMock
+            .Setup(drm => drm.Read(It.IsAny<Guid>(), dataElementId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                new DataElementInternal
+                {
+                    Id = dataElementId,
+                    InstanceGuid = Guid.NewGuid(),
+                    BlobStoragePath = "skd/other-app/instance/data-elements/version",
+                    BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
+                }
+            );
+
+        DataService dataService = new DataService(
+            fileScanQueueClientMock.Object,
+            dataRepositoryMock.Object,
+            blobRepositoryMock.Object,
+            new PatternDefaultStorageAccountResolver()
+        );
+
+        // Act
+        (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash(
+            "ttd",
+            Guid.NewGuid(),
+            dataElementId,
+            new Application()
+        );
+
+        // Assert
+        Assert.Null(fileHash);
+        Assert.Equal(404, serviceError.ErrorCode);
+        blobRepositoryMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task GenerateSha256Hash_Failed_FiletNotExists()
     {
         // Arrange
@@ -270,9 +314,11 @@ public class DataServiceTests
         Mock<IDataRepository> dataRepositoryMock = new Mock<IDataRepository>();
         Mock<IBlobRepository> blobRepositoryMock = new Mock<IBlobRepository>();
 
+        Guid instanceGuid = Guid.NewGuid();
         DataElementInternal dataElement = new()
         {
             Id = Guid.NewGuid(),
+            InstanceGuid = instanceGuid,
             BlobStoragePath = "/ttd/some-app",
         };
 
@@ -292,7 +338,7 @@ public class DataServiceTests
         // Act
         (string fileHash, ServiceError serviceError) = await dataService.GenerateSha256Hash(
             "ttd",
-            Guid.NewGuid(),
+            instanceGuid,
             Guid.NewGuid(),
             new Application()
         );

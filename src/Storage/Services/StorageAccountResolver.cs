@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,8 @@ public sealed class StorageAccountResolver(
 {
     private const string _cacheKey = "storage-accounts";
 
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+
     private readonly AzureStorageConfiguration _storageConfiguration = storageConfiguration.Value;
     private readonly TimeSpan _cacheDuration = CacheDuration(
         generalSettings.Value.StorageAccountCacheSeconds
@@ -48,7 +51,7 @@ public sealed class StorageAccountResolver(
         Snapshot snapshot = await GetSnapshot(cancellationToken);
         if (!snapshot.Contains(id))
         {
-            snapshot = await Refresh(cancellationToken);
+            snapshot = await Refresh(Stopwatch.GetTimestamp(), cancellationToken);
         }
 
         if (snapshot.ById.TryGetValue(id, out StorageAccount? account))
@@ -204,11 +207,42 @@ public sealed class StorageAccountResolver(
             return snapshot;
         }
 
-        return await Refresh(cancellationToken);
+        return await Refresh(null, cancellationToken);
     }
 
-    private async Task<Snapshot> Refresh(CancellationToken cancellationToken)
+    /// <summary>
+    /// Reads the rows into a new snapshot. Concurrent callers share one read: once a caller holds the
+    /// lock, it uses the cached snapshot if that snapshot's read started at or after
+    /// <paramref name="readStartedNotBefore"/>, or any cached snapshot when it is null.
+    /// </summary>
+    private async Task<Snapshot> Refresh(
+        long? readStartedNotBefore,
+        CancellationToken cancellationToken
+    )
     {
+        await _refreshLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (
+                memoryCache.TryGetValue(_cacheKey, out Snapshot? current)
+                && current is not null
+                && current.ReadStarted >= (readStartedNotBefore ?? long.MinValue)
+            )
+            {
+                return current;
+            }
+
+            return await ReadSnapshot(cancellationToken);
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    private async Task<Snapshot> ReadSnapshot(CancellationToken cancellationToken)
+    {
+        long readStarted = Stopwatch.GetTimestamp();
         StorageAccountRows rows = await repository.ReadAll(cancellationToken);
         foreach (UnreadableStorageAccountRow row in rows.Unreadable)
         {
@@ -216,6 +250,7 @@ public sealed class StorageAccountResolver(
         }
 
         Snapshot snapshot = new(
+            readStarted,
             rows.Readable.ToDictionary(row => row.Id, ToAccount),
             rows.Readable.Where(row => row.Writable)
                 .ToDictionary(row => (row.Org, row.StorageAccountNumber), ToAccount),
@@ -230,6 +265,7 @@ public sealed class StorageAccountResolver(
     private static StorageAccount ToAccount(StorageAccountRow row) => new(row.Id, row.ProviderInfo);
 
     private sealed record Snapshot(
+        long ReadStarted,
         IReadOnlyDictionary<short, StorageAccount> ById,
         IReadOnlyDictionary<(string Org, int Number), StorageAccount> Writable,
         IReadOnlyDictionary<short, UnreadableStorageAccountRow> UnreadableById,

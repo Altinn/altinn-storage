@@ -3,7 +3,7 @@ SET LOCAL lock_timeout = '10s';
 
 CREATE TABLE IF NOT EXISTS storage.storageaccounts (
     id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    provider TEXT NOT NULL,             -- 'azure-blob', 'file-system', ...; selects the C# type
+    provider TEXT NOT NULL,             -- 'azure-blob', ...; selects the C# type
     providerinfo JSONB NOT NULL,        -- that provider's own properties, no discriminator inside
     org TEXT NOT NULL,                  -- blob storage org
     storageaccountnumber INT NOT NULL,  -- Application.StorageAccountNumber, default 1 when the app has none

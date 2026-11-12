@@ -99,7 +99,7 @@ public class DataService : IDataService
     )
     {
         DataElementInternal dataElement = await _dataRepository.Read(instanceGuid, dataElementId);
-        if (dataElement == null)
+        if (dataElement == null || dataElement.InstanceGuid != instanceGuid)
         {
             return (
                 null,
