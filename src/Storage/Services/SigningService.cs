@@ -21,7 +21,6 @@ namespace Altinn.Platform.Storage.Services;
 /// </summary>
 public class SigningService : ISigningService
 {
-    private readonly IInstanceRepository _instanceRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IBlobRepository _blobRepository;
     private readonly ILogger<SigningService> _logger;
@@ -40,7 +39,6 @@ public class SigningService : ISigningService
     /// Initializes a new instance of the <see cref="SigningService"/> class.
     /// </summary>
     public SigningService(
-        IInstanceRepository instanceRepository,
         IDataService dataService,
         IApplicationService applicationService,
         IInstanceEventService instanceEventService,
@@ -50,7 +48,6 @@ public class SigningService : ISigningService
         ILogger<SigningService> logger
     )
     {
-        _instanceRepository = instanceRepository;
         _dataService = dataService;
         _applicationService = applicationService;
         _instanceEventService = instanceEventService;
@@ -62,7 +59,7 @@ public class SigningService : ISigningService
 
     /// <inheritdoc/>
     public async Task<SignDocumentCreateResult> CreateSignDocument(
-        Guid instanceGuid,
+        InstanceInternal instance,
         SignRequest signRequest,
         string performedBy,
         int? expectedInstanceVersion,
@@ -70,17 +67,12 @@ public class SigningService : ISigningService
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
         if (instance == null)
         {
             return SignDocumentCreateResult.Failure(new ServiceError(404, "Instance not found"));
         }
 
+        Guid instanceGuid = instance.Id;
         StorageVersions currentVersions = instance.Versions;
         if (
             expectedInstanceVersion is not null
