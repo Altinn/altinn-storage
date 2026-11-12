@@ -31,7 +31,7 @@ public class ProcessController : ControllerBase
     private readonly IInstanceRepository _instanceRepository;
     private readonly IInstanceEventRepository _instanceEventRepository;
     private readonly IInstanceMutationRepository _instanceMutationRepository;
-    private readonly string _storageBaseAndHost;
+    private readonly GeneralSettings _generalSettings;
     private readonly IProcessAuthorizer _processAuthorizer;
     private readonly IInstanceEventService _instanceEventService;
     private readonly IProcessDataCleanupService _processDataCleanupService;
@@ -68,7 +68,7 @@ public class ProcessController : ControllerBase
         _instanceRepository = instanceRepository;
         _instanceEventRepository = instanceEventRepository;
         _instanceMutationRepository = instanceMutationRepository;
-        _storageBaseAndHost = $"{generalsettings.Value.Hostname}/storage/api/v1/";
+        _generalSettings = generalsettings.Value;
         _processAuthorizer = processAuthorizer;
         _instanceEventService = instanceEventService;
         _processDataCleanupService = processDataCleanupService;
@@ -188,7 +188,7 @@ public class ProcessController : ControllerBase
         }
 
         Instance responseInstance = updatedInstance.ToApiModel();
-        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(responseInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(responseInstance);
     }
@@ -439,7 +439,7 @@ public class ProcessController : ControllerBase
         }
 
         Instance responseInstance = updatedInstance.ToApiModel();
-        responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        _generalSettings.SetPlatformSelfLinks(responseInstance);
         VersionPreconditionHelper.WriteVersionResponseHeaders(Response, updatedInstance);
         return Ok(responseInstance);
     }

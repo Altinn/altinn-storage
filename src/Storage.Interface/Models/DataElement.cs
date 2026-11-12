@@ -156,6 +156,9 @@ public class DataElement : ChangableElement
     /// </summary>
     /// <param name="storageHostAndBase">The host and base path for platform storage. E.g. 'at22.altinn.cloud/storage/api/v1/'. Must end with '/'.</param>
     /// <param name="instanceOwnerPartyId">The instance owner party id.</param>
+    [Obsolete(
+        "Storage sets the platform self links in its responses. This method will be removed in a future version."
+    )]
     public void SetPlatformSelfLinks(string storageHostAndBase, int instanceOwnerPartyId)
     {
         if (SelfLinks == null)
