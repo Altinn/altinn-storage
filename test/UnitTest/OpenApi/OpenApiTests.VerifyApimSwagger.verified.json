@@ -4280,6 +4280,56 @@
         }
       }
     },
+    "/studio/metrics/{org}": {
+      "get": {
+        "tags": [
+          "StudioMetrics"
+        ],
+        "summary": "Gets what happened to a service owner's instances on one UTC day, per app.",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "The service owner.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The UTC day, YYYY-MM-DD.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudioDailyMetrics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/applications/{org}/{app}/texts": {
       "post": {
         "tags": [
@@ -6428,6 +6478,72 @@
         "additionalProperties": false,
         "description": "Query response object"
       },
+      "StudioAppDailyMetrics": {
+        "required": [
+          "app"
+        ],
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "The app name without the service owner prefix.",
+            "nullable": true
+          },
+          "instancesCreated": {
+            "type": "integer",
+            "description": "Instances created on the day.",
+            "format": "int64"
+          },
+          "instancesCompleted": {
+            "type": "integer",
+            "description": "Instances archived on the day.",
+            "format": "int64"
+          },
+          "secondsToCompleteP50": {
+            "type": "integer",
+            "description": "Median seconds from process start to process end for the instances archived on the day. Null when none were archived.",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Instance metrics for one app on one UTC day."
+      },
+      "StudioDailyMetrics": {
+        "required": [
+          "computedAt",
+          "date",
+          "org"
+        ],
+        "type": "object",
+        "properties": {
+          "org": {
+            "type": "string",
+            "description": "The service owner the metrics belong to.",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "description": "The UTC day the metrics describe.",
+            "format": "date"
+          },
+          "computedAt": {
+            "type": "string",
+            "description": "When Storage computed the metrics.",
+            "format": "date-time"
+          },
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudioAppDailyMetrics"
+            },
+            "description": "Metrics per app. Apps without instances created or completed on the day are left out.",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "What happened to one service owner's instances on one UTC day, one entry per app, as read by Altinn Studio."
+      },
       "Substatus": {
         "type": "object",
         "properties": {
@@ -6647,6 +6763,9 @@
     },
     {
       "name": "StudioInstances"
+    },
+    {
+      "name": "StudioMetrics"
     },
     {
       "name": "Texts"
