@@ -107,9 +107,6 @@ public class StudioMetricsControllerTests : IAsyncLifetime
                     InstancesCreated = 2,
                     InstancesCompleted = 1,
                     SecondsToCompleteP50 = 600,
-                    OpenInstances = 3,
-                    OpenOver90Days = 1,
-                    OpenByTask = [new() { TaskId = "Task_1", OpenInstances = 3 }],
                 },
             ],
         };
@@ -129,9 +126,7 @@ public class StudioMetricsControllerTests : IAsyncLifetime
         string content = await response.Content.ReadAsStringAsync();
         StudioDailyMetrics actual = JsonConvert.DeserializeObject<StudioDailyMetrics>(content);
         Assert.Equal(metrics, actual with { Apps = metrics.Apps });
-        StudioAppDailyMetrics app = Assert.Single(actual.Apps);
-        Assert.Equal(metrics.Apps[0] with { OpenByTask = app.OpenByTask }, app);
-        Assert.Equal(metrics.Apps[0].OpenByTask, app.OpenByTask);
+        Assert.Equal(metrics.Apps[0], Assert.Single(actual.Apps));
         Assert.Contains("\"secondsToCompleteP50\":600", content);
     }
 

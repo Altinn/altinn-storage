@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Altinn.Platform.Storage.Models.Metrics;
@@ -31,22 +30,4 @@ public record StudioAppDailyMetrics
     /// </summary>
     [JsonPropertyName("secondsToCompleteP50")]
     public int? SecondsToCompleteP50 { get; init; }
-
-    /// <summary>
-    /// Instances whose process is still running. Soft deleted instances are included, hard deleted ones are not.
-    /// </summary>
-    [JsonPropertyName("openInstances")]
-    public long OpenInstances { get; init; }
-
-    /// <summary>
-    /// Open instances created more than 90 days before the end of the day.
-    /// </summary>
-    [JsonPropertyName("openOver90Days")]
-    public long OpenOver90Days { get; init; }
-
-    /// <summary>
-    /// Open instances per current process task.
-    /// </summary>
-    [JsonPropertyName("openByTask")]
-    public List<StudioOpenTaskCount> OpenByTask { get; init; } = [];
 }

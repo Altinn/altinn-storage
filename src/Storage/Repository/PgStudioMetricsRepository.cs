@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,9 +16,6 @@ public class PgStudioMetricsRepository(NpgsqlDataSource dataSource) : IStudioMet
     private const string _getDailyMetrics =
         "SELECT * FROM storage.get_studio_daily_metrics($1, $2)";
 
-    private const string _getOpenTaskCounts =
-        "SELECT * FROM storage.get_studio_open_task_counts($1)";
-
     private const int _commandTimeoutSeconds = 900;
 
     /// <inheritdoc/>
@@ -29,17 +25,11 @@ public class PgStudioMetricsRepository(NpgsqlDataSource dataSource) : IStudioMet
         CancellationToken cancellationToken
     )
     {
-        DateTime computedAt = DateTime.UtcNow;
-        Dictionary<string, List<StudioOpenTaskCount>> openByTask = await ReadOpenTaskCounts(
-            org,
-            cancellationToken
-        );
-
         StudioDailyMetrics metrics = new()
         {
             Org = org,
             Date = date,
-            ComputedAt = computedAt,
+            ComputedAt = DateTime.UtcNow,
         };
 
         await using NpgsqlCommand pgcom = dataSource.CreateCommand(_getDailyMetrics);
@@ -74,58 +64,11 @@ public class PgStudioMetricsRepository(NpgsqlDataSource dataSource) : IStudioMet
                             "seconds_to_complete_p50",
                             cancellationToken
                         ),
-                    OpenInstances = await reader.GetFieldValueAsync<long>(
-                        "open_instances",
-                        cancellationToken
-                    ),
-                    OpenOver90Days = await reader.GetFieldValueAsync<long>(
-                        "open_over_90_days",
-                        cancellationToken
-                    ),
-                    OpenByTask = openByTask.GetValueOrDefault(app) ?? [],
                 }
             );
         }
 
         return metrics;
-    }
-
-    private async Task<Dictionary<string, List<StudioOpenTaskCount>>> ReadOpenTaskCounts(
-        string org,
-        CancellationToken cancellationToken
-    )
-    {
-        Dictionary<string, List<StudioOpenTaskCount>> result = [];
-
-        await using NpgsqlCommand pgcom = dataSource.CreateCommand(_getOpenTaskCounts);
-        pgcom.CommandTimeout = _commandTimeoutSeconds;
-        pgcom.Parameters.AddWithValue(NpgsqlDbType.Text, org);
-
-        await using NpgsqlDataReader reader = await pgcom.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            string app = AppFromAppId(
-                await reader.GetFieldValueAsync<string>("appid", cancellationToken)
-            );
-            if (!result.TryGetValue(app, out List<StudioOpenTaskCount> counts))
-            {
-                counts = [];
-                result[app] = counts;
-            }
-
-            counts.Add(
-                new StudioOpenTaskCount
-                {
-                    TaskId = await reader.GetFieldValueAsync<string>("taskid", cancellationToken),
-                    OpenInstances = await reader.GetFieldValueAsync<long>(
-                        "open_instances",
-                        cancellationToken
-                    ),
-                }
-            );
-        }
-
-        return result;
     }
 
     private static string AppFromAppId(string appId)

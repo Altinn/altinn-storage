@@ -912,9 +912,7 @@ CREATE OR REPLACE FUNCTION storage.get_studio_daily_metrics(_org TEXT, _date DAT
         appid TEXT,
         instances_created BIGINT,
         instances_completed BIGINT,
-        seconds_to_complete_p50 INTEGER,
-        open_instances BIGINT,
-        open_over_90_days BIGINT)
+        seconds_to_complete_p50 INTEGER)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -922,11 +920,9 @@ DECLARE
     -- The day is a UTC day, like storage.get_instance_metrics.
     _day_start TIMESTAMPTZ := MAKE_TIMESTAMPTZ(EXTRACT(YEAR FROM _date)::INT, EXTRACT(MONTH FROM _date)::INT, EXTRACT(DAY FROM _date)::INT, 0, 0, 0, 'UTC');
     _day_end TIMESTAMPTZ := _day_start + INTERVAL '1 day';
-    _age_limit TIMESTAMPTZ := _day_end - INTERVAL '90 days';
 BEGIN
-    -- instances_created, instances_completed and seconds_to_complete_p50 describe what happened on the day.
-    -- open_instances and open_over_90_days describe the table as it is now, with ages measured from the end
-    -- of the day. They are only snapshots when the function runs shortly after the day has ended.
+    -- Everything describes what happened on the day, so the function reads one day's rows through the
+    -- indexes on created and on the archived timestamp, however large the table is.
     RETURN QUERY
     WITH created AS (
         SELECT i.appid AS app, count(*) AS n
@@ -956,57 +952,19 @@ BEGIN
             AND i.org = _org
         GROUP BY i.appid
     ),
-    open AS (
-        -- Hard deleted instances keep their taskid until the cleanup job removes them, so they are filtered out.
-        -- The index instances_org_appid_taskid_created_open narrows the scan to the open rows.
-        SELECT i.appid AS app,
-            count(*) AS n,
-            count(*) FILTER (WHERE i.created < _age_limit) AS n_old
-        FROM storage.instances i
-        WHERE i.org = _org
-            AND i.taskid IS NOT NULL
-            AND NOT COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-        GROUP BY i.appid
-    ),
     apps AS (
         SELECT c.app FROM created c
         UNION
         SELECT d.app FROM completed d
-        UNION
-        SELECT o.app FROM open o
     )
     SELECT a.app,
         COALESCE(c.n, 0),
         COALESCE(d.n, 0),
-        d.p50::INTEGER,
-        COALESCE(o.n, 0),
-        COALESCE(o.n_old, 0)
+        d.p50::INTEGER
     FROM apps a
     LEFT JOIN created c ON c.app = a.app
     LEFT JOIN completed d ON d.app = a.app
-    LEFT JOIN open o ON o.app = a.app
     ORDER BY a.app;
-END;
-$BODY$;
-
-
--- getstudioopentaskcounts.sql:
-CREATE OR REPLACE FUNCTION storage.get_studio_open_task_counts(_org TEXT)
-    RETURNS TABLE (appid TEXT, taskid TEXT, open_instances BIGINT)
-    LANGUAGE 'plpgsql'
-
-AS $BODY$
-BEGIN
-    -- Hard deleted instances keep their taskid until the cleanup job removes them, so they are filtered out.
-    -- The index instances_org_appid_taskid_created_open narrows the scan to the open rows.
-    RETURN QUERY
-        SELECT i.appid, i.taskid, count(*)
-        FROM storage.instances i
-        WHERE i.org = _org
-            AND i.taskid IS NOT NULL
-            AND NOT COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
-        GROUP BY i.appid, i.taskid
-        ORDER BY i.appid, i.taskid;
 END;
 $BODY$;
 

@@ -6,7 +6,7 @@ using Altinn.Platform.Storage.Models.Metrics;
 namespace Altinn.Platform.Storage.Repository;
 
 /// <summary>
-/// Reads the per-app instance metrics that Altinn Studio shows service owners.
+/// Reads the per-app daily instance metrics that Altinn Studio shows service owners.
 /// </summary>
 public interface IStudioMetricsRepository
 {

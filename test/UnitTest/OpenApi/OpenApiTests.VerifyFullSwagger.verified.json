@@ -4294,7 +4294,7 @@
         "tags": [
           "StudioMetrics"
         ],
-        "summary": "Gets instance metrics per app for a service owner and one UTC day.",
+        "summary": "Gets what happened to a service owner's instances on one UTC day, per app.",
         "parameters": [
           {
             "name": "org",
@@ -4308,7 +4308,7 @@
           {
             "name": "date",
             "in": "query",
-            "description": "The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open counts describe the instances as they are now.",
+            "description": "The UTC day, YYYY-MM-DD.",
             "schema": {
               "type": "string",
               "format": "date"
@@ -6513,24 +6513,6 @@
             "description": "Median seconds from process start to process end for the instances archived on the day. Null when none were archived.",
             "format": "int32",
             "nullable": true
-          },
-          "openInstances": {
-            "type": "integer",
-            "description": "Instances whose process is still running. Soft deleted instances are included, hard deleted ones are not.",
-            "format": "int64"
-          },
-          "openOver90Days": {
-            "type": "integer",
-            "description": "Open instances created more than 90 days before the end of the day.",
-            "format": "int64"
-          },
-          "openByTask": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/StudioOpenTaskCount"
-            },
-            "description": "Open instances per current process task.",
-            "nullable": true
           }
         },
         "additionalProperties": false,
@@ -6551,12 +6533,12 @@
           },
           "date": {
             "type": "string",
-            "description": "The UTC day the flow metrics (created, completed, time to complete) describe.",
+            "description": "The UTC day the metrics describe.",
             "format": "date"
           },
           "computedAt": {
             "type": "string",
-            "description": "When the snapshot metrics (open instances) were read.",
+            "description": "When Storage computed the metrics.",
             "format": "date-time"
           },
           "apps": {
@@ -6564,32 +6546,12 @@
             "items": {
               "$ref": "#/components/schemas/StudioAppDailyMetrics"
             },
-            "description": "Metrics per app. Apps without instances on the day and without open instances are left out.",
+            "description": "Metrics per app. Apps without instances created or completed on the day are left out.",
             "nullable": true
           }
         },
         "additionalProperties": false,
-        "description": "Instance metrics for one service owner and one UTC day, one entry per app, as read by Altinn Studio."
-      },
-      "StudioOpenTaskCount": {
-        "required": [
-          "taskId"
-        ],
-        "type": "object",
-        "properties": {
-          "taskId": {
-            "type": "string",
-            "description": "The process task id, for example Task_1.",
-            "nullable": true
-          },
-          "openInstances": {
-            "type": "integer",
-            "description": "Open instances at the task.",
-            "format": "int64"
-          }
-        },
-        "additionalProperties": false,
-        "description": "Number of open instances standing at one process task."
+        "description": "What happened to one service owner's instances on one UTC day, one entry per app, as read by Altinn Studio."
       },
       "Substatus": {
         "type": "object",

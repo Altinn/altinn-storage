@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 namespace Altinn.Platform.Storage.Models.Metrics;
 
 /// <summary>
-/// Instance metrics for one service owner and one UTC day, one entry per app, as read by Altinn Studio.
+/// What happened to one service owner's instances on one UTC day, one entry per app, as read by Altinn Studio.
 /// </summary>
 public record StudioDailyMetrics
 {
@@ -16,19 +16,19 @@ public record StudioDailyMetrics
     public required string Org { get; init; }
 
     /// <summary>
-    /// The UTC day the flow metrics (created, completed, time to complete) describe.
+    /// The UTC day the metrics describe.
     /// </summary>
     [JsonPropertyName("date")]
     public required DateOnly Date { get; init; }
 
     /// <summary>
-    /// When the snapshot metrics (open instances) were read.
+    /// When Storage computed the metrics.
     /// </summary>
     [JsonPropertyName("computedAt")]
     public required DateTime ComputedAt { get; init; }
 
     /// <summary>
-    /// Metrics per app. Apps without instances on the day and without open instances are left out.
+    /// Metrics per app. Apps without instances created or completed on the day are left out.
     /// </summary>
     [JsonPropertyName("apps")]
     public List<StudioAppDailyMetrics> Apps { get; init; } = [];

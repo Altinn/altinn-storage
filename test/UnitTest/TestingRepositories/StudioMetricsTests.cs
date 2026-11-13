@@ -46,7 +46,7 @@ public class StudioMetricsTests
     }
 
     [Fact]
-    public async Task GetDailyMetrics_CountsFlowForTheDayAndStockByAge()
+    public async Task GetDailyMetrics_CountsCreatedAndCompletedOnTheDay()
     {
         // Arrange
         // Created and still open on the day.
@@ -111,26 +111,13 @@ public class StudioMetricsTests
         );
 
         // Assert
-        Assert.Equal(["kpi-a", "kpi-b"], metrics.Apps.Select(a => a.App));
+        // kpi-b only has an old open instance, so nothing happened to it on the day.
+        Assert.Equal(["kpi-a"], metrics.Apps.Select(a => a.App));
 
         StudioAppDailyMetrics appA = metrics.Apps[0];
         Assert.Equal(4, appA.InstancesCreated);
         Assert.Equal(2, appA.InstancesCompleted);
         Assert.Equal((600 + 72000) / 2, appA.SecondsToCompleteP50);
-        Assert.Equal(4, appA.OpenInstances);
-        Assert.Equal(1, appA.OpenOver90Days);
-        Assert.Equal(
-            [("Task_1", 2L), ("Task_2", 2L)],
-            appA.OpenByTask.Select(t => (t.TaskId, t.OpenInstances))
-        );
-
-        StudioAppDailyMetrics appB = metrics.Apps[1];
-        Assert.Equal(0, appB.InstancesCreated);
-        Assert.Equal(0, appB.InstancesCompleted);
-        Assert.Null(appB.SecondsToCompleteP50);
-        Assert.Equal(1, appB.OpenInstances);
-        Assert.Equal(1, appB.OpenOver90Days);
-        Assert.Equal([("Task_1", 1L)], appB.OpenByTask.Select(t => (t.TaskId, t.OpenInstances)));
     }
 
     [Fact]
@@ -152,7 +139,6 @@ public class StudioMetricsTests
         // Assert
         StudioAppDailyMetrics app = Assert.Single(metrics.Apps);
         Assert.Equal(2, app.InstancesCreated);
-        Assert.Equal(4, app.OpenInstances);
     }
 
     private static Task InsertOpen(
