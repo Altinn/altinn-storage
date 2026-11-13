@@ -109,7 +109,6 @@ public class StudioMetricsControllerTests : IAsyncLifetime
                     SecondsToCompleteP50 = 600,
                     OpenInstances = 3,
                     OpenOver90Days = 1,
-                    UnconfirmedOver90Days = 4,
                     OpenByTask = [new() { TaskId = "Task_1", OpenInstances = 3 }],
                 },
             ],

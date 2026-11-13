@@ -4308,7 +4308,7 @@
           {
             "name": "date",
             "in": "query",
-            "description": "The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open and unconfirmed counts describe the instances as they are now.",
+            "description": "The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open counts describe the instances as they are now.",
             "schema": {
               "type": "string",
               "format": "date"
@@ -6524,11 +6524,6 @@
             "description": "Open instances created more than 90 days before the end of the day.",
             "format": "int64"
           },
-          "unconfirmedOver90Days": {
-            "type": "integer",
-            "description": "Instances whose process ended more than 90 days before the end of the day and that the service owner has not confirmed as complete.",
-            "format": "int64"
-          },
           "openByTask": {
             "type": "array",
             "items": {
@@ -6561,7 +6556,7 @@
           },
           "computedAt": {
             "type": "string",
-            "description": "When the snapshot metrics (open and unconfirmed instances) were read.",
+            "description": "When the snapshot metrics (open instances) were read.",
             "format": "date-time"
           },
           "apps": {
@@ -6569,7 +6564,7 @@
             "items": {
               "$ref": "#/components/schemas/StudioAppDailyMetrics"
             },
-            "description": "Metrics per app. Apps without instances on the day and without open or unconfirmed instances are left out.",
+            "description": "Metrics per app. Apps without instances on the day and without open instances are left out.",
             "nullable": true
           }
         },

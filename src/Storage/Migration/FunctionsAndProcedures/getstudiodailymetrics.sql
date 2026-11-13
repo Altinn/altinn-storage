@@ -5,8 +5,7 @@ CREATE OR REPLACE FUNCTION storage.get_studio_daily_metrics(_org TEXT, _date DAT
         instances_completed BIGINT,
         seconds_to_complete_p50 INTEGER,
         open_instances BIGINT,
-        open_over_90_days BIGINT,
-        unconfirmed_over_90_days BIGINT)
+        open_over_90_days BIGINT)
     LANGUAGE 'plpgsql'
 
 AS $BODY$
@@ -17,9 +16,8 @@ DECLARE
     _age_limit TIMESTAMPTZ := _day_end - INTERVAL '90 days';
 BEGIN
     -- instances_created, instances_completed and seconds_to_complete_p50 describe what happened on the day.
-    -- open_instances, open_over_90_days and unconfirmed_over_90_days describe the table as it is now,
-    -- with ages measured from the end of the day. They are only snapshots when the function runs
-    -- shortly after the day has ended.
+    -- open_instances and open_over_90_days describe the table as it is now, with ages measured from the end
+    -- of the day. They are only snapshots when the function runs shortly after the day has ended.
     RETURN QUERY
     WITH created AS (
         SELECT i.appid AS app, count(*) AS n
@@ -61,38 +59,23 @@ BEGIN
             AND NOT COALESCE((i.instance -> 'Status' ->> 'IsHardDeleted')::BOOLEAN, FALSE)
         GROUP BY i.appid
     ),
-    unconfirmed AS (
-        -- Same predicate as the index instances_org_lastchanged_id_filtered_by_ended.
-        SELECT i.appid AS app, count(*) AS n
-        FROM storage.instances i
-        WHERE i.org = _org
-            AND i.confirmed = false
-            AND i.altinnmainversion = 3
-            AND i.instance -> 'Process' -> 'Ended' IS NOT NULL
-            AND storage.jsonb_text_to_timestamptz(i.instance, 'Process', 'Ended') < _age_limit
-        GROUP BY i.appid
-    ),
     apps AS (
         SELECT c.app FROM created c
         UNION
         SELECT d.app FROM completed d
         UNION
         SELECT o.app FROM open o
-        UNION
-        SELECT u.app FROM unconfirmed u
     )
     SELECT a.app,
         COALESCE(c.n, 0),
         COALESCE(d.n, 0),
         d.p50::INTEGER,
         COALESCE(o.n, 0),
-        COALESCE(o.n_old, 0),
-        COALESCE(u.n, 0)
+        COALESCE(o.n_old, 0)
     FROM apps a
     LEFT JOIN created c ON c.app = a.app
     LEFT JOIN completed d ON d.app = a.app
     LEFT JOIN open o ON o.app = a.app
-    LEFT JOIN unconfirmed u ON u.app = a.app
     ORDER BY a.app;
 END;
 $BODY$;

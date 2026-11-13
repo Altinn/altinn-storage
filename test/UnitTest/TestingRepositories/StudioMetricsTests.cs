@@ -71,7 +71,7 @@ public class StudioMetricsTests
         // Open for more than 90 days.
         await InsertOpen("ttd/kpi-a", "2026-07-01T00:00:00Z", "Task_2");
 
-        // Completed more than 90 days ago and never confirmed.
+        // Completed more than 90 days ago.
         await InsertCompleted(
             "ttd/kpi-a",
             created: "2026-05-01T00:00:00Z",
@@ -119,7 +119,6 @@ public class StudioMetricsTests
         Assert.Equal((600 + 72000) / 2, appA.SecondsToCompleteP50);
         Assert.Equal(4, appA.OpenInstances);
         Assert.Equal(1, appA.OpenOver90Days);
-        Assert.Equal(1, appA.UnconfirmedOver90Days);
         Assert.Equal(
             [("Task_1", 2L), ("Task_2", 2L)],
             appA.OpenByTask.Select(t => (t.TaskId, t.OpenInstances))
@@ -131,7 +130,6 @@ public class StudioMetricsTests
         Assert.Null(appB.SecondsToCompleteP50);
         Assert.Equal(1, appB.OpenInstances);
         Assert.Equal(1, appB.OpenOver90Days);
-        Assert.Equal(0, appB.UnconfirmedOver90Days);
         Assert.Equal([("Task_1", 1L)], appB.OpenByTask.Select(t => (t.TaskId, t.OpenInstances)));
     }
 

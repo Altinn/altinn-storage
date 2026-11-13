@@ -82,10 +82,6 @@ public class PgStudioMetricsRepository(NpgsqlDataSource dataSource) : IStudioMet
                         "open_over_90_days",
                         cancellationToken
                     ),
-                    UnconfirmedOver90Days = await reader.GetFieldValueAsync<long>(
-                        "unconfirmed_over_90_days",
-                        cancellationToken
-                    ),
                     OpenByTask = openByTask.GetValueOrDefault(app) ?? [],
                 }
             );

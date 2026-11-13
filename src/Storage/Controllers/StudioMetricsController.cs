@@ -25,7 +25,7 @@ public class StudioMetricsController(
     /// Gets instance metrics per app for a service owner and one UTC day.
     /// </summary>
     /// <param name="org">The service owner.</param>
-    /// <param name="date">The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open and unconfirmed counts describe the instances as they are now.</param>
+    /// <param name="date">The UTC day, YYYY-MM-DD. Created, completed and time to complete describe this day; open counts describe the instances as they are now.</param>
     /// <param name="ct">Cancellation token.</param>
     [Authorize(Policy = AuthzConstants.POLICY_STUDIO_DESIGNER)]
     [HttpGet("{org}")]

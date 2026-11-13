@@ -22,13 +22,13 @@ public record StudioDailyMetrics
     public required DateOnly Date { get; init; }
 
     /// <summary>
-    /// When the snapshot metrics (open and unconfirmed instances) were read.
+    /// When the snapshot metrics (open instances) were read.
     /// </summary>
     [JsonPropertyName("computedAt")]
     public required DateTime ComputedAt { get; init; }
 
     /// <summary>
-    /// Metrics per app. Apps without instances on the day and without open or unconfirmed instances are left out.
+    /// Metrics per app. Apps without instances on the day and without open instances are left out.
     /// </summary>
     [JsonPropertyName("apps")]
     public List<StudioAppDailyMetrics> Apps { get; init; } = [];

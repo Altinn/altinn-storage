@@ -45,12 +45,6 @@ public record StudioAppDailyMetrics
     public long OpenOver90Days { get; init; }
 
     /// <summary>
-    /// Instances whose process ended more than 90 days before the end of the day and that the service owner has not confirmed as complete.
-    /// </summary>
-    [JsonPropertyName("unconfirmedOver90Days")]
-    public long UnconfirmedOver90Days { get; init; }
-
-    /// <summary>
     /// Open instances per current process task.
     /// </summary>
     [JsonPropertyName("openByTask")]
