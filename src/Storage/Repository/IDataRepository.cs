@@ -38,7 +38,7 @@ public interface IDataRepository
     /// <param name="dataElementId">The data element guid</param>
     /// <param name="cancellationToken">A cancellation token to pass to async operations</param>
     /// <returns>The identified data element.</returns>
-    Task<DataElementInternal> Read(
+    Task<DataElementInternal?> Read(
         Guid instanceGuid,
         Guid dataElementId,
         CancellationToken cancellationToken = default
