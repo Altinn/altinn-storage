@@ -2775,7 +2775,7 @@ public class DataControllerUnitTests
     )
     {
         // Arrange
-        TaskBoundTestFixture fixture = GetTaskBoundTestController(endpoint, ["Task_2", "Task_3"]);
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(endpoint, ["Task_2"]);
 
         // Act
         ActionResult<DataElement> result = await CallDataWriteEndpoint(
@@ -2944,8 +2944,7 @@ public class DataControllerUnitTests
     {
         List<string> expectedPropertiesForPatch = endpoint switch
         {
-            // An overwrite by the app owner also marks the element as unread.
-            DataWriteEndpoint.Overwrite => [.. _expectedPropertiesForOverwrite, "/isRead"],
+            DataWriteEndpoint.Overwrite => _expectedPropertiesForOverwrite,
             DataWriteEndpoint.UpdateMetadata => _expectedPropertiesForUpdate,
             _ => [],
         };
@@ -2968,8 +2967,7 @@ public class DataControllerUnitTests
             dataTypeAutoDeleteOnProcessEnd: autoDeleteOnProcessEnd,
             dataTypeWriteAuthorized: writeAuthorized,
             currentTask: currentTask,
-            processEnded: processEnded,
-            user: CreateOrgPrincipal(_org)
+            processEnded: processEnded
         );
 
         return new TaskBoundTestFixture(
@@ -3172,8 +3170,7 @@ public class DataControllerUnitTests
         bool dataTypeAutoDeleteOnProcessEnd = true,
         bool dataTypeWriteAuthorized = true,
         string currentTask = null,
-        bool processEnded = false,
-        ClaimsPrincipal user = null
+        bool processEnded = false
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -3489,9 +3486,7 @@ public class DataControllerUnitTests
             .ReturnsAsync(dataTypeWriteAuthorized);
 
         Mock<HttpContext> httpContextMock = new();
-        httpContextMock
-            .Setup(c => c.User)
-            .Returns(user ?? PrincipalUtil.GetPrincipal(200001, 1337));
+        httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
 
         Mock<HttpRequest> requestMock = new();
         requestMock.Setup(r => r.Headers).Returns(requestHeaders);

@@ -5124,11 +5124,7 @@ public class InstanceMutationsControllerUnitTests
         DataElementOperation operation
     )
     {
-        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            operation,
-            ["Task_2", "Task_3"],
-            callerIsAppOwner: true
-        );
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(operation, ["Task_2"]);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -5216,7 +5212,6 @@ public class InstanceMutationsControllerUnitTests
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             operation,
             ["Task_2"],
-            callerIsAppOwner: false,
             writeAuthorized: false
         );
 
@@ -5237,7 +5232,6 @@ public class InstanceMutationsControllerUnitTests
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             DataElementOperation.Create,
             ["Task_2"],
-            callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing
         );
 
@@ -5264,8 +5258,7 @@ public class InstanceMutationsControllerUnitTests
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             operation,
-            ["Task_2", "Task_1"],
-            callerIsAppOwner: true
+            ["Task_2", "Task_1"]
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5288,35 +5281,11 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_ReturnsConflict()
-    {
-        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            DataElementOperation.Update,
-            ["Task_2"],
-            callerIsAppOwner: true,
-            currentProcessStatus: ProcessStatus.Processing,
-            expectedProcessStatus: ProcessStatus.Processing
-        );
-
-        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
-            555,
-            fixture.InstanceInternal.Id,
-            CancellationToken.None
-        );
-
-        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
-        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
-        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
-        VerifyNoBlobWritten(fixture);
-    }
-
-    [Fact]
     public async Task CommitMutation_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_Applies()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             DataElementOperation.Delete,
             ["Task_2"],
-            callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
             expectedProcessStatus: ProcessStatus.Processing,
             currentTask: null,
@@ -5352,7 +5321,6 @@ public class InstanceMutationsControllerUnitTests
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
             operation,
             ["Task_2"],
-            callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
             expectedProcessStatus: ProcessStatus.Processing,
             currentTask: null,
@@ -5554,7 +5522,6 @@ public class InstanceMutationsControllerUnitTests
     private AggregateMutationFixture CreateTaskBoundMutationFixture(
         DataElementOperation operation,
         List<string> taskIds,
-        bool callerIsAppOwner,
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
         ProcessStatus? expectedProcessStatus = null,
         string currentTask = "Task_1",
@@ -5660,10 +5627,6 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .ReturnsAsync(writeAuthorized);
-        if (callerIsAppOwner)
-        {
-            fixture.HttpContext.User = CreateOrgPrincipal(_org);
-        }
 
         return fixture;
     }

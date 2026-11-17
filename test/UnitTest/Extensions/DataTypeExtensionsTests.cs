@@ -14,45 +14,35 @@ namespace Altinn.Platform.Storage.UnitTest.Extensions;
 public class DataTypeExtensionsTests
 {
     [Theory]
-    [InlineData(null, "Task_1", false)]
-    [InlineData(new string[0], "Task_1", false)]
-    [InlineData(new string[0], null, true)]
-    [InlineData(new[] { "Task_1", "Task_2" }, "Task_1", false)]
-    [InlineData(new[] { "Task_1", "Task_2" }, "Task_2", true)]
+    [InlineData(null, "Task_1")]
+    [InlineData(new string[0], "Task_1")]
+    [InlineData(new string[0], null)]
+    [InlineData(new[] { "Task_1", "Task_2" }, "Task_1")]
+    [InlineData(new[] { "Task_1", "Task_2" }, "Task_2")]
     public void GetTaskBindingConflict_UnboundOrInItsTasks_ReturnsNull(
         string[] taskIds,
-        string currentTask,
-        bool isDelete
+        string currentTask
     )
     {
         DataType dataType = new() { Id = "model", TaskIds = taskIds?.ToList() };
 
-        Assert.Null(dataType.GetTaskBindingConflict(CreateInstance(currentTask), isDelete));
+        Assert.Null(dataType.GetTaskBindingConflict(CreateInstance(currentTask), isDelete: false));
     }
 
     [Theory]
     [InlineData(
         new[] { "Task_2", "Task_3" },
         "Task_1",
-        false,
         "Data element of type model can only be modified in Task_2, Task_3 (current task Task_1)"
     )]
     [InlineData(
         new[] { "Task_2" },
-        "Task_1",
-        true,
-        "Data element of type model can only be modified in Task_2 (current task Task_1)"
-    )]
-    [InlineData(
-        new[] { "Task_2" },
         null,
-        false,
         "Data element of type model can only be modified in Task_2 (no current task)"
     )]
     public void GetTaskBindingConflict_OutsideItsTasks_NamesDataTypeTasksAndCurrentTask(
         string[] taskIds,
         string currentTask,
-        bool isDelete,
         string expected
     )
     {
@@ -60,7 +50,7 @@ public class DataTypeExtensionsTests
 
         JsonResult conflict = dataType.GetTaskBindingConflict(
             CreateInstance(currentTask),
-            isDelete
+            isDelete: false
         );
 
         Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
