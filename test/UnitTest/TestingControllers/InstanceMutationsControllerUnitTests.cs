@@ -5125,7 +5125,7 @@ public class InstanceMutationsControllerUnitTests
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            operation,
             ["Task_2", "Task_3"],
             callerIsAppOwner: true
         );
@@ -5142,6 +5142,68 @@ public class InstanceMutationsControllerUnitTests
         VerifyNoBlobWritten(fixture);
     }
 
+    [Fact]
+    public async Task CommitMutation_WriteOutsideItsTasksAfterAllowedWrite_ReturnsConflict()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid inTaskDataElementId = Guid.NewGuid();
+        Guid outsideTaskDataElementId = Guid.NewGuid();
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [
+                new DataElement
+                {
+                    Id = inTaskDataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                }.FromApiModel(null),
+                new DataElement
+                {
+                    Id = outsideTaskDataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = "receipt",
+                }.FromApiModel(null),
+            ]
+        );
+        instanceInternal.Process = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+        };
+        Application application = CreateAggregateApplication();
+        application.DataTypes[0].TaskIds = ["Task_1"];
+        application.DataTypes.Add(new DataType { Id = "receipt", TaskIds = ["Task_2"] });
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            application,
+            $$"""
+            {
+              "updateDataElements": [
+                {
+                  "dataElementId": "{{inTaskDataElementId}}",
+                  "tags": ["tag"]
+                }
+              ],
+              "deleteDataElements": [
+                {
+                  "dataElementId": "{{outsideTaskDataElementId}}"
+                }
+              ]
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
     [Theory]
     [InlineData(DataElementOperation.Create)]
     [InlineData(DataElementOperation.Update)]
@@ -5152,7 +5214,7 @@ public class InstanceMutationsControllerUnitTests
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            operation,
             ["Task_2"],
             callerIsAppOwner: false,
             writeAuthorized: false
@@ -5173,7 +5235,7 @@ public class InstanceMutationsControllerUnitTests
     public async Task CommitMutation_IdleAssertedOnProcessingInstance_ReturnsProcessStatusConflictBeforeTaskBinding()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [DataElementOperation.Create],
+            DataElementOperation.Create,
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing
@@ -5201,7 +5263,7 @@ public class InstanceMutationsControllerUnitTests
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            operation,
             ["Task_2", "Task_1"],
             callerIsAppOwner: true
         );
@@ -5229,7 +5291,7 @@ public class InstanceMutationsControllerUnitTests
     public async Task CommitMutation_ProcessTransitionWritesTaskBoundDataTypeOutsideItsTasks_ReturnsConflict()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [DataElementOperation.Update],
+            DataElementOperation.Update,
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
@@ -5252,7 +5314,7 @@ public class InstanceMutationsControllerUnitTests
     public async Task CommitMutation_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_Applies()
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [DataElementOperation.Delete],
+            DataElementOperation.Delete,
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
@@ -5288,7 +5350,7 @@ public class InstanceMutationsControllerUnitTests
     )
     {
         AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
-            [operation],
+            operation,
             ["Task_2"],
             callerIsAppOwner: true,
             currentProcessStatus: ProcessStatus.Processing,
@@ -5490,7 +5552,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     private AggregateMutationFixture CreateTaskBoundMutationFixture(
-        DataElementOperation[] operations,
+        DataElementOperation operation,
         List<string> taskIds,
         bool callerIsAppOwner,
         ProcessStatus currentProcessStatus = ProcessStatus.Idle,
@@ -5501,66 +5563,9 @@ public class InstanceMutationsControllerUnitTests
         bool autoDeleteOnProcessEnd = false
     )
     {
+        const string contentPartName = "content";
         Guid instanceGuid = Guid.NewGuid();
-        List<DataElementInternal> existingDataElements = [];
-        JsonArray createDataElements = [];
-        JsonArray updateDataElements = [];
-        JsonArray deleteDataElements = [];
-        List<IFormFile> fileParts = [];
-        foreach (DataElementOperation operation in operations)
-        {
-            string contentPartName = operation.ToString();
-            if (operation == DataElementOperation.Create)
-            {
-                createDataElements.Add(
-                    new JsonObject
-                    {
-                        ["dataType"] = _dataType,
-                        ["contentPartName"] = contentPartName,
-                    }
-                );
-                fileParts.Add(CreateFormFile(contentPartName));
-                continue;
-            }
-
-            Guid dataElementId = Guid.NewGuid();
-            existingDataElements.Add(
-                new DataElement
-                {
-                    Id = dataElementId.ToString(),
-                    InstanceGuid = instanceGuid.ToString(),
-                    DataType = _dataType,
-                }.FromApiModel(null)
-            );
-            switch (operation)
-            {
-                case DataElementOperation.Update:
-                    updateDataElements.Add(
-                        new JsonObject
-                        {
-                            ["dataElementId"] = dataElementId,
-                            ["contentPartName"] = contentPartName,
-                        }
-                    );
-                    fileParts.Add(CreateFormFile(contentPartName));
-                    break;
-                case DataElementOperation.UpdateMetadata:
-                    updateDataElements.Add(
-                        new JsonObject
-                        {
-                            ["dataElementId"] = dataElementId,
-                            ["tags"] = new JsonArray("metadata-change"),
-                        }
-                    );
-                    break;
-                case DataElementOperation.Delete:
-                    deleteDataElements.Add(new JsonObject { ["dataElementId"] = dataElementId });
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(operations));
-            }
-        }
-
+        Guid dataElementId = Guid.NewGuid();
         JsonObject mutation = new();
         if (expectedProcessStatus is not null)
         {
@@ -5569,24 +5574,57 @@ public class InstanceMutationsControllerUnitTests
             );
         }
 
-        if (createDataElements.Count > 0)
+        IFormFile[] fileParts = [];
+        switch (operation)
         {
-            mutation["createDataElements"] = createDataElements;
-        }
-
-        if (updateDataElements.Count > 0)
-        {
-            mutation["updateDataElements"] = updateDataElements;
-        }
-
-        if (deleteDataElements.Count > 0)
-        {
-            mutation["deleteDataElements"] = deleteDataElements;
+            case DataElementOperation.Create:
+                mutation["createDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataType"] = _dataType,
+                        ["contentPartName"] = contentPartName,
+                    }
+                );
+                fileParts = [CreateFormFile(contentPartName)];
+                break;
+            case DataElementOperation.Update:
+                mutation["updateDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataElementId"] = dataElementId,
+                        ["contentPartName"] = contentPartName,
+                    }
+                );
+                fileParts = [CreateFormFile(contentPartName)];
+                break;
+            case DataElementOperation.UpdateMetadata:
+                mutation["updateDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataElementId"] = dataElementId,
+                        ["tags"] = new JsonArray("metadata-change"),
+                    }
+                );
+                break;
+            case DataElementOperation.Delete:
+                mutation["deleteDataElements"] = new JsonArray(
+                    new JsonObject { ["dataElementId"] = dataElementId }
+                );
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation));
         }
 
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
             instanceGuid,
-            existingDataElements
+            [
+                new DataElement
+                {
+                    Id = dataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                }.FromApiModel(null),
+            ]
         );
         instanceInternal.Process = new ProcessState
         {
@@ -5611,7 +5649,7 @@ public class InstanceMutationsControllerUnitTests
             instanceInternal,
             application,
             mutation.ToJsonString(),
-            [.. fileParts]
+            fileParts
         );
         fixture
             .Authorization.Setup(authorization =>
