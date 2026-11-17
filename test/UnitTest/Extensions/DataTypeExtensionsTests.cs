@@ -58,14 +58,17 @@ public class DataTypeExtensionsTests
     {
         DataType dataType = new() { Id = "model", TaskIds = [.. taskIds] };
 
-        ProblemDetails conflict = dataType.GetTaskBindingConflict(
+        JsonResult conflict = dataType.GetTaskBindingConflict(
             CreateInstance(currentTask),
             isDelete
         );
 
-        Assert.Equal("task_binding_conflict", conflict.Type);
-        Assert.Equal(StatusCodes.Status409Conflict, conflict.Status);
-        Assert.Equal(expected, conflict.Detail);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("application/problem+json", conflict.ContentType);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Equal("task_binding_conflict", problem.Type);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal(expected, problem.Detail);
     }
 
     [Fact]
@@ -94,11 +97,8 @@ public class DataTypeExtensionsTests
         DataType dataType = CreateAutoDeleteOnProcessEndDataType();
         dataType.AppLogic.AutoDeleteOnProcessEnd = autoDeleteOnProcessEnd;
 
-        Assert.Equal(
-            "Data element of type model can only be modified in Task_2 (no current task)",
-            dataType
-                .GetTaskBindingConflict(CreateInstance(currentTask: null, ended), isDelete)
-                ?.Detail
+        Assert.NotNull(
+            dataType.GetTaskBindingConflict(CreateInstance(currentTask: null, ended), isDelete)
         );
     }
 

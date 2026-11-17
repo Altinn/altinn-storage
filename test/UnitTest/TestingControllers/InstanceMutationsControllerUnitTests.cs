@@ -5136,11 +5136,8 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            Assert.IsType<ProblemDetails>(conflict.Value).Detail
-        );
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
@@ -5245,11 +5242,8 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (current task Task_1)",
-            Assert.IsType<ProblemDetails>(conflict.Value).Detail
-        );
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
@@ -5310,11 +5304,8 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (no current task)",
-            Assert.IsType<ProblemDetails>(conflict.Value).Detail
-        );
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }

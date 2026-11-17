@@ -489,7 +489,7 @@ public class InstanceMutationsController(
             DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
             if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } conflict)
             {
-                return Conflict(conflict);
+                return conflict;
             }
         }
 

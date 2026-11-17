@@ -186,7 +186,7 @@ public class DataController : ControllerBase
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
         {
-            return Conflict(conflict);
+            return conflict;
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -697,7 +697,7 @@ public class DataController : ControllerBase
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Conflict(conflict);
+            return conflict;
         }
 
         DateTime creationTime = DateTime.UtcNow;
@@ -872,7 +872,7 @@ public class DataController : ControllerBase
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Conflict(conflict);
+            return conflict;
         }
 
         if (dataElement.Locked)
@@ -1189,7 +1189,7 @@ public class DataController : ControllerBase
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
         {
-            return Conflict(conflict);
+            return conflict;
         }
 
         Dictionary<string, object> propertyList = new()

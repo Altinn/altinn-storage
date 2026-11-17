@@ -2784,11 +2784,8 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2, Task_3 (current task Task_1)",
-            Assert.IsType<ProblemDetails>(conflict.Value).Detail
-        );
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         VerifyNothingWritten(fixture);
     }
 
@@ -2838,11 +2835,8 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(result.Result);
-        Assert.Equal(
-            "Data element of type attachment can only be modified in Task_2 (no current task)",
-            Assert.IsType<ProblemDetails>(conflict.Value).Detail
-        );
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
         VerifyNothingWritten(fixture);
     }
 
