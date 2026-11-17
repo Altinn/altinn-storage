@@ -469,6 +469,14 @@ public class InstanceMutationsControllerUnitTests
             "3",
             fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
         );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
