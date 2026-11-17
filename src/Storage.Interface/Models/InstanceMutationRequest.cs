@@ -231,6 +231,7 @@ public class InstanceMutationDeleteDataElement
     /// <summary>
     /// Whether to delete the data element even when it is locked.
     /// </summary>
+    [Obsolete("Storage ignores it and deletes the data element whether or not it is locked.")]
     [JsonProperty(PropertyName = "ignoreLock")]
     public bool IgnoreLock { get; set; }
 }

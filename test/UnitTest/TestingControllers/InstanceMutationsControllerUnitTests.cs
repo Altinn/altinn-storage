@@ -4938,7 +4938,6 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.DeleteDataElements
         );
         Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
-        Assert.False(capturedDelete.IgnoreLock);
         bool hasTransactionalDeletedEvent =
             capturedMutation?.InstanceEvents?.Any(e =>
                 e.EventType == InstanceEventType.Deleted.ToString()
@@ -4955,7 +4954,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteDataElementIgnoreLock_DisablesLockCheckInAggregateMutation()
+    public async Task CommitMutation_DeleteLockedDataElement_IgnoresLockInAggregateMutation()
     {
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -5012,8 +5011,7 @@ public class InstanceMutationsControllerUnitTests
             {
               "deleteDataElements": [
                 {
-                  "dataElementId": "{{dataElementId}}",
-                  "ignoreLock": true
+                  "dataElementId": "{{dataElementId}}"
                 }
               ]
             }
@@ -5288,6 +5286,55 @@ public class InstanceMutationsControllerUnitTests
         );
     }
 
+    [Theory]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    public async Task CommitMutation_UpdateOfLockedElementOfTaskBoundDataType_IgnoresLock(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            operation,
+            ["Task_1"],
+            locked: true
+        );
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(
+            fixture,
+            fixture.InstanceInternal.Id,
+            mutation => capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.True(Assert.Single(capturedMutation.UpdateDataElements).IgnoreLock);
+    }
+
+    [Fact]
+    public async Task CommitMutation_ContentUpdateOfLockedElementOfUnboundDataType_ReturnsConflict()
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            DataElementOperation.Update,
+            taskIds: null,
+            locked: true
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
     [Fact]
     public async Task CommitMutation_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_Applies()
     {
@@ -5535,7 +5582,8 @@ public class InstanceMutationsControllerUnitTests
         string currentTask = "Task_1",
         bool writeAuthorized = true,
         bool processEnded = false,
-        bool autoDeleteOnProcessEnd = false
+        bool autoDeleteOnProcessEnd = false,
+        bool locked = false
     )
     {
         const string contentPartName = "content";
@@ -5598,6 +5646,7 @@ public class InstanceMutationsControllerUnitTests
                     Id = dataElementId.ToString(),
                     InstanceGuid = instanceGuid.ToString(),
                     DataType = _dataType,
+                    Locked = locked,
                 }.FromApiModel(null),
             ]
         );
