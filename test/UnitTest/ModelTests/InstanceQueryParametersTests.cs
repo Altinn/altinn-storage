@@ -75,6 +75,42 @@ public class InstanceQueryParametersTests
     }
 
     [Theory]
+    [InlineData("Organisation:\uFF19\uFF19\uFF13\uFF16\uFF10\uFF16\uFF16\uFF15\uFF10")]
+    [InlineData("Organisation:\u0669\u0669\u0663\u0666\u0660\u0666\u0666\u0665\u0660")]
+    public void ParseInstanceOwnerIdentifier_OrganisationNonAsciiDigits_ReturnsError(
+        string identifier
+    )
+    {
+        // Arrange
+        InstanceQueryParameters parameters = new() { InstanceOwnerIdentifier = identifier };
+
+        // Act
+        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Equal("Organization number needs to be exactly 9 digits.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void ParseInstanceOwnerIdentifier_PersonNonAsciiDigits_ReturnsError()
+    {
+        // Arrange
+        InstanceQueryParameters parameters = new()
+        {
+            InstanceOwnerIdentifier =
+                "Person:\uFF13\uFF13\uFF13\uFF11\uFF12\uFF13\uFF12\uFF11\uFF13\uFF12\uFF11",
+        };
+
+        // Act
+        InstanceOwnerIdentifierParseResult result = parameters.ParseInstanceOwnerIdentifier();
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Equal("Person number needs to be exactly 11 digits.", result.ErrorMessage);
+    }
+
+    [Theory]
     [InlineData("something:3312321321")]
     [InlineData("33312321321")]
     [InlineData("")]

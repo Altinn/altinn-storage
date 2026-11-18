@@ -357,9 +357,9 @@ public static class InstanceHelper
 /// </summary>
 public static partial class InstanceOwnerIdRegExHelper
 {
-    [GeneratedRegex(@"^\d{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    [GeneratedRegex(@"^[0-9]{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     public static partial Regex ElevenDigitRegex();
 
-    [GeneratedRegex(@"^\d{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    [GeneratedRegex(@"^[0-9]{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     public static partial Regex NineDigitRegex();
 }
