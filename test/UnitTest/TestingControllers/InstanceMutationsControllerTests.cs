@@ -804,9 +804,7 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
 
         var webApplicationFactory = _factory.WithWebHostBuilder(builder =>
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                .Build();
+            IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
             builder.ConfigureAppConfiguration(
                 (hostingContext, config) =>
                 {

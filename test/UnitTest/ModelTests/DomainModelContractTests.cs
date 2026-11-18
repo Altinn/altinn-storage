@@ -351,12 +351,31 @@ public class DomainModelContractTests
                 .ParameterType
         );
         Assert.All(
-            methods.Where(method => method.Name.StartsWith("Update", StringComparison.Ordinal)),
+            methods.Where(method =>
+                method.Name.StartsWith("Update", StringComparison.Ordinal)
+                && method.Name != nameof(IDataRepository.UpdateFileScanStatus)
+            ),
             method =>
                 Assert.Equal(
                     typeof(DataElementWriteResult),
                     method.ReturnType.GetGenericArguments().Single()
                 )
+        );
+        Assert.Equal(
+            typeof(FileScanStatusUpdateResult),
+            Assert
+                .Single(
+                    methods,
+                    method => method.Name == nameof(IDataRepository.UpdateFileScanStatus)
+                )
+                .ReturnType.GetGenericArguments()
+                .Single()
+        );
+        Assert.Equal(
+            typeof(DataElementWriteResult),
+            typeof(FileScanStatusUpdateResult)
+                .GetProperty(nameof(FileScanStatusUpdateResult.WriteResult))!
+                .PropertyType
         );
     }
 

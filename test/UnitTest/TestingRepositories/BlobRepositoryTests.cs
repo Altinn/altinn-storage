@@ -1,12 +1,17 @@
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Repository;
+using Altinn.Platform.Storage.UnitTest.Fixture;
+using Azure.Core;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
+using Azure.Storage.Sas;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -147,18 +152,167 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
             await leaseClient.ReleaseAsync();
         }
     }
+
+    [Fact]
+    public async Task GetReadUrl_ExistingBlob_ReadsContentAndLastModified()
+    {
+        string expectedContent = $"content-{Guid.NewGuid():N}";
+        string blobStoragePath = fixture.NewBlobPath("data-elements/read-url");
+        await using MemoryStream upload = new(Encoding.UTF8.GetBytes(expectedContent));
+        (_, DateTimeOffset lastModified) = await fixture.Repository.WriteBlob(
+            BlobRepositoryAzuriteFixture.Org,
+            upload,
+            blobStoragePath,
+            null
+        );
+
+        (Uri url, DateTimeOffset expiresOn) = await fixture.Repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+        using HttpResponseMessage head = await client.SendAsync(new(HttpMethod.Head, url));
+        string content = await client.GetStringAsync(url);
+
+        Assert.Equal(HttpStatusCode.OK, head.StatusCode);
+        Assert.Equal(lastModified, head.Content.Headers.LastModified);
+        Assert.Equal(expectedContent, content);
+        Assert.InRange(
+            expiresOn,
+            DateTimeOffset.UtcNow.AddMinutes(4),
+            DateTimeOffset.UtcNow.AddMinutes(5)
+        );
+    }
+
+    [Fact]
+    public async Task GetReadUrl_GrantsOnlyReadingThatBlob()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/read-only");
+        string otherBlobStoragePath = fixture.NewBlobPath("data-elements/other");
+        await fixture.UploadText(blobStoragePath, "original");
+        await fixture.UploadText(otherBlobStoragePath, "other");
+        (Uri url, _) = await fixture.Repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+        Uri otherBlobUrl = new(
+            url.AbsoluteUri.Replace(blobStoragePath, otherBlobStoragePath, StringComparison.Ordinal)
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+        using HttpRequestMessage put = new(HttpMethod.Put, url)
+        {
+            Content = new StringContent("replaced"),
+        };
+        put.Headers.Add("x-ms-blob-type", "BlockBlob");
+
+        using HttpResponseMessage putResponse = await client.SendAsync(put);
+        using HttpResponseMessage deleteResponse = await client.DeleteAsync(url);
+        using HttpResponseMessage otherBlobResponse = await client.GetAsync(otherBlobUrl);
+
+        Assert.Equal(HttpStatusCode.Forbidden, putResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, deleteResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, otherBlobResponse.StatusCode);
+        Assert.Equal("original", await client.GetStringAsync(url));
+    }
+
+    [Fact]
+    public async Task GetReadUrl_AfterExpiry_IsRefused()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/expired");
+        await fixture.UploadText(blobStoragePath, "expires");
+        (Uri url, _) = await fixture.Repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromSeconds(1)
+        );
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+        using HttpResponseMessage response = await client.GetAsync(url);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetReadUrl_IsUserDelegationSasForHttpsOnly()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/delegated");
+        await fixture.UploadText(blobStoragePath, "delegated");
+
+        (Uri url, _) = await fixture.Repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+        BlobSasQueryParameters sas = new BlobUriBuilder(url).Sas;
+
+        Assert.Equal(Uri.UriSchemeHttps, url.Scheme);
+        Assert.Equal(Guid.Empty.ToString(), sas.KeyObjectId);
+        Assert.Equal("r", sas.Permissions);
+        Assert.Equal(SasProtocol.Https, sas.Protocol);
+        Assert.Equal("b", sas.Resource);
+    }
+
+    [Fact]
+    public async Task GetReadUrl_ReusesUserDelegationKey()
+    {
+        string firstBlobStoragePath = fixture.NewBlobPath("data-elements/first");
+        string secondBlobStoragePath = fixture.NewBlobPath("data-elements/second");
+        await fixture.UploadText(firstBlobStoragePath, "first");
+        await fixture.UploadText(secondBlobStoragePath, "second");
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        AzuriteTokenCredential credential = new();
+        BlobRepository repository = fixture.CreateRepository(memoryCache, credential);
+
+        (Uri firstUrl, _) = await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            firstBlobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+        (Uri secondUrl, _) = await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            secondBlobStoragePath,
+            null,
+            TimeSpan.FromHours(1)
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+
+        Assert.Equal(1, credential.RequestCount);
+        Assert.Equal("first", await client.GetStringAsync(firstUrl));
+        Assert.Equal("second", await client.GetStringAsync(secondUrl));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(3601)]
+    public async Task GetReadUrl_LifetimeOutOfRange_Throws(int seconds)
+    {
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            fixture.Repository.GetReadUrl(
+                BlobRepositoryAzuriteFixture.Org,
+                fixture.NewBlobPath("lifetime"),
+                null,
+                TimeSpan.FromSeconds(seconds)
+            )
+        );
+    }
 }
 
 public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
 {
     public const string Org = "ttd";
 
-    private const string _accountName = "devstoreaccount1";
-    private const string _accountKey =
-        "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-    private static readonly string _blobEndPoint =
-        Environment.GetEnvironmentVariable("ALTINN_STORAGE_AZURITE_BLOB_ENDPOINT")
-        ?? "http://127.0.0.1:10000/devstoreaccount1";
+    private const string _accountName = TestContainers.AzuriteAccountName;
+    private const string _accountKey = TestContainers.AzuriteAccountKey;
+    private static readonly string _blobEndPoint = TestContainers.AzuriteBlobEndpoint;
     private readonly string _containerName = $"blobrepo-{Guid.NewGuid():N}"[..21];
     private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
     private BlobContainerClient _container = null!;
@@ -174,14 +328,13 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
             OrgStorageContainer = $"{_containerName}-{{0}}",
         };
 
-        Repository = new BlobRepository(
-            _memoryCache,
-            Options.Create(configuration),
-            NullLogger<BlobRepository>.Instance
-        );
+        StorageConfiguration = configuration;
+        Repository = CreateRepository(_memoryCache, new AzuriteTokenCredential());
 
         ContainerName = string.Format(configuration.OrgStorageContainer, Org);
     }
+
+    public AzureStorageConfiguration StorageConfiguration { get; }
 
     public BlobRepository Repository { get; }
 
@@ -190,7 +343,11 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         StorageSharedKeyCredential storageCredentials = new(_accountName, _accountKey);
-        BlobServiceClient blobServiceClient = new(new Uri(_blobEndPoint), storageCredentials);
+        BlobServiceClient blobServiceClient = new(
+            new Uri(_blobEndPoint),
+            storageCredentials,
+            TestContainers.AzuriteClientOptions
+        );
 
         _container = blobServiceClient.GetBlobContainerClient(ContainerName);
         await _container.CreateIfNotExistsAsync();
@@ -204,6 +361,20 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
         }
 
         _memoryCache.Dispose();
+    }
+
+    /// <summary>
+    /// Creates a repository for the fixture's containers with its own cache and credential.
+    /// </summary>
+    public BlobRepository CreateRepository(IMemoryCache memoryCache, TokenCredential credential)
+    {
+        return new BlobRepository(
+            memoryCache,
+            Options.Create(StorageConfiguration),
+            NullLogger<BlobRepository>.Instance,
+            credential,
+            TestContainers.AzuriteClientOptions
+        );
     }
 
     public string NewBlobPath(string suffix)

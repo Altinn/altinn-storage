@@ -504,7 +504,7 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
     }
 
     /// <inheritdoc/>
-    public async Task<DataElementWriteResult?> UpdateFileScanStatus(
+    public async Task<FileScanStatusUpdateResult> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,
@@ -533,9 +533,14 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 _resultColumn,
                 cancellationToken
             );
-            if (result is _notFoundResult or "version_mismatch")
+            if (result is _notFoundResult)
             {
-                return null;
+                return new FileScanStatusUpdateResult(FileScanStatusOutcome.Deleted);
+            }
+
+            if (result is "version_mismatch")
+            {
+                return new FileScanStatusUpdateResult(FileScanStatusOutcome.Superseded);
             }
 
             if (result != "ok")
@@ -551,10 +556,13 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
                 cancellationToken
             );
             StorageVersions versions = InstanceResultReader.ReadVersions(reader);
-            return new DataElementWriteResult(updatedElement, versions);
+            return new FileScanStatusUpdateResult(
+                FileScanStatusOutcome.Updated,
+                new DataElementWriteResult(updatedElement, versions)
+            );
         }
 
-        return null;
+        return new FileScanStatusUpdateResult(FileScanStatusOutcome.Deleted);
     }
 
     private static InstanceVersionMismatchException CreateInstanceVersionMismatchException(
