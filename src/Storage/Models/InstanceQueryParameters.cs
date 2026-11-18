@@ -484,8 +484,8 @@ public class InstanceQueryParameters
     /// <returns>
     /// A result indicating whether the identifier is valid. When valid, exactly one of
     /// <see cref="InstanceOwnerIdentifierParseResult.Person"/> or
-    /// <see cref="InstanceOwnerIdentifierParseResult.OrgNo"/> may be set (both may be null for
-    /// party types that are neither person nor organisation). When invalid,
+    /// <see cref="InstanceOwnerIdentifierParseResult.OrgNo"/> is set. Other party types are
+    /// invalid, since Register can only look up a party by person or organisation number. When invalid,
     /// <see cref="InstanceOwnerIdentifierParseResult.ErrorMessage"/> describes the problem.
     /// </returns>
     public InstanceOwnerIdentifierParseResult ParseInstanceOwnerIdentifier()
@@ -539,6 +539,14 @@ public class InstanceQueryParameters
 
                     orgNo = instanceOwnerIdValue;
                     break;
+
+                default:
+                    return new InstanceOwnerIdentifierParseResult(
+                        false,
+                        null,
+                        null,
+                        "Invalid InstanceOwnerIdentifier."
+                    );
             }
         }
 
