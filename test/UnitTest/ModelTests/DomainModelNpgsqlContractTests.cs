@@ -179,7 +179,7 @@ public sealed class DomainModelNpgsqlFixture : IAsyncLifetime
     public Task InitializeAsync()
     {
         IConfigurationRoot config = new ConfigurationBuilder()
-            .AddJsonFile(ServiceUtil.GetAppsettingsPath())
+            .AddTestSettings()
             .AddEnvironmentVariables()
             .Build();
 

@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
+      - 'infra/postgres_init.sql'
 
 jobs:
   test:
@@ -15,21 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
-        env:
-          PGHOST: localhost
-          POSTGRES_USER: platform_storage_admin
-          POSTGRES_PASSWORD: Password
-          POSTGRES_DB: storagedb
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
     steps:
       - name: Setup .NET
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
@@ -45,16 +31,6 @@ jobs:
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
           persist-credentials: false
-      - name: Setup PostgreSQL
-        run: |
-          chmod +x dbsetup.sh
-          ./dbsetup.sh
-      - name: Restart database to enable config changes
-        run: |
-          docker restart $(docker ps -q)
-      - name: Start Azurite
-        run: |
-          docker compose up -d --wait --wait-timeout 60 altinn_platform_storage_azurite
       - name: Build & Test
         run: |
           dotnet build Altinn.Platform.Storage.slnx -v q

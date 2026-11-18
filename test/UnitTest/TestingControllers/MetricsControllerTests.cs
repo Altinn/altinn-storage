@@ -253,9 +253,7 @@ public class MetricsControllerTests : IAsyncLifetime
         HttpClient client = _factory
             .WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
+                IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
                 builder.ConfigureAppConfiguration(
                     (_, config) =>
                     {
