@@ -154,30 +154,6 @@ public class ApplicationTests : IClassFixture<ApplicationFixture>
     }
 
     /// <summary>
-    /// Test GetAllAppTitles
-    /// </summary>
-    [Fact]
-    public async Task Application_GetAllAppTitles_Ok()
-    {
-        // Arrange
-        await _applicationFixture.ApplicationRepo.Create(_a1);
-        await _applicationFixture.ApplicationRepo.Create(_a2);
-        await _applicationFixture.ApplicationRepo.Create(_a3);
-
-        // Act
-        Dictionary<string, string> titles =
-            await _applicationFixture.ApplicationRepo.GetAllAppTitles();
-
-        // Assert
-        Assert.Equal(3, titles.Count);
-        Assert.True(titles.Count(t => t.Key == _a1.Id && t.Value == "t1") == 1);
-        Assert.True(titles.Count(t => t.Key == _a2.Id && t.Value == "t2") == 1);
-        Assert.True(
-            titles.Count(t => t.Key == _a3.Id && (t.Value == "t3;t3b" || t.Value == "t3b;t3")) == 1
-        );
-    }
-
-    /// <summary>
     /// Test Delete
     /// </summary>
     [Fact]

@@ -39,7 +39,6 @@ namespace Altinn.Platform.Storage.Controllers;
 public class InstancesController : ControllerBase
 {
     private readonly IInstanceRepository _instanceRepository;
-    private readonly IPartiesWithInstancesClient _partiesWithInstancesClient;
     private readonly ILogger _logger;
     private readonly IAuthorization _authorizationService;
     private readonly IInstanceEventService _instanceEventService;
@@ -53,7 +52,6 @@ public class InstancesController : ControllerBase
     /// Initializes a new instance of the <see cref="InstancesController"/> class
     /// </summary>
     /// <param name="instanceRepository">the instance repository handler</param>
-    /// <param name="partiesWithInstancesClient">An implementation of <see cref="IPartiesWithInstancesClient"/> that can be used to send information to SBL.</param>
     /// <param name="logger">the logger</param>
     /// <param name="authorizationService">the authorization service.</param>
     /// <param name="instanceEventService">the instance event service.</param>
@@ -63,7 +61,6 @@ public class InstancesController : ControllerBase
     /// <param name="processAuthorizer">the process authorizer.</param>
     public InstancesController(
         IInstanceRepository instanceRepository,
-        IPartiesWithInstancesClient partiesWithInstancesClient,
         ILogger<InstancesController> logger,
         IAuthorization authorizationService,
         IInstanceEventService instanceEventService,
@@ -74,7 +71,6 @@ public class InstancesController : ControllerBase
     )
     {
         _instanceRepository = instanceRepository;
-        _partiesWithInstancesClient = partiesWithInstancesClient;
         _logger = logger;
         _storageBaseAndHost = $"{settings.Value.Hostname}/storage/api/v1/";
         _authorizationService = authorizationService;
@@ -477,7 +473,6 @@ public class InstancesController : ControllerBase
             Instance responseInstance = storedInstance.ToApiModel();
             responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
 
-            await _partiesWithInstancesClient.SetHasAltinn3Instances(instanceOwnerPartyId);
             VersionPreconditionHelper.WriteVersionResponseHeaders(Response, storedInstance);
             return Created(responseInstance.SelfLinks.Platform, responseInstance);
         }

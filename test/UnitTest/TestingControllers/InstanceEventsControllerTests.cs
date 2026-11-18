@@ -279,7 +279,6 @@ public class InstanceEventsControllerTests : IAsyncLifetime
     {
         // No setup required for these services. They are not in use by the InstanceEventController
         Mock<IKeyVaultClientWrapper> keyVaultWrapper = new Mock<IKeyVaultClientWrapper>();
-        Mock<IPartiesWithInstancesClient> partiesWrapper = new Mock<IPartiesWithInstancesClient>();
         Mock<IMessageBus> busMock = messageBusMock ?? new Mock<IMessageBus>();
 
         HttpClient client = _factory
@@ -290,7 +289,6 @@ public class InstanceEventsControllerTests : IAsyncLifetime
                     services.AddMockRepositories();
 
                     services.AddSingleton(keyVaultWrapper.Object);
-                    services.AddSingleton(partiesWrapper.Object);
                     services.AddSingleton<IPDP, PepWithPDPAuthorizationMockSI>();
                     services.AddSingleton<
                         IPublicSigningKeyProvider,
