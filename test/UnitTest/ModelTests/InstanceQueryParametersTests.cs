@@ -112,6 +112,10 @@ public class InstanceQueryParametersTests
 
     [Theory]
     [InlineData("something:3312321321")]
+    [InlineData("SubUnit:123456789")]
+    [InlineData("SelfIdentified:123456789")]
+    [InlineData("BankruptcyEstate:123456789")]
+    [InlineData("7:123456789")]
     [InlineData("33312321321")]
     [InlineData("")]
     public void ParseInstanceOwnerIdentifier_UnknownOrMalformed_ReturnsInvalid(string identifier)
