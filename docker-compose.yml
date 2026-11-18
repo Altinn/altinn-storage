@@ -22,7 +22,7 @@ services:
   #     dockerfile: Dockerfile
 
   altinn_platform_storage_postgres:
-    image: postgres:16
+    image: postgres:18
     container_name: storage_postgres
     restart: unless-stopped
     networks:
