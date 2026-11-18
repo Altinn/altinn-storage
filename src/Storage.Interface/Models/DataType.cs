@@ -74,7 +74,7 @@ public class DataType
     public ApplicationLogic AppLogic { get; set; }
 
     /// <summary>
-    /// Gets or sets the process element id of the task that elements of this data type belong to, as v8 apps
+    /// The process element id of the task that elements of this data type belong to, as v8 apps
     /// declare it.
     /// </summary>
     /// <remarks>
