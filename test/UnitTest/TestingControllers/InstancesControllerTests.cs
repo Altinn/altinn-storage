@@ -1953,10 +1953,10 @@ public class InstancesControllerTests : IAsyncLifetime
 
     /// <summary>
     /// Test case: Get Multiple instances when Register fails with a server error during party lookup.
-    /// Expected: The exception is not treated as a client error.
+    /// Expected: Returns internal server error.
     /// </summary>
     [Fact]
-    public async Task GetMany_UserRequestsInstancesAndRegisterLookupFails_DoesNotReturnBadRequest()
+    public async Task GetMany_UserRequestsInstancesAndRegisterLookupFails_ReturnsInternalServerError()
     {
         // Arrange
         string requestUri = $"{BasePath}";

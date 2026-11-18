@@ -503,51 +503,56 @@ public class InstanceQueryParameters
             );
         }
 
+        if (!Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
+        {
+            return new InstanceOwnerIdentifierParseResult(
+                false,
+                null,
+                null,
+                "Invalid InstanceOwnerIdentifier."
+            );
+        }
+
         string orgNo = null;
         string person = null;
 
-        if (Enum.TryParse(instanceOwnerIdType, true, out PartyType partyType))
+        switch (partyType)
         {
-            switch (partyType)
-            {
-                case PartyType.Person:
-                    if (
-                        !InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue)
-                    )
-                    {
-                        return new InstanceOwnerIdentifierParseResult(
-                            false,
-                            null,
-                            null,
-                            "Person number needs to be exactly 11 digits."
-                        );
-                    }
-
-                    person = instanceOwnerIdValue;
-                    break;
-
-                case PartyType.Organisation:
-                    if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
-                    {
-                        return new InstanceOwnerIdentifierParseResult(
-                            false,
-                            null,
-                            null,
-                            "Organization number needs to be exactly 9 digits."
-                        );
-                    }
-
-                    orgNo = instanceOwnerIdValue;
-                    break;
-
-                default:
+            case PartyType.Person:
+                if (!InstanceOwnerIdRegExHelper.ElevenDigitRegex().IsMatch(instanceOwnerIdValue))
+                {
                     return new InstanceOwnerIdentifierParseResult(
                         false,
                         null,
                         null,
-                        "Invalid InstanceOwnerIdentifier."
+                        "Person number needs to be exactly 11 digits."
                     );
-            }
+                }
+
+                person = instanceOwnerIdValue;
+                break;
+
+            case PartyType.Organisation:
+                if (!InstanceOwnerIdRegExHelper.NineDigitRegex().IsMatch(instanceOwnerIdValue))
+                {
+                    return new InstanceOwnerIdentifierParseResult(
+                        false,
+                        null,
+                        null,
+                        "Organization number needs to be exactly 9 digits."
+                    );
+                }
+
+                orgNo = instanceOwnerIdValue;
+                break;
+
+            default:
+                return new InstanceOwnerIdentifierParseResult(
+                    false,
+                    null,
+                    null,
+                    "Invalid InstanceOwnerIdentifier."
+                );
         }
 
         return new InstanceOwnerIdentifierParseResult(true, person, orgNo, null);
