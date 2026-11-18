@@ -2891,6 +2891,119 @@ public class DataControllerUnitTests
         );
     }
 
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, null)]
+    public async Task OverwriteData_WithoutProcessStateVersionHeader_ExpectsSnapshotVersionOnlyForTaskBoundDataType(
+        bool taskBound,
+        int? expectedProcessStateVersion
+    )
+    {
+        // Arrange
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
+            DataWriteEndpoint.Overwrite,
+            taskBound ? ["Task_1"] : null
+        );
+
+        // Act
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            DataWriteEndpoint.Overwrite
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.Is<DataElementUpdateContext>(context =>
+                        context.ExpectedProcessStateVersion == expectedProcessStateVersion
+                    ),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task OverwriteData_ProcessStateVersionHeaderDiffersFromSnapshot_ReturnsPreconditionFailedBeforeUpload()
+    {
+        // Arrange
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
+            DataWriteEndpoint.Overwrite,
+            ["Task_1"]
+        );
+
+        // Act
+        ActionResult<DataElement> result = await fixture.Controller.OverwriteData(
+            _instanceOwnerPartyId,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            CancellationToken.None,
+            ifProcessStateVersionMatch: "2"
+        );
+
+        // Assert
+        ObjectResult preconditionFailed = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status412PreconditionFailed, preconditionFailed.StatusCode);
+        VerifyNothingWritten(fixture);
+    }
+
+    [Fact]
+    public async Task OverwriteData_LockedElementOfTaskBoundDataType_IgnoresLock()
+    {
+        // Arrange
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
+            DataWriteEndpoint.Overwrite,
+            ["Task_1"],
+            dataElementLocked: true
+        );
+
+        // Act
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            DataWriteEndpoint.Overwrite
+        );
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result.Result);
+        fixture.DataRepository.Verify(
+            repository =>
+                repository.Update(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<Dictionary<string, object>>(),
+                    It.Is<DataElementUpdateContext>(context => context.IgnoreLock),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task OverwriteData_LockedElementOfUnboundDataType_ReturnsConflictWithoutWriting()
+    {
+        // Arrange
+        TaskBoundTestFixture fixture = GetTaskBoundTestController(
+            DataWriteEndpoint.Overwrite,
+            taskIds: null,
+            dataElementLocked: true
+        );
+
+        // Act
+        ActionResult<DataElement> result = await CallDataWriteEndpoint(
+            fixture.Controller,
+            DataWriteEndpoint.Overwrite
+        );
+
+        // Assert
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        VerifyNothingWritten(fixture);
+    }
+
     [Fact]
     public async Task Update_DataTypeDiffersFromStoredElement_ReturnsBadRequest()
     {
@@ -2939,7 +3052,8 @@ public class DataControllerUnitTests
         string currentTask = "Task_1",
         bool processEnded = false,
         bool autoDeleteOnProcessEnd = false,
-        bool writeAuthorized = true
+        bool writeAuthorized = true,
+        bool dataElementLocked = false
     )
     {
         List<string> expectedPropertiesForPatch = endpoint switch
@@ -2967,7 +3081,8 @@ public class DataControllerUnitTests
             dataTypeAutoDeleteOnProcessEnd: autoDeleteOnProcessEnd,
             dataTypeWriteAuthorized: writeAuthorized,
             currentTask: currentTask,
-            processEnded: processEnded
+            processEnded: processEnded,
+            dataElementLocked: dataElementLocked
         );
 
         return new TaskBoundTestFixture(
@@ -3170,7 +3285,8 @@ public class DataControllerUnitTests
         bool dataTypeAutoDeleteOnProcessEnd = true,
         bool dataTypeWriteAuthorized = true,
         string currentTask = null,
-        bool processEnded = false
+        bool processEnded = false,
+        bool dataElementLocked = false
     )
     {
         allocatedBlobVersionId ??= BlobVersionId.Encode(Guid.CreateVersion7());
@@ -3282,6 +3398,7 @@ public class DataControllerUnitTests
                         InstanceGuid = instanceGuid.ToString(),
                         DataType = _dataType,
                         IsRead = isRead,
+                        Locked = dataElementLocked,
                         ContentType = "application/octet-stream",
                         BlobStoragePath = blobStoragePath,
                         DeleteStatus = isHardDeleted

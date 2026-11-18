@@ -57,6 +57,12 @@ internal static class DataTypeExtensions
     }
 
     /// <summary>
+    /// Whether <see cref="GetTaskBindingConflict"/> restricts data of this type to the tasks in
+    /// <see cref="DataType.TaskIds"/>. Storage ignores the lock on elements of such a data type.
+    /// </summary>
+    public static bool IsTaskBound(this DataType dataType) => dataType.TaskIds is { Count: > 0 };
+
+    /// <summary>
     /// Returns the conflict response explaining why data of this type may not be written in the instance's current task,
     /// or null when it may.
     /// </summary>
@@ -70,13 +76,13 @@ internal static class DataTypeExtensions
         bool isDelete
     )
     {
-        if (dataType.TaskIds is not { Count: > 0 } taskIds)
+        if (!dataType.IsTaskBound())
         {
             return null;
         }
 
         string? currentTask = instance.Process?.CurrentTask?.ElementId;
-        if (currentTask is not null && taskIds.Contains(currentTask))
+        if (currentTask is not null && dataType.TaskIds.Contains(currentTask))
         {
             return null;
         }
@@ -90,7 +96,7 @@ internal static class DataTypeExtensions
             return null;
         }
 
-        string boundTasks = string.Join(", ", taskIds);
+        string boundTasks = string.Join(", ", dataType.TaskIds);
         return new JsonResult(
             new ProblemDetails
             {

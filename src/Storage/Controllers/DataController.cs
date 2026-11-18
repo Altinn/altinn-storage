@@ -875,9 +875,24 @@ public class DataController : ControllerBase
             return conflict;
         }
 
-        if (dataElement.Locked)
+        bool taskBound = dataTypeDefinition.IsTaskBound();
+        if (dataElement.Locked && !taskBound)
         {
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != instance.Versions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    instance.Versions.InstanceVersion,
+                    instance.Versions.ProcessStateVersion
+                )
+            );
         }
 
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
@@ -1001,10 +1016,12 @@ public class DataController : ControllerBase
                 updatedProperties,
                 new DataElementUpdateContext
                 {
-                    IgnoreLock = false,
+                    IgnoreLock = taskBound,
                     ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
-                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                    ExpectedProcessStateVersion = taskBound
+                        ? instance.Versions.ProcessStateVersion
+                        : preconditions.ProcessStateVersion,
                 },
                 cancellationToken
             );

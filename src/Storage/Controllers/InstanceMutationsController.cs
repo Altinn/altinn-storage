@@ -1103,7 +1103,11 @@ public class InstanceMutationsController(
             bool hasContentUpdate = !string.IsNullOrWhiteSpace(update.ContentPartName);
             if (hasContentUpdate)
             {
-                ConflictObjectResult contentError = PlanUpdateContent(update, dataElement);
+                ConflictObjectResult contentError = PlanUpdateContent(
+                    update,
+                    dataElement,
+                    dataType
+                );
                 if (contentError is not null)
                 {
                     return contentError;
@@ -1146,10 +1150,11 @@ public class InstanceMutationsController(
 
     private static ConflictObjectResult PlanUpdateContent(
         InstanceMutationUpdateDataElement update,
-        DataElementInternal dataElement
+        DataElementInternal dataElement,
+        DataType dataType
     )
     {
-        if (dataElement.Locked)
+        if (dataElement.Locked && !dataType.IsTaskBound())
         {
             return new ConflictObjectResult(
                 $"Data element {update.DataElementId} is locked and cannot be updated"
@@ -1178,8 +1183,8 @@ public class InstanceMutationsController(
                     plannedUpdate.Update.DataElementId,
                     plannedUpdate.PropertyList,
                     plannedUpdate.ExpectedCurrentBlobVersion,
-                    IgnoreLock: !plannedUpdate.HasContentUpdate
-                        && plannedUpdate.Update.Locked == false
+                    IgnoreLock: plannedUpdate.DataType.IsTaskBound()
+                        || (!plannedUpdate.HasContentUpdate && plannedUpdate.Update.Locked == false)
                 )
             );
         }
@@ -1266,9 +1271,7 @@ public class InstanceMutationsController(
                 return dataTypeError;
             }
 
-            plan.DeleteDataElements.Add(
-                new PlannedDeleteDataElement(dataElement, delete.IgnoreLock)
-            );
+            plan.DeleteDataElements.Add(new PlannedDeleteDataElement(dataElement));
         }
 
         return null;
@@ -1301,7 +1304,7 @@ public class InstanceMutationsController(
             DataElementInternal dataElement = plannedDelete.ExistingDataElement;
             dataElement.LastChanged = mutationUpdates.LastChanged;
             dataElement.LastChangedBy = mutationUpdates.LastChangedBy;
-            work.AddDeletedDataElement(plannedDelete.ExistingDataElement, plannedDelete.IgnoreLock);
+            work.AddDeletedDataElement(plannedDelete.ExistingDataElement);
         }
 
         return work.Build(
@@ -2119,10 +2122,7 @@ public class InstanceMutationsController(
         string FileName
     );
 
-    private sealed record PlannedDeleteDataElement(
-        DataElementInternal ExistingDataElement,
-        bool IgnoreLock
-    );
+    private sealed record PlannedDeleteDataElement(DataElementInternal ExistingDataElement);
 
     private sealed record PreparedMutationWork(
         InstanceMutationCommit Commit,
@@ -2184,10 +2184,10 @@ public class InstanceMutationsController(
             _transactionalEvents.Add((InstanceEventType.Saved, dataElement));
         }
 
-        public void AddDeletedDataElement(DataElementInternal dataElement, bool ignoreLock)
+        public void AddDeletedDataElement(DataElementInternal dataElement)
         {
             _deleteDataElements.Add(
-                new InstanceMutationDataElementDelete(dataElement, IgnoreLock: ignoreLock)
+                new InstanceMutationDataElementDelete(dataElement, IgnoreLock: true)
             );
             _transactionalEvents.Add((InstanceEventType.Deleted, dataElement));
             _postCommitBlobCleanupDataElements.Add(dataElement);
