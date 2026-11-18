@@ -1261,7 +1261,7 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element to update.</param>
     /// <param name="fileScanStatus">The file scan results for this data element.</param>
     /// <returns>The updated data element.</returns>
-    [Authorize(Policy = "PlatformAccess")]
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILESCAN)]
     [HttpPut("dataelements/{dataGuid}/filescanstatus")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -1300,7 +1300,7 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken.</param>
     /// <returns>True if the data element exists, false otherwise</returns>
-    [Authorize(Policy = "PlatformAccess")]
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILESCAN)]
     [HttpGet("dataelementexists/{dataGuid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]

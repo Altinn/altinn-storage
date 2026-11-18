@@ -243,10 +243,11 @@ public static class PrincipalUtil
 
     public static string GetAccessToken(string issuer, string app)
     {
-        List<Claim> claims = new List<Claim>
+        List<Claim> claims = new List<Claim>();
+        if (app is not null)
         {
-            new Claim(AccessTokenClaimTypes.App, app, ClaimValueTypes.String, issuer),
-        };
+            claims.Add(new Claim(AccessTokenClaimTypes.App, app, ClaimValueTypes.String, issuer));
+        }
 
         ClaimsIdentity identity = new ClaimsIdentity("mock");
         identity.AddClaims(claims);

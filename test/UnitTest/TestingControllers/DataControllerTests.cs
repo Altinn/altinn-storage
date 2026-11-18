@@ -1217,7 +1217,10 @@ public class DataControllerTests : IAsyncLifetime
             Content = JsonContent.Create(newFileScanStatus),
         };
 
-        putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        putRequest.Headers.Add(
+            "PlatformAccessToken",
+            PrincipalUtil.GetAccessToken("platform", "file-scan")
+        );
 
         // Act
         HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(putRequest);
@@ -1290,7 +1293,10 @@ public class DataControllerTests : IAsyncLifetime
             $"{dataPath}/dataelementexists/{dataElementId}"
         );
 
-        getRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        getRequest.Headers.Add(
+            "PlatformAccessToken",
+            PrincipalUtil.GetAccessToken("platform", "file-scan")
+        );
 
         // Act
         HttpResponseMessage response = await client.SendAsync(getRequest);
@@ -1320,6 +1326,83 @@ public class DataControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, setFileScanStatusResponse.StatusCode);
+    }
+
+    public static TheoryData<string> AccessTokensNotFromFileScan =>
+        new()
+        {
+            PrincipalUtil.GetAccessToken(),
+            PrincipalUtil.GetAccessToken("platform", "storage"),
+            PrincipalUtil.GetAccessToken("ttd", null),
+            PrincipalUtil.GetAccessToken("ttd", "file-scan"),
+        };
+
+    [Theory]
+    [MemberData(nameof(AccessTokensNotFromFileScan))]
+    public async Task PutFileScanStatus_AccessTokenNotFromFileScan_Unauthorized(string accessToken)
+    {
+        // Arrange
+        const string dataPath =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306/dataelements";
+
+        Mock<IDataRepository> dataRepositoryMock = new();
+        HttpClient client = GetTestClient(dataRepositoryMock: dataRepositoryMock);
+
+        HttpRequestMessage putRequest = new(
+            HttpMethod.Put,
+            $"{dataPath}/887c5e56-6f73-494a-9730-6ebd11bffe30/filescanstatus"
+        )
+        {
+            Content = JsonContent.Create(
+                new FileScanStatus { FileScanResult = FileScanResult.Clean }
+            ),
+        };
+        putRequest.Headers.Add("PlatformAccessToken", accessToken);
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(putRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        dataRepositoryMock.Verify(
+            dr =>
+                dr.UpdateFileScanStatus(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<FileScanStatus>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Theory]
+    [MemberData(nameof(AccessTokensNotFromFileScan))]
+    public async Task Get_DataElementExists_AccessTokenNotFromFileScan_Unauthorized(
+        string accessToken
+    )
+    {
+        // Arrange
+        const string dataPath =
+            $"{_versionPrefix}/instances/1337/bc19107c-508f-48d9-bcd7-54ffec905306";
+
+        Mock<IDataRepository> dataRepositoryMock = new();
+        HttpClient client = GetTestClient(dataRepositoryMock: dataRepositoryMock);
+
+        HttpRequestMessage getRequest = new(
+            HttpMethod.Get,
+            $"{dataPath}/dataelementexists/887c5e56-6f73-494a-9730-6ebd11bffe30"
+        );
+        getRequest.Headers.Add("PlatformAccessToken", accessToken);
+
+        // Act
+        HttpResponseMessage response = await client.SendAsync(getRequest);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        dataRepositoryMock.Verify(
+            dr => dr.Exists(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
     }
 
     /// <summary>

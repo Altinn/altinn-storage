@@ -322,8 +322,12 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
                 )
         )
         .AddPolicy(
-            "PlatformAccess",
-            policy => policy.Requirements.Add(new AccessTokenRequirement())
+            AuthzConstants.POLICY_PLATFORM_FILESCAN,
+            policy =>
+            {
+                policy.Requirements.Add(new AccessTokenRequirement("platform"));
+                policy.Requirements.Add(new AccessTokenComponentRequirement("file-scan"));
+            }
         );
 
     services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
@@ -354,6 +358,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IAuthorizationHandler, StorageAccessHandler>();
     services.AddTransient<IAuthorizationHandler, ScopeAccessHandler>();
     services.AddTransient<IAuthorizationHandler, ClaimAccessHandler>();
+    services.AddTransient<IAuthorizationHandler, AccessTokenComponentHandler>();
     services.AddTransient<IAuthorization, AuthorizationService>();
     services.AddTransient<IProcessAuthorizer, ProcessAuthorizer>();
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
