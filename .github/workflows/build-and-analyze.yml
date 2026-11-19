@@ -24,7 +24,7 @@ jobs:
       checks: write
     services:
      postgres:
-       image: postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657
+       image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
        env:
          PGHOST: localhost
          POSTGRES_USER: platform_storage_admin
@@ -44,7 +44,7 @@ jobs:
           dotnet-version: |
             10.0.x
       - name: Set up Java
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: 'temurin'
           java-version: 25
