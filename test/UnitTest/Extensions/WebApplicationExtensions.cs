@@ -28,8 +28,9 @@ public static class WebApplicationExtensions
         IConfiguration config
     )
     {
-        PostgreSqlSettings settings =
-            config.GetSection("PostgreSQLSettings").Get<PostgreSqlSettings>()
+        PostgreSqlSettings settings = config
+            .GetSection("PostgreSQLSettings")
+            .Get<PostgreSqlSettings>()
             ?? throw new ArgumentNullException(
                 nameof(config),
                 "Required PostgreSQLSettings is missing from application configuration"
@@ -71,10 +72,9 @@ public static class WebApplicationExtensions
     private static void SetUpTestTimeOverride(string connectionString)
     {
         var assembly = Assembly.GetExecutingAssembly();
-        using var stream =
-            assembly.GetManifestResourceStream(
-                "Altinn.Platform.Storage.UnitTest.TestSetup.setup-test-time-override.sql"
-            )
+        using var stream = assembly.GetManifestResourceStream(
+            "Altinn.Platform.Storage.UnitTest.TestSetup.setup-test-time-override.sql"
+        )
             ?? throw new InvalidOperationException(
                 "Embedded resource 'setup-test-time-override.sql' not found"
             );

@@ -35,18 +35,16 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IOutboxRepository, PgOutboxRepository>()
             .AddSingleton<IInstanceLockRepository, PgInstanceLockRepository>()
             .AddSingleton<IMetricsRepository, PgMetricsRepository>()
-            .AddNpgsqlDataSource(
-                connectionString,
-                builder =>
-                    builder
-                        .EnableParameterLogging(logParameters)
-                        .ConfigureJsonOptions(PersistedJson.Options)
-                        .EnableDynamicJson()
-                        .ConfigureTracing(o =>
-                            o.ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
-                                .ConfigureCommandFilter(cmd => true)
-                                .EnableFirstResponseEvent(false)
-                        )
+            .AddNpgsqlDataSource(connectionString, builder =>
+                builder
+                    .EnableParameterLogging(logParameters)
+                    .ConfigureJsonOptions(PersistedJson.Options)
+                    .EnableDynamicJson()
+                    .ConfigureTracing(o =>
+                        o.ConfigureCommandSpanNameProvider(cmd => cmd.CommandText)
+                            .ConfigureCommandFilter(cmd => true)
+                            .EnableFirstResponseEvent(false)
+                    )
             );
     }
 }

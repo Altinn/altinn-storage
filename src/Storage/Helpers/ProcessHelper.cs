@@ -65,10 +65,10 @@ public static class ProcessHelper
                             {
                                 EventType = instanceEvent.EventType,
                                 ElementId = instanceEvent?.ProcessInfo?.CurrentTask?.ElementId,
-                                Started =
-                                    instanceEvent?.ProcessInfo?.Started ?? instanceEvent.Created,
-                                Occured =
-                                    instanceEvent?.ProcessInfo?.Started ?? instanceEvent.Created,
+                                Started = instanceEvent?.ProcessInfo?.Started
+                                    ?? instanceEvent.Created,
+                                Occured = instanceEvent?.ProcessInfo?.Started
+                                    ?? instanceEvent.Created,
                                 PerformedBy = GetPerformedBy(instanceEvent.User),
                             }
                         );
@@ -91,8 +91,8 @@ public static class ProcessHelper
                                 EventType = instanceEvent.EventType,
                                 ElementId = instanceEvent?.ProcessInfo?.CurrentTask?.ElementId,
                                 Ended = instanceEvent?.ProcessInfo?.Ended ?? instanceEvent.Created,
-                                Occured =
-                                    instanceEvent?.ProcessInfo?.Ended ?? instanceEvent.Created,
+                                Occured = instanceEvent?.ProcessInfo?.Ended
+                                    ?? instanceEvent.Created,
                                 PerformedBy = GetPerformedBy(instanceEvent.User),
                             }
                         );

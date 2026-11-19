@@ -370,10 +370,8 @@ public class InstanceMutationsControllerUnitTests
                 }
                 """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -421,10 +419,8 @@ public class InstanceMutationsControllerUnitTests
             Status = currentProcessStatus,
             CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
         };
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -1764,16 +1760,12 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.InstanceUpdateProperties
         );
         Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
-        Assert.Contains(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.process_EndEvent.ToString()
+        Assert.Contains(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.process_EndEvent.ToString()
         );
-        Assert.Contains(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
-                && instanceEvent.DataId is null
+        Assert.Contains(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+            && instanceEvent.DataId is null
         );
         fixture.DataService.Verify(
             service =>
@@ -2346,10 +2338,8 @@ public class InstanceMutationsControllerUnitTests
                         InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     }
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2369,10 +2359,8 @@ public class InstanceMutationsControllerUnitTests
         );
         Assert.Equal(_org, addedConfirmation.StakeholderId);
         Assert.Equal(capturedMutation.LastChanged, addedConfirmation.ConfirmedOn);
-        Assert.Single(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
         );
     }
 
@@ -2404,10 +2392,8 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         fixture.HttpContext.User = CreateOrgPrincipal(_org);
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2535,10 +2521,8 @@ public class InstanceMutationsControllerUnitTests
                 (InstanceEventType eventType, InstanceInternal instance) =>
                     new InstanceEvent { EventType = eventType.ToString() }
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2557,10 +2541,8 @@ public class InstanceMutationsControllerUnitTests
             "substatus.received.description",
             capturedMutation.InstanceUpdates.Status.Substatus.Description
         );
-        Assert.Single(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.SubstatusUpdated.ToString()
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.SubstatusUpdated.ToString()
         );
     }
 
@@ -2602,10 +2584,8 @@ public class InstanceMutationsControllerUnitTests
                 (InstanceEventType eventType, InstanceInternal instance) =>
                     new InstanceEvent { EventType = eventType.ToString() }
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2739,10 +2719,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal dataElement
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2795,10 +2773,8 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("attachment")
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2885,9 +2861,8 @@ public class InstanceMutationsControllerUnitTests
         Assert.DoesNotContain(callerSuppliedFirstId.ToString(), createdIds);
         Assert.DoesNotContain(callerSuppliedSecondId.ToString(), createdIds);
         Assert.Equal(2, createdIds.Select(Guid.Parse).Distinct().Count());
-        Assert.All(
-            capturedMutation.CreateDataElements,
-            dataElement => Assert.Equal(instanceGuid, dataElement.InstanceGuid)
+        Assert.All(capturedMutation.CreateDataElements, dataElement =>
+            Assert.Equal(instanceGuid, dataElement.InstanceGuid)
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -2899,22 +2874,18 @@ public class InstanceMutationsControllerUnitTests
                 ),
             Times.Once
         );
-        Assert.All(
-            createdIds,
-            createdId =>
-                Assert.Contains(response.Instance.Data, dataElement => dataElement.Id == createdId)
+        Assert.All(createdIds, createdId =>
+            Assert.Contains(response.Instance.Data, dataElement => dataElement.Id == createdId)
         );
-        Assert.All(
-            capturedMutation.CreateDataElements,
-            createdDataElement =>
-                Assert.Equal(
-                    createdDataElement.BlobVersionId,
-                    response
-                        .Instance.Data.Single(dataElement =>
-                            dataElement.Id == createdDataElement.Id.ToString()
-                        )
-                        .BlobVersionId
-                )
+        Assert.All(capturedMutation.CreateDataElements, createdDataElement =>
+            Assert.Equal(
+                createdDataElement.BlobVersionId,
+                response
+                    .Instance.Data.Single(dataElement =>
+                        dataElement.Id == createdDataElement.Id.ToString()
+                    )
+                    .BlobVersionId
+            )
         );
         Assert.False(
             response.Instance.Data.Single(dataElement => dataElement.Id == createdIds[0]).Locked
@@ -2976,10 +2947,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal eventDataElement
                 ) => BuildDataElementEvent(eventType, instance, eventDataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3079,10 +3048,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3559,10 +3526,8 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3634,10 +3599,8 @@ public class InstanceMutationsControllerUnitTests
                     new InstanceEvent { EventType = eventType.ToString() }
             );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3830,10 +3793,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3877,10 +3838,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3926,10 +3885,8 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("updateFile")
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -4109,10 +4066,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal dataElement
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5085,10 +5040,8 @@ public class InstanceMutationsControllerUnitTests
             },
             mutationJson: null
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
         fixture
             .InstanceEventService.Setup(service =>
@@ -5211,10 +5164,8 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
         SetJsonMutationRequest(
             fixture.HttpContext,
@@ -5510,10 +5461,8 @@ public class InstanceMutationsControllerUnitTests
             locked: true
         );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            fixture.InstanceInternal.Id,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, fixture.InstanceInternal.Id, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -5559,10 +5508,8 @@ public class InstanceMutationsControllerUnitTests
             autoDeleteOnProcessEnd: true
         );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            fixture.InstanceInternal.Id,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, fixture.InstanceInternal.Id, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(

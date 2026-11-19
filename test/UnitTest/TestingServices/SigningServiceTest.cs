@@ -250,9 +250,8 @@ public class SigningServiceTest
             fixture.OldSignatureDataElements,
             fixture.CapturedMutation.DeleteDataElements.Select(delete => delete.DataElement)
         );
-        Assert.All(
-            fixture.CapturedMutation.DeleteDataElements,
-            delete => Assert.True(delete.IgnoreLock)
+        Assert.All(fixture.CapturedMutation.DeleteDataElements, delete =>
+            Assert.True(delete.IgnoreLock)
         );
         Assert.Equal(
             [

@@ -1431,8 +1431,9 @@ public class DataController : ControllerBase
         }
 
         InstanceInternal updatedInstance = applyResult.Instance;
-        DataElementInternal updatedDataElement =
-            updatedInstance.Data?.FirstOrDefault(element => element.Id == dataElement.Id)
+        DataElementInternal updatedDataElement = updatedInstance.Data?.FirstOrDefault(element =>
+            element.Id == dataElement.Id
+        )
             ?? throw new InvalidOperationException(
                 "Delayed-delete apply result did not include the updated data element."
             );

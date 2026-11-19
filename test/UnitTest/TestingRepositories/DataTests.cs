@@ -306,8 +306,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         DataElementInternal dataElement = await CreateDataElement();
-        DateTime seededLastChanged =
-            _instance.LastChanged
+        DateTime seededLastChanged = _instance.LastChanged
             ?? throw new InvalidOperationException(
                 "The seeded instance is expected to have LastChanged set."
             );
@@ -3086,9 +3085,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Assert
-        DataElementInternal updatedElement = Assert.Single(
-            result.Instance.Data,
-            element => element.Id == Guid.Parse(hardDeletedElement.Id)
+        DataElementInternal updatedElement = Assert.Single(result.Instance.Data, element =>
+            element.Id == Guid.Parse(hardDeletedElement.Id)
         );
         Assert.Equal(["new"], updatedElement.Tags);
     }
@@ -3281,13 +3279,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(expectedCreatedIds, retryResult.CreatedDataElementIds);
         Assert.Equal(firstResult.Instance.Versions, earlyReplayResult.Instance.Versions);
         Assert.Equal(firstResult.Instance.Versions, retryResult.Instance.Versions);
-        Assert.All(
-            expectedCreatedIds,
-            createdId =>
-                Assert.Contains(
-                    retryResult.Instance.Data,
-                    dataElement => dataElement.Id.ToString() == createdId
-                )
+        Assert.All(expectedCreatedIds, createdId =>
+            Assert.Contains(retryResult.Instance.Data, dataElement =>
+                dataElement.Id.ToString() == createdId
+            )
         );
         Assert.DoesNotContain(retryCreatedIds[0], retryResult.CreatedDataElementIds);
         Assert.DoesNotContain(retryCreatedIds[1], retryResult.CreatedDataElementIds);
@@ -4399,13 +4394,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             expectedCreatedIds,
             expectedInternalId: _instanceInternalId
         );
-        Assert.Contains(
-            firstRows,
-            row => row.CurrentBlobVersion == BlobVersionId.Decode(firstCreate.BlobVersionId)
+        Assert.Contains(firstRows, row =>
+            row.CurrentBlobVersion == BlobVersionId.Decode(firstCreate.BlobVersionId)
         );
-        Assert.Contains(
-            firstRows,
-            row => row.CurrentBlobVersion == BlobVersionId.Decode(secondCreate.BlobVersionId)
+        Assert.Contains(firstRows, row =>
+            row.CurrentBlobVersion == BlobVersionId.Decode(secondCreate.BlobVersionId)
         );
         Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toDelete.Id)));
         Assert.True(await dataElementFixture.DataRepo.Exists(firstCreate.Id));
@@ -5279,13 +5272,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("preserved", updatedInstance.PresentationTexts["sql-preserved-presentation"]);
         Assert.Equal("new", updatedInstance.PresentationTexts["sql-overwritten-presentation"]);
         Assert.Equal("added", updatedInstance.PresentationTexts["sql-added-presentation"]);
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "existing"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "existing"
         );
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == _instance.Org
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == _instance.Org
         );
         Assert.True(updatedInstance.Status.IsArchived);
         Assert.Equal("substatus-label", updatedInstance.Status.Substatus.Label);
@@ -5452,17 +5443,14 @@ public class DataTests(DataElementFixture dataElementFixture)
             updatedInstance.PresentationTexts["guard-dedicated-presentation"]
         );
         Assert.False(updatedInstance.PresentationTexts.ContainsKey("guard-top-only-presentation"));
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-existing-confirmation"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-existing-confirmation"
         );
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-dedicated-confirmation"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-dedicated-confirmation"
         );
-        Assert.DoesNotContain(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-top-only-confirmation"
+        Assert.DoesNotContain(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-top-only-confirmation"
         );
         Assert.True(updatedInstance.Status.IsArchived);
         Assert.Equal(archived, updatedInstance.Status.Archived);
@@ -7793,21 +7781,18 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         IReadOnlyList<string> createdDataElementIds = expectedCreatedDataElementIds ?? [];
         Assert.NotEmpty(rows);
-        Assert.All(
-            rows,
-            row =>
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(replayed, row.Replayed);
+            Assert.Equal(createdDataElementIds, row.CreatedDataElementIds);
+            if (expectedInternalId.HasValue)
             {
-                Assert.Equal(replayed, row.Replayed);
-                Assert.Equal(createdDataElementIds, row.CreatedDataElementIds);
-                if (expectedInternalId.HasValue)
-                {
-                    Assert.Equal(expectedInternalId, row.InternalId);
-                }
-
-                Assert.Equal(expectedInstanceVersion, row.InstanceVersion);
-                Assert.Equal(expectedProcessStateVersion, row.ProcessStateVersion);
+                Assert.Equal(expectedInternalId, row.InternalId);
             }
-        );
+
+            Assert.Equal(expectedInstanceVersion, row.InstanceVersion);
+            Assert.Equal(expectedProcessStateVersion, row.ProcessStateVersion);
+        });
     }
 
     private static void AssertSqlVersionError(

@@ -157,9 +157,8 @@ public class DataControllerUnitTests
         Assert.Equal(fixture.DataElement.Id, response.Id);
         Assert.True(buildEventOrder < applyOrder);
         Assert.True(applyOrder < cleanupOrder);
-        Assert.Contains(
-            capturedMutation.DeleteDataElements,
-            delete => delete.DataElement == fixture.DataElementInternal && delete.IgnoreLock
+        Assert.Contains(capturedMutation.DeleteDataElements, delete =>
+            delete.DataElement == fixture.DataElementInternal && delete.IgnoreLock
         );
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);
@@ -3380,8 +3379,7 @@ public class DataControllerUnitTests
                 {
                     string legacyBlobStoragePath =
                         $"ttd/apps-test/{instanceGuid}/data/{dataElementId}";
-                    string blobStoragePath =
-                        blobStoragePathOverride
+                    string blobStoragePath = blobStoragePathOverride
                         ?? (
                             string.IsNullOrEmpty(blobVersionId)
                                 ? legacyBlobStoragePath
@@ -3987,8 +3985,10 @@ public class DataControllerUnitTests
             Data = includeDataElements ? GetDataElements(instanceGuid) : null,
         };
 
-        List<DataElementInternal> dataElements =
-            instance.Data?.Select(dataElement => dataElement.FromApiModel()).ToList() ?? [];
+        List<DataElementInternal> dataElements = instance
+            .Data?.Select(dataElement => dataElement.FromApiModel())
+            .ToList()
+            ?? [];
 
         return InstanceInternalTestFactory.Create(instance, dataElements, InternalId: 123L);
     }

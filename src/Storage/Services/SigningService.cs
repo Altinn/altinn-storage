@@ -292,8 +292,10 @@ public class SigningService : ISigningService
         CancellationToken cancellationToken
     )
     {
-        List<DataElementInternal> signingDocDataElements =
-            instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
+        List<DataElementInternal> signingDocDataElements = instance
+            .Data?.Where(x => x.DataType == signDocDataType)
+            .ToList()
+            ?? [];
 
         List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks =
             signingDocDataElements

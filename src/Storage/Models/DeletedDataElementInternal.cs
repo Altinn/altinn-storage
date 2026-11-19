@@ -18,8 +18,8 @@ public sealed record DeletedDataElementInternal
     )
     {
         DataElement = dataElement ?? throw new ArgumentNullException(nameof(dataElement));
-        BlobVersions =
-            blobVersions?.Where(version => version.BlobVersionIds.Count > 0).ToArray() ?? [];
+        BlobVersions = blobVersions?.Where(version => version.BlobVersionIds.Count > 0).ToArray()
+            ?? [];
     }
 
     /// <summary>

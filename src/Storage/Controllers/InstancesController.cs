@@ -1157,8 +1157,7 @@ public class InstancesController : ControllerBase
             LastChanged = creationTime,
             AppId = appInfo.Id,
             Org = appInfo.Org,
-            VisibleAfter =
-                DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter)
+            VisibleAfter = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter)
                 ?? creationTime,
             Status = instanceTemplate.Status ?? new InstanceStatus(),
             DueBefore = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.DueBefore),
