@@ -15,7 +15,7 @@ WORKDIR ../Storage/
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
 # -extra includes ICU and tzdata, needed for non-English cultures such as "no-NB"
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-resolute-chiseled-extra@sha256:41db8302b4b08401ccf2bf139b02b37460da8872179d793899782ec0ef90933a AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-resolute-chiseled-extra@sha256:e928e45039cdb25951b24410610823f0582d9936ebcfd0e774c082637b739d0d AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .
