@@ -1952,6 +1952,44 @@ public class InstancesControllerTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// Test case: Get Multiple instances with a party type that is neither person nor organisation.
+    /// Expected: Controller returns 400 bad request without calling Register.
+    /// </summary>
+    [Theory]
+    [InlineData("SubUnit:123456789")]
+    [InlineData("2:123456789")]
+    [InlineData("7:123456789")]
+    [InlineData("-1:123456789")]
+    public async Task GetMany_UserRequestsInstancesWithUnsupportedPartyType_ReturnsBadRequest(
+        string identifier
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}";
+        int partyId = 1337;
+        string expectedResponseMessage = "Invalid InstanceOwnerIdentifier.";
+
+        Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+
+        HttpClient client = GetTestClient(null, registerService);
+        string token = PrincipalUtil.GetToken(3, partyId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", identifier);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        string responseMessage = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedResponseMessage, responseMessage);
+        registerService.Verify(
+            x => x.PartyLookup(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never
+        );
+    }
+
+    /// <summary>
     /// Test case: Get Multiple instances when Register fails with a server error during party lookup.
     /// Expected: Returns internal server error.
     /// </summary>
