@@ -335,9 +335,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -427,9 +426,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -494,9 +492,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -537,9 +534,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3),
@@ -581,9 +577,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -626,10 +621,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
             nameof(InstanceInternal.CompleteConfirmations),
             capturedMutation.InstanceUpdateProperties
         );
-        Assert.Single(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
         );
     }
 

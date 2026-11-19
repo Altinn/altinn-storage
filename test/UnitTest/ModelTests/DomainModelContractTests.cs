@@ -325,17 +325,14 @@ public class DomainModelContractTests
     {
         MethodInfo[] methods = typeof(IDataRepository).GetMethods();
 
-        Assert.All(
-            methods.Where(method => method.Name == nameof(IDataRepository.Create)),
-            method =>
-            {
-                Assert.Equal(typeof(DataElementInternal), method.GetParameters()[0].ParameterType);
-                Assert.Equal(
-                    typeof(DataElementWriteResult),
-                    method.ReturnType.GetGenericArguments().Single()
-                );
-            }
-        );
+        Assert.All(methods.Where(method => method.Name == nameof(IDataRepository.Create)), method =>
+        {
+            Assert.Equal(typeof(DataElementInternal), method.GetParameters()[0].ParameterType);
+            Assert.Equal(
+                typeof(DataElementWriteResult),
+                method.ReturnType.GetGenericArguments().Single()
+            );
+        });
         Assert.Equal(
             typeof(DataElementInternal),
             Assert
@@ -375,22 +372,19 @@ public class DomainModelContractTests
     [Fact]
     public void InstanceRepository_WriteSignaturesUseDomainValuesAndMinimalIdentifier()
     {
-        MethodInfo create = Assert.Single(
-            typeof(IInstanceRepository).GetMethods(),
-            method => method.Name == nameof(IInstanceRepository.Create)
+        MethodInfo create = Assert.Single(typeof(IInstanceRepository).GetMethods(), method =>
+            method.Name == nameof(IInstanceRepository.Create)
         );
         Assert.Equal(typeof(InstanceInternal), create.GetParameters()[0].ParameterType);
         Assert.Equal(typeof(InstanceInternal), create.ReturnType.GetGenericArguments().Single());
 
-        MethodInfo delete = Assert.Single(
-            typeof(IInstanceRepository).GetMethods(),
-            method => method.Name == nameof(IInstanceRepository.Delete)
+        MethodInfo delete = Assert.Single(typeof(IInstanceRepository).GetMethods(), method =>
+            method.Name == nameof(IInstanceRepository.Delete)
         );
         Assert.Equal(typeof(Guid), delete.GetParameters()[0].ParameterType);
 
-        MethodInfo hardDeleted = Assert.Single(
-            typeof(IInstanceRepository).GetMethods(),
-            method => method.Name == nameof(IInstanceRepository.GetHardDeletedInstances)
+        MethodInfo hardDeleted = Assert.Single(typeof(IInstanceRepository).GetMethods(), method =>
+            method.Name == nameof(IInstanceRepository.GetHardDeletedInstances)
         );
         Assert.Equal(
             typeof(List<InstanceInternal>),
@@ -413,13 +407,11 @@ public class DomainModelContractTests
                 .GetProperty(nameof(InstanceMutationCommit.CreateDataElements))!
                 .PropertyType
         );
-        Assert.DoesNotContain(
-            typeof(InstanceMutationCommit).GetProperties(),
-            property => property.PropertyType == typeof(Instance)
+        Assert.DoesNotContain(typeof(InstanceMutationCommit).GetProperties(), property =>
+            property.PropertyType == typeof(Instance)
         );
-        Assert.DoesNotContain(
-            typeof(InstanceMutationCommit).GetProperties(),
-            property => property.PropertyType == typeof(DataElement)
+        Assert.DoesNotContain(typeof(InstanceMutationCommit).GetProperties(), property =>
+            property.PropertyType == typeof(DataElement)
         );
     }
 
