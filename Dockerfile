@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.403-resolute@sha256:667f3cee6f24afb202d3e32c7941e3800bbac57dd70bb68f89e52a6245aff88f AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.403-resolute@sha256:2107242a0f56885d09f8a536ac300f6cb1a2b3f6d40605e5ff81bbd83ad91e3f AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
