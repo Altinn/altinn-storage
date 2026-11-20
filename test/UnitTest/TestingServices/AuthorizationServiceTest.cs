@@ -469,7 +469,7 @@ public class AuthorizationServiceTest
         instance.Process.EndEvent = "EndEvent_1";
         List<XacmlJsonRequestRoot> requests = [];
 
-        await CreateRequestCapturingService(requests)
+        await CreateRequestCapturingService(requests, response: PermitResponse())
             .AuthorizeEnrichedInstanceAction(instance, "read");
 
         Assert.Contains(
@@ -487,7 +487,7 @@ public class AuthorizationServiceTest
         instance.DataValues = new Dictionary<string, string> { ["A2ArchRef"] = "12345" };
         List<XacmlJsonRequestRoot> requests = [];
 
-        await CreateRequestCapturingService(requests)
+        await CreateRequestCapturingService(requests, response: PermitResponse())
             .AuthorizeEnrichedInstanceAction(instance, "read");
 
         Assert.DoesNotContain(
@@ -506,7 +506,12 @@ public class AuthorizationServiceTest
         List<XacmlJsonRequestRoot> requests = [];
         Mock<IPDP> pdp = new();
         using MemoryCache cache = new(new MemoryCacheOptions());
-        AuthorizationService service = CreateRequestCapturingService(requests, pdp, cache);
+        AuthorizationService service = CreateRequestCapturingService(
+            requests,
+            pdp,
+            cache,
+            PermitResponse()
+        );
 
         await service.AuthorizeEnrichedInstanceAction(first, "read");
         await service.AuthorizeEnrichedInstanceAction(second, "read");
@@ -516,6 +521,52 @@ public class AuthorizationServiceTest
             instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
             Times.Once
         );
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AuthorizeEnrichedInstanceAction_NoDecisionFromPdp_ThrowsAndDoesNotCache(
+        bool emptyResponse
+    )
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        Mock<IPDP> pdp = new();
+        AuthorizationService service = CreateRequestCapturingService(requests, pdp);
+        pdp.Setup(client => client.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(emptyResponse ? new XacmlJsonResponse { Response = [] } : null);
+
+        await Assert.ThrowsAsync<PdpDecisionUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+        await Assert.ThrowsAsync<PdpDecisionUnavailableException>(() =>
+            service.AuthorizeEnrichedInstanceAction(instance, "read")
+        );
+
+        pdp.Verify(
+            client => client.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeEnrichedInstanceAction_PdpCallThrows_ThrowsWithInnerException()
+    {
+        InstanceInternal instance = CreateDomainInstance();
+        List<XacmlJsonRequestRoot> requests = [];
+        Mock<IPDP> pdp = new();
+        AuthorizationService service = CreateRequestCapturingService(requests, pdp);
+        Exception pdpFailure = new("PDP is unavailable");
+        pdp.Setup(client => client.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ThrowsAsync(pdpFailure);
+
+        PdpDecisionUnavailableException exception =
+            await Assert.ThrowsAsync<PdpDecisionUnavailableException>(() =>
+                service.AuthorizeEnrichedInstanceAction(instance, "read")
+            );
+
+        Assert.Same(pdpFailure, exception.InnerException);
     }
 
     [Fact]
@@ -577,6 +628,14 @@ public class AuthorizationServiceTest
             memoryCache ?? new MemoryCache(new MemoryCacheOptions()),
             Options.Create(new PepSettings { PdpDecisionCachingTimeout = 5 })
         );
+    }
+
+    private static XacmlJsonResponse PermitResponse()
+    {
+        return new XacmlJsonResponse
+        {
+            Response = [new XacmlJsonResult { Decision = "Permit", Obligations = [] }],
+        };
     }
 
     private static InstanceInternal CreateDomainInstance(Guid? instanceGuid = null)
