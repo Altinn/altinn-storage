@@ -426,6 +426,8 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
+    app.UseMiddleware<AuthorizationUnavailableMiddleware>();
+
     ConsoleTraceService traceService = new() { IsDebugEnabled = true };
     string connectionString = string.Format(
         config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),

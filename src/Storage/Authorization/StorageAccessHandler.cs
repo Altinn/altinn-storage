@@ -128,10 +128,7 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
             response = await _pdp.GetDecisionForRequest(request);
         }
 
-        if (response?.Response is null)
-        {
-            throw new Exception("Response is null from PDP");
-        }
+        AuthorizationUnavailableException.ThrowIfNoDecision(response);
 
         if (!DecisionHelper.ValidatePdpDecision(response.Response, context.User))
         {
@@ -150,6 +147,13 @@ public class StorageAccessHandler : AuthorizationHandler<AppAccessRequirement>
         {
             // Key not in cache, so get decisin from PDP.
             response = await _pdp.GetDecisionForRequest(request);
+
+            // A response without a decision is not cached, so that the refusal does not outlast
+            // the failure in Altinn Authorization that caused it.
+            if (!AuthorizationUnavailableException.HasDecision(response))
+            {
+                return response;
+            }
 
             // Set the cache options
             MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()

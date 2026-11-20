@@ -212,13 +212,13 @@ public class AuthorizationService(
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
 
-        if (response?.Response == null)
+        if (!AuthorizationUnavailableException.HasDecision(response))
         {
             _logger.LogInformation(
                 "// Authorization Helper // Authorize instance action failed for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
-            return false;
+            throw new AuthorizationUnavailableException(response);
         }
 
         bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
@@ -252,7 +252,7 @@ public class AuthorizationService(
         {
             response = await _pdp.GetDecisionForRequest(request);
 
-            if (response?.Response is not null)
+            if (AuthorizationUnavailableException.HasDecision(response))
             {
                 _memoryCache.Set(
                     cacheKey,
@@ -266,13 +266,13 @@ public class AuthorizationService(
             }
         }
 
-        if (response?.Response == null)
+        if (!AuthorizationUnavailableException.HasDecision(response))
         {
             _logger.LogInformation(
                 "// Authorization Helper // AuthorizeEnrichedInstanceAction failed for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
-            return false;
+            throw new AuthorizationUnavailableException(response);
         }
 
         return DecisionHelper.ValidatePdpDecision(response.Response, user);
@@ -302,17 +302,25 @@ public class AuthorizationService(
             "// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}",
             JsonSerializer.Serialize(response)
         );
-        if (response?.Response != null)
-        {
-            return response.Response.Exists(result =>
+        if (
+            response?.Response?.Exists(result =>
                 DecisionHelper.ValidateDecisionResult(result, user)
-            );
+            )
+            is true
+        )
+        {
+            return true;
         }
 
-        _logger.LogInformation(
-            "// Authorization Helper // Authorize instance action failed for request: {request}.",
-            JsonSerializer.Serialize(request)
-        );
+        if (!AuthorizationUnavailableException.HasDecision(response))
+        {
+            _logger.LogInformation(
+                "// Authorization Helper // Authorize instance action failed for request: {request}.",
+                JsonSerializer.Serialize(request)
+            );
+            throw new AuthorizationUnavailableException(response);
+        }
+
         return false;
     }
 
