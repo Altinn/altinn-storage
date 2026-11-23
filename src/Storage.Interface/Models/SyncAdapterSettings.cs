@@ -77,12 +77,12 @@ public class SyncAdapterSettings
     public bool DisableMarkCompletedWhenConfirmed { get; set; }
 
     /// <summary>
-    /// Gets or sets the flag controlling whether the sync adapter should set status to requires attention, instead of
-    /// in progress, while an instance created by the service owner awaits the first submission from the user.
+    /// Gets or sets the dialog status the sync adapter should set while an instance created by the service owner
+    /// awaits the first submission from the user. Supported values are Draft, InProgress and RequiresAttention.
+    /// The sync adapter uses InProgress when the value is missing or not supported.
     /// </summary>
-    [JsonProperty(PropertyName = "enableMarkRequiresAttentionWhenPrefilled")]
-    [DefaultValue(false)]
-    public bool EnableMarkRequiresAttentionWhenPrefilled { get; set; }
+    [JsonProperty(PropertyName = "prefilledStatus")]
+    public string PrefilledStatus { get; set; }
 
     /// <summary>
     /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the title.
