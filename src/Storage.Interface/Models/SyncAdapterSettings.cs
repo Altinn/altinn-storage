@@ -81,8 +81,8 @@ public class SyncAdapterSettings
     /// awaits the first submission from the user. Supported values are Draft, InProgress and RequiresAttention.
     /// The sync adapter uses InProgress when the value is missing or not supported.
     /// </summary>
-    [JsonProperty(PropertyName = "prefilledStatus")]
-    public string PrefilledStatus { get; set; }
+    [JsonProperty(PropertyName = "statusWhenCreatedByServiceOwner")]
+    public string StatusWhenCreatedByServiceOwner { get; set; }
 
     /// <summary>
     /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the title.
