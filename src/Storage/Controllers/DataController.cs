@@ -481,8 +481,10 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
+        // Only the app owner reads blob versions. The sync adapter's bypass of the PDP does not apply here.
         ProblemDetails problem =
             User.GetOrg() != instance.Org
+            || _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope)
                 ? InstanceProblems.Forbidden()
                 : await _authorizationService.AuthorizeInstanceRequest(
                     instance,

@@ -34,26 +34,24 @@ public interface IAuthorization
     );
 
     /// <summary>
-    /// Authorizes the current HTTP request to perform <paramref name="action"/> on the instance
-    /// identified by the request's route values. Callers with the sync adapter scope are authorized
-    /// directly for read/write/delete without contacting the PDP. When <paramref name="instance"/>
-    /// is provided the XACML request is enriched with the instance's process context (current task
-    /// or end event) and the decision is cached. Without an instance the request is denied unless
-    /// the route carries an instance guid.
+    /// Authorizes the current user to perform <paramref name="action"/> on <paramref name="instance"/>.
+    /// Callers with the sync adapter scope are authorized for read, write and delete without asking
+    /// the PDP. Otherwise the XACML request includes the instance's process context (current task or
+    /// end event), and the decision is cached. A missing instance is refused without asking the PDP.
     /// </summary>
     /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
     /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
     /// <returns>
     /// Null when the user is authorized. Otherwise the problem to answer with: 403 when the user is not
-    /// authorized, 503 when Altinn Authorization gave no decision and a retry may succeed.
+    /// authorized or the instance is missing, 503 when Altinn Authorization gave no decision and a retry
+    /// may succeed.
     /// </returns>
     public Task<ProblemDetails> AuthorizeInstanceRequest(InstanceInternal instance, string action);
 
     /// <summary>
     /// Loads the instance identified by <paramref name="instanceOwnerPartyId"/> and <paramref name="instanceGuid"/>
-    /// and authorizes the current user to perform <paramref name="action"/> on it. The decision is made before the
-    /// existence of the instance is revealed: a missing instance is authorized against the identifiers alone,
-    /// exactly as <see cref="AuthorizeInstanceRequest"/> does for a null instance.
+    /// and authorizes the current user to perform <paramref name="action"/> on it, as
+    /// <see cref="AuthorizeInstanceRequest"/> does.
     /// </summary>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance.</param>
@@ -62,10 +60,9 @@ public interface IAuthorization
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// Exactly one of <c>Instance</c> and <c>Problem</c> is set. <c>Instance</c> is the loaded instance when
-    /// the user is authorized and the instance exists. Otherwise <c>Problem</c> is the response to give, in
-    /// this order: 403 when the user is not authorized, 503 when Altinn Authorization gave no decision, and
-    /// 404 when the user is authorized but the instance does not exist. A denied caller never learns whether
-    /// the instance exists.
+    /// the user is authorized and the instance exists. Otherwise <c>Problem</c> is the response to give: 403
+    /// when the user is not authorized or the instance does not exist, and 503 when Altinn Authorization gave
+    /// no decision. Only the sync adapter, which may read every instance, gets 404 for a missing instance.
     /// </returns>
     public Task<(InstanceInternal Instance, ProblemDetails Problem)> GetAuthorizedInstance(
         int instanceOwnerPartyId,

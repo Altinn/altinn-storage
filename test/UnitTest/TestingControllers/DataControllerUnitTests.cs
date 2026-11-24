@@ -927,6 +927,35 @@ public class DataControllerUnitTests
     }
 
     [Fact]
+    public async Task GetBlobVersion_SyncAdapter_ReturnsForbiddenBeforeReadingBlob()
+    {
+        // Arrange - the sync adapter's PDP bypass does not extend to blob versions.
+        Guid instanceGuid = Guid.NewGuid();
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid);
+        fixture.HttpContext.User = CreateOrgPrincipal("ttd");
+        fixture.Authorization.Setup(a => a.UserHasRequiredScope(It.IsAny<string>())).Returns(true);
+        fixture
+            .Authorization.Setup(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read")
+            )
+            .ReturnsAuthorization(true);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            Guid.NewGuid(),
+            BlobVersionId.Encode(Guid.CreateVersion7()),
+            CancellationToken.None
+        );
+
+        // Assert
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+    }
+
+    [Fact]
     public async Task Get_WhenBlobIsMissing_ReturnsNotFoundWithVersionHeaders()
     {
         (DataController testController, _, Mock<IBlobRepository> blobRepositoryMock) =

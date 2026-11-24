@@ -323,10 +323,10 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
     /// Scenario:
     ///   Non-existent instance to be restored
     /// Expected result:
-    ///   Internal server error
+    ///   Forbidden, the same as for an instance the caller may not restore
     /// </summary>
     [Fact]
-    public async Task Undelete_RestoreNonExistentInstance_ReturnsNotFound()
+    public async Task Undelete_RestoreNonExistentInstance_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetTestClient();
@@ -342,7 +342,7 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     /// <summary>
