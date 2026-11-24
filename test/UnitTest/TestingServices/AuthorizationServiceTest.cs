@@ -18,6 +18,7 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using AltinnCore.Authentication.Constants;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -619,10 +620,10 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
 
         // Assert - the sync adapter bypasses the PDP entirely
-        Assert.True(result);
+        Assert.Null(problem);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
     }
 
@@ -648,10 +649,10 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), action);
 
         // Assert
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
     }
 
@@ -670,10 +671,10 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(null, "read");
 
         // Assert
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
     }
 
@@ -696,10 +697,10 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(null, "read");
 
         // Assert
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
         Assert.DoesNotContain(
             captured.Request.Resource.SelectMany(category => category.Attribute),
@@ -727,10 +728,13 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "write");
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(
+            CreateDomainInstance(),
+            "write"
+        );
 
         // Assert
-        Assert.True(result);
+        Assert.Null(problem);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
     }
 
@@ -751,19 +755,26 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
 
         // Assert
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
     }
 
-    [Fact]
-    public async Task AuthorizeInstanceRequest_PdpReturnsNull_ReturnsFalse()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Indeterminate")]
+    public async Task AuthorizeInstanceRequest_NoDecision_ReturnsUnavailableAndIsNotCached(
+        string decision
+    )
     {
-        // Arrange - a null response from the PDP is treated as "not authorized".
+        // Arrange - no response, or Indeterminate, means Altinn Authorization did not decide.
+        XacmlJsonResponse response = decision is null
+            ? null
+            : new XacmlJsonResponse { Response = [new XacmlJsonResult { Decision = decision }] };
         Mock<IPDP> pdp = new();
         pdp.Setup(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
-            .ReturnsAsync((XacmlJsonResponse)null);
+            .ReturnsAsync(response);
         _claimsPrincipalProviderMock
             .Setup(c => c.GetUser())
             .Returns(CreateUserWithScope("altinn:some.other.scope"));
@@ -772,12 +783,20 @@ public class AuthorizationServiceTest
             _claimsPrincipalProviderMock.Object,
             CreateHttpContextAccessor()
         );
+        InstanceInternal instance = CreateDomainInstance();
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(CreateDomainInstance(), "read");
+        ProblemDetails first = await sut.AuthorizeInstanceRequest(instance, "read");
+        ProblemDetails second = await sut.AuthorizeInstanceRequest(instance, "read");
 
         // Assert
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, first?.Status);
+        Assert.Equal("authorization_unavailable", first?.Type);
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, second?.Status);
+        pdp.Verify(
+            m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Exactly(2)
+        );
     }
 
     [Fact]
@@ -801,10 +820,10 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        bool result = await sut.AuthorizeInstanceRequest(null, "read");
+        ProblemDetails problem = await sut.AuthorizeInstanceRequest(null, "read");
 
         // Assert
-        Assert.True(result);
+        Assert.Null(problem);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
         XacmlJsonCategory resource = Assert.Single(captured.Request.Resource);
         Assert.Equal(
@@ -865,7 +884,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+        (InstanceInternal result, ProblemDetails problem) = await sut.GetAuthorizedInstance(
             1000,
             instanceGuid,
             "read",
@@ -874,7 +893,7 @@ public class AuthorizationServiceTest
         );
 
         // Assert
-        Assert.True(isAuthorized);
+        Assert.Null(problem);
         Assert.Same(instance, result);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Once());
     }
@@ -902,7 +921,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+        (InstanceInternal result, ProblemDetails problem) = await sut.GetAuthorizedInstance(
             1000,
             instanceGuid,
             "write",
@@ -911,7 +930,7 @@ public class AuthorizationServiceTest
         );
 
         // Assert
-        Assert.False(isAuthorized);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         Assert.Null(result);
     }
 
@@ -941,7 +960,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+        (InstanceInternal result, ProblemDetails problem) = await sut.GetAuthorizedInstance(
             1000,
             instanceGuid,
             "read",
@@ -950,7 +969,7 @@ public class AuthorizationServiceTest
         );
 
         // Assert
-        Assert.True(isAuthorized);
+        Assert.Equal(StatusCodes.Status404NotFound, problem?.Status);
         Assert.Null(result);
         XacmlJsonCategory resource = Assert.Single(captured.Request.Resource);
         Assert.Equal(
@@ -980,7 +999,7 @@ public class AuthorizationServiceTest
         );
 
         // Act
-        (InstanceInternal result, bool isAuthorized) = await sut.GetAuthorizedInstance(
+        (InstanceInternal result, ProblemDetails problem) = await sut.GetAuthorizedInstance(
             1000,
             instanceGuid,
             "delete",
@@ -989,7 +1008,7 @@ public class AuthorizationServiceTest
         );
 
         // Assert - authorized but missing, which lets the endpoint answer 404 rather than 403
-        Assert.True(isAuthorized);
+        Assert.Equal(StatusCodes.Status404NotFound, problem?.Status);
         Assert.Null(result);
         pdp.Verify(m => m.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()), Times.Never());
     }

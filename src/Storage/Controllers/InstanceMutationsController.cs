@@ -126,8 +126,7 @@ public class InstanceMutationsController(
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                authorizationService,
+            await authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
@@ -1743,12 +1742,12 @@ public class InstanceMutationsController(
             return null;
         }
 
-        bool authorized = await authorizationService.AuthorizeInstanceRequest(
+        ProblemDetails problem = await authorizationService.AuthorizeInstanceRequest(
             instance,
             AuthorizationActions.Delete
         );
 
-        return authorized ? null : Forbid();
+        return problem is null ? null : new ObjectResult(problem) { StatusCode = problem.Status };
     }
 
     private async Task<ActionResult> AuthorizeCompleteConfirmationMutation(
@@ -1766,12 +1765,12 @@ public class InstanceMutationsController(
             return Forbid();
         }
 
-        bool authorized = await authorizationService.AuthorizeInstanceRequest(
+        ProblemDetails problem = await authorizationService.AuthorizeInstanceRequest(
             instance,
             AuthorizationActions.Complete
         );
 
-        return authorized ? null : Forbid();
+        return problem is null ? null : new ObjectResult(problem) { StatusCode = problem.Status };
     }
 
     private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)

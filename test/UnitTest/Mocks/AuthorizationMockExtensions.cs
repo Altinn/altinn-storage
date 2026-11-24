@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
+using Microsoft.AspNetCore.Mvc;
+using Moq.Language.Flow;
 
 namespace Moq;
 
@@ -46,8 +48,18 @@ internal static class AuthorizationMockExtensions
                         includeElements,
                         cancellationToken
                     );
-                    bool authorized = await mock.Object.AuthorizeInstanceRequest(instance, action);
-                    return authorized ? (instance, true) : (null, false);
+                    ProblemDetails problem = await mock.Object.AuthorizeInstanceRequest(
+                        instance,
+                        action
+                    );
+                    if (problem is not null)
+                    {
+                        return (null, problem);
+                    }
+
+                    return instance is null
+                        ? (null, InstanceProblems.NotFound(instanceOwnerPartyId, instanceGuid))
+                        : (instance, null);
                 }
             );
         return mock;
@@ -65,7 +77,16 @@ internal static class AuthorizationMockExtensions
         mock.Setup(a =>
                 a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         return mock.DelegateGetAuthorizedInstance(instanceRepository).Object;
     }
+
+    /// <summary>
+    /// Answers an <see cref="IAuthorization.AuthorizeInstanceRequest"/> setup with no problem when
+    /// <paramref name="authorized"/> is true, and with a 403 problem otherwise.
+    /// </summary>
+    public static IReturnsResult<IAuthorization> ReturnsAuthorization(
+        this ISetup<IAuthorization, Task<ProblemDetails>> setup,
+        bool authorized
+    ) => setup.ReturnsAsync(authorized ? null : InstanceProblems.Forbidden());
 }

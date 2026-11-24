@@ -63,11 +63,11 @@ public class InstanceEventsController : ControllerBase
     )
     {
         (InstanceInternal? instance, ProblemDetails? problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
+                includeElements: false,
                 CancellationToken.None
             );
         if (problem is not null)
@@ -114,11 +114,11 @@ public class InstanceEventsController : ControllerBase
         Guid eventGuid
     )
     {
-        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
-            _authorizationService,
+        (_, ProblemDetails? problem) = await _authorizationService.GetAuthorizedInstance(
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
+            includeElements: false,
             CancellationToken.None
         );
         if (problem is not null)
@@ -165,11 +165,11 @@ public class InstanceEventsController : ControllerBase
         [FromQuery] string? to
     )
     {
-        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
-            _authorizationService,
+        (_, ProblemDetails? problem) = await _authorizationService.GetAuthorizedInstance(
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
+            includeElements: false,
             CancellationToken.None
         );
         if (problem is not null)

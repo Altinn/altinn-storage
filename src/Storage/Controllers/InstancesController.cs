@@ -471,11 +471,11 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Delete,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -610,8 +610,7 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Complete,
@@ -719,8 +718,7 @@ public class InstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
@@ -1406,19 +1404,13 @@ public class InstancesController : ControllerBase
             cancellationToken
         );
 
-        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
-            _generalSettings.InstanceSyncAdapterScope,
-        ]);
-        if (
-            !isSyncAdapter
-            && await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-                is false
-        )
+        ProblemDetails problem = await _authorizationService.AuthorizeInstanceRequest(
+            instance,
+            AuthorizationActions.Read
+        );
+        if (problem is not null)
         {
-            return Forbid();
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         if (instance is null)
@@ -1427,6 +1419,9 @@ public class InstancesController : ControllerBase
         }
 
         Instance mappedInstance = instance.ToApiModel();
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
         if (User.GetOrg() != instance.Org && !isSyncAdapter)
         {
             FilterOutDeletedDataElements(mappedInstance);

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -42,8 +43,11 @@ public interface IAuthorization
     /// </summary>
     /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
     /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
-    /// <returns>true if the user is authorized.</returns>
-    public Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action);
+    /// <returns>
+    /// Null when the user is authorized. Otherwise the problem to answer with: 403 when the user is not
+    /// authorized, 503 when Altinn Authorization gave no decision and a retry may succeed.
+    /// </returns>
+    public Task<ProblemDetails> AuthorizeInstanceRequest(InstanceInternal instance, string action);
 
     /// <summary>
     /// Loads the instance identified by <paramref name="instanceOwnerPartyId"/> and <paramref name="instanceGuid"/>
@@ -57,11 +61,13 @@ public interface IAuthorization
     /// <param name="includeElements">Whether to load the instance's data elements.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// <c>IsAuthorized</c> is true when the user may perform the action. <c>Instance</c> is the loaded instance
-    /// when the user is authorized and the instance exists. It is null when the user is not authorized, so a
-    /// denied caller never receives the instance.
+    /// Exactly one of <c>Instance</c> and <c>Problem</c> is set. <c>Instance</c> is the loaded instance when
+    /// the user is authorized and the instance exists. Otherwise <c>Problem</c> is the response to give, in
+    /// this order: 403 when the user is not authorized, 503 when Altinn Authorization gave no decision, and
+    /// 404 when the user is authorized but the instance does not exist. A denied caller never learns whether
+    /// the instance exists.
     /// </returns>
-    public Task<(InstanceInternal Instance, bool IsAuthorized)> GetAuthorizedInstance(
+    public Task<(InstanceInternal Instance, ProblemDetails Problem)> GetAuthorizedInstance(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         string action,

@@ -228,7 +228,7 @@ public class DataBlobIntegrationTests
             .Setup(service =>
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         authorization.DelegateGetAuthorizedInstance(_dataElementFixture.InstanceRepo);
         Mock<IInstanceEventService> eventService = new();
         eventService

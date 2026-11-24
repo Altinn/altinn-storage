@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Altinn.Authorization.ABAC.Xacml;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Constants;
@@ -18,6 +19,7 @@ using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -58,6 +60,8 @@ public class AuthorizationService(
     private readonly GeneralSettings _settings = settings.Value;
     private readonly IMemoryCache _memoryCache = memoryCache;
     private readonly PepSettings _pepSettings = pepSettings.Value;
+
+    private static readonly string _indeterminate = XacmlContextDecision.Indeterminate.ToString();
 
     private const string XacmlResourceTaskId = "urn:altinn:task";
     private const string XacmlResourceEndId = "urn:altinn:end-event";
@@ -236,7 +240,10 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeInstanceRequest(InstanceInternal instance, string action)
+    public async Task<ProblemDetails> AuthorizeInstanceRequest(
+        InstanceInternal instance,
+        string action
+    )
     {
         RouteData routeData = _httpContextAccessor.HttpContext?.GetRouteData();
         return await AuthorizeInstanceRequest(
@@ -248,7 +255,7 @@ public class AuthorizationService(
     }
 
     /// <inheritdoc />
-    public async Task<(InstanceInternal Instance, bool IsAuthorized)> GetAuthorizedInstance(
+    public async Task<(InstanceInternal Instance, ProblemDetails Problem)> GetAuthorizedInstance(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         string action,
@@ -262,14 +269,23 @@ public class AuthorizationService(
             cancellationToken
         );
 
-        bool authorized = await AuthorizeInstanceRequest(
+        ProblemDetails problem = await AuthorizeInstanceRequest(
             instance,
             action,
             instanceOwnerPartyId.ToString(),
             instanceGuid.ToString()
         );
+        if (problem is not null)
+        {
+            return (null, problem);
+        }
 
-        return authorized ? (instance, true) : (null, false);
+        if (instance is null)
+        {
+            return (null, InstanceProblems.NotFound(instanceOwnerPartyId, instanceGuid));
+        }
+
+        return (instance, null);
     }
 
     /// <summary>
@@ -278,7 +294,11 @@ public class AuthorizationService(
     /// instance the resource is built from the identifiers, which is what lets an endpoint deny access
     /// before revealing whether the instance exists.
     /// </summary>
-    private async Task<bool> AuthorizeInstanceRequest(
+    /// <returns>
+    /// Null when the user is authorized, a 403 problem when the user is not, and a 503 problem when
+    /// Altinn Authorization gave no decision.
+    /// </returns>
+    private async Task<ProblemDetails> AuthorizeInstanceRequest(
         InstanceInternal instance,
         string action,
         string instanceOwnerPartyId,
@@ -287,7 +307,7 @@ public class AuthorizationService(
     {
         if (IsSyncAdapterBypassRequest(action))
         {
-            return true;
+            return null;
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -311,24 +331,34 @@ public class AuthorizationService(
                 _logger.LogInformation(
                     "// Authorization Helper // AuthorizeInstanceRequest denied: no instance and no instanceGuid route value."
                 );
-                return false;
+                return InstanceProblems.Forbidden();
             }
 
             SetResourceFromIds(request, instanceOwnerPartyId, instanceGuid);
             response = await _pdp.GetDecisionForRequest(request);
         }
 
-        if (response?.Response is null)
+        if (!HasDecision(response))
         {
-            _logger.LogInformation(
-                "// Authorization Helper // AuthorizeInstanceRequest failed for request: {request}.",
+            _logger.LogWarning(
+                "// Authorization Helper // AuthorizeInstanceRequest got no decision from Altinn Authorization for request: {request}.",
                 JsonSerializer.Serialize(request)
             );
-            return false;
+            return InstanceProblems.AuthorizationUnavailable();
         }
 
-        return DecisionHelper.ValidatePdpDecision(response.Response, user);
+        return DecisionHelper.ValidatePdpDecision(response.Response, user)
+            ? null
+            : InstanceProblems.Forbidden();
     }
+
+    /// <summary>
+    /// Whether Altinn Authorization reached a decision. It answers <c>Indeterminate</c> when it fails
+    /// while evaluating the request, so that is treated like no response at all.
+    /// </summary>
+    private static bool HasDecision(XacmlJsonResponse response) =>
+        response?.Response is not null
+        && !response.Response.Exists(result => result.Decision == _indeterminate);
 
     /// <inheritdoc />
     public async Task<bool> AuthorizeAnyOfInstanceActions(
@@ -483,7 +513,7 @@ public class AuthorizationService(
             MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
-            if (response?.Response is not null)
+            if (HasDecision(response))
             {
                 _memoryCache.Set(cacheKey, response, cacheEntryOptions);
             }

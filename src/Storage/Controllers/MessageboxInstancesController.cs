@@ -243,11 +243,11 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ProblemDetails problem) = await InstanceAuthorization.GetInstanceOrProblem(
-            _authorizationService,
+        (_, ProblemDetails problem) = await _authorizationService.GetAuthorizedInstance(
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
+            includeElements: false,
             CancellationToken.None
         );
         if (problem is not null)
@@ -306,11 +306,11 @@ public class MessageBoxInstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails? problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Delete,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -391,11 +391,11 @@ public class MessageBoxInstancesController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails? problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Delete,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)

@@ -463,11 +463,11 @@ public class ProcessController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ProblemDetails? problem) = await InstanceAuthorization.GetInstanceOrProblem(
-            _authorizationService,
+        (_, ProblemDetails? problem) = await _authorizationService.GetAuthorizedInstance(
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
+            includeElements: false,
             CancellationToken.None
         );
         if (problem is not null)

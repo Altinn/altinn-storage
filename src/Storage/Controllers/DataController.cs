@@ -121,11 +121,11 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -286,11 +286,11 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -481,16 +481,16 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        if (
+        ProblemDetails problem =
             User.GetOrg() != instance.Org
-            || await _authorizationService.AuthorizeInstanceRequest(
-                instance,
-                AuthorizationActions.Read
-            )
-                is false
-        )
+                ? InstanceProblems.Forbidden()
+                : await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                );
+        if (problem is not null)
         {
-            return Forbid();
+            return new ObjectResult(problem) { StatusCode = problem.Status };
         }
 
         DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
@@ -580,8 +580,7 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Read,
@@ -647,11 +646,11 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -817,11 +816,11 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)
@@ -1144,11 +1143,11 @@ public class DataController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Write,
+                includeElements: false,
                 cancellationToken
             );
         if (problem is not null)

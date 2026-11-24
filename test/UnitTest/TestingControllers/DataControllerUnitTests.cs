@@ -899,7 +899,7 @@ public class DataControllerUnitTests
             .Authorization.Setup(a =>
                 a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read")
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
 
         // Act
         ActionResult result = await fixture.Sut.GetBlobVersion(
@@ -911,7 +911,8 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result);
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
         fixture.DataRepository.Verify(
             d =>
                 d.ReadBlobVersion(
@@ -3605,7 +3606,7 @@ public class DataControllerUnitTests
             .Setup(a =>
                 a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         authorizationServiceMock
             .Setup(a =>
                 a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), "write", It.IsAny<string>())
@@ -3771,7 +3772,9 @@ public class DataControllerUnitTests
         applicationRepository
             .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
-        authorization.Setup(a => a.AuthorizeInstanceRequest(instance, "read")).ReturnsAsync(true);
+        authorization
+            .Setup(a => a.AuthorizeInstanceRequest(instance, "read"))
+            .ReturnsAuthorization(true);
         authorization.DelegateGetAuthorizedInstance(instanceRepository.Object);
 
         DefaultHttpContext httpContext = new() { User = CreateOrgPrincipal(_org) };
@@ -3851,7 +3854,7 @@ public class DataControllerUnitTests
             .Setup(service =>
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
         dataRepositoryMock
             .Setup(repository =>

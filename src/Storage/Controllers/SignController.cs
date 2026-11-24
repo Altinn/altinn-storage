@@ -63,8 +63,7 @@ public class SignController : ControllerBase
     )
     {
         (InstanceInternal instance, ProblemDetails problem) =
-            await InstanceAuthorization.GetInstanceOrProblem(
-                _authorizationService,
+            await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
                 AuthorizationActions.Sign,
