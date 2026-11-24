@@ -195,7 +195,14 @@ public class InstancesController : ControllerBase
                     throw new TimeoutException("Request was cancelled.");
                 }
 
-                result.Instances = await _authorizationService.AuthorizeInstances(result.Instances);
+                (List<InstanceInternal> authorizedInstances, ProblemDetails problem) =
+                    await _authorizationService.AuthorizeInstances(result.Instances);
+                if (problem is not null)
+                {
+                    return problem.ToResult();
+                }
+
+                result.Instances = authorizedInstances;
             }
 
             string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
@@ -362,13 +369,13 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (response?.Response == null)
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            _logger.LogInformation(
-                "// Instances Controller // Authorization of instantiation failed with request: {request}.",
+            _logger.LogWarning(
+                "// Instances Controller // Authorization of instantiation got no decision for request: {request}.",
                 JsonConvert.SerializeObject(request)
             );
-            return Forbid();
+            return AuthorizationProblems.AuthorizationUnavailable().ToResult();
         }
 
         bool authorized;
@@ -389,7 +396,7 @@ public class InstancesController : ControllerBase
 
         if (!authorized)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         InstanceInternal storedInstance = null;
@@ -480,7 +487,7 @@ public class InstancesController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -619,7 +626,7 @@ public class InstancesController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -727,7 +734,7 @@ public class InstancesController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
@@ -945,9 +952,9 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
-        if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
+        if (await _processAuthorizer.AuthorizePresentationTextsUpdate(instance) is { } problem)
         {
-            return Forbid();
+            return problem.ToResult();
         }
 
         if (instance.PresentationTexts == null)
@@ -1054,9 +1061,9 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
-        if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
+        if (await _processAuthorizer.AuthorizeDataValuesUpdate(instance) is { } problem)
         {
-            return Forbid();
+            return problem.ToResult();
         }
 
         InstanceInternal updatedInstance;
@@ -1241,9 +1248,18 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            return Forbid();
+            _logger.LogWarning(
+                "// Instances Controller // Cross-org instance query got no decision for org: {Org}",
+                queryParameters.Org.Clean()
+            );
+            return AuthorizationProblems.AuthorizationUnavailable().ToResult();
+        }
+
+        if (!DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User))
+        {
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         return null;
@@ -1410,7 +1426,7 @@ public class InstancesController : ControllerBase
         );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         if (instance is null)

@@ -70,7 +70,7 @@ public class InstancesControllerCreationIntegrationTests : IClassFixture<Instanc
             .Setup(authorizer =>
                 authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         DefaultHttpContext httpContext = new()
         {
             User = PrincipalUtil.GetPrincipal(3, _partyId, 3),

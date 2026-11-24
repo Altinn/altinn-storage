@@ -367,7 +367,7 @@ public class AuthorizationServiceTest
         _claimsPrincipalProviderMock.Setup(c => c.GetUser()).Returns(CreateUserClaims(3));
 
         // Act
-        List<MessageBoxInstance> actual = await _authzService.AuthorizeMesseageBoxInstances(
+        (List<MessageBoxInstance> actual, _) = await _authzService.AuthorizeMesseageBoxInstances(
             instances,
             false
         );
@@ -400,7 +400,7 @@ public class AuthorizationServiceTest
         List<XacmlJsonRequestRoot> requests = [];
         AuthorizationService service = CreateRequestCapturingService(requests, response: response);
 
-        List<MessageBoxInstance> authorized = await service.AuthorizeMesseageBoxInstances(
+        (List<MessageBoxInstance> authorized, _) = await service.AuthorizeMesseageBoxInstances(
             [second, first, denied],
             false
         );
@@ -465,7 +465,7 @@ public class AuthorizationServiceTest
         };
         AuthorizationService service = CreateRequestCapturingService([], response: response);
 
-        List<InstanceInternal> authorized = await service.AuthorizeInstances([
+        (List<InstanceInternal> authorized, _) = await service.AuthorizeInstances([
             first,
             second,
             denied,
@@ -588,9 +588,12 @@ public class AuthorizationServiceTest
         Mock<IPDP> pdp = new();
         AuthorizationService service = CreateRequestCapturingService(requests, pdp);
 
-        bool decision = await service.AuthorizeAnyOfInstanceActions((InstanceInternal)null, []);
+        ProblemDetails problem = await service.AuthorizeAnyOfInstanceActions(
+            (InstanceInternal)null,
+            []
+        );
 
-        Assert.False(decision);
+        Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         Assert.Empty(requests);
         pdp.Verify(
             instance => instance.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),

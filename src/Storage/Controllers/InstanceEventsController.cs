@@ -72,7 +72,7 @@ public class InstanceEventsController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         if (instanceEvent?.InstanceId == null)
@@ -123,7 +123,7 @@ public class InstanceEventsController : ControllerBase
         );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         InstanceEvent theEvent = await _repository.GetOneEvent(instanceGuid, eventGuid);
@@ -174,7 +174,7 @@ public class InstanceEventsController : ControllerBase
         );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         DateTime? fromDateTime = null,

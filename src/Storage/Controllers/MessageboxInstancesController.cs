@@ -204,11 +204,16 @@ public class MessageBoxInstancesController : ControllerBase
             includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
         }
 
-        List<MessageBoxInstance> authorizedInstanceList =
+        (List<MessageBoxInstance>? authorizedInstanceList, ProblemDetails? authorizationProblem) =
             await _authorizationService.AuthorizeMesseageBoxInstances(
                 [instance],
                 includeInstantiate
             );
+        if (authorizedInstanceList is null)
+        {
+            return authorizationProblem!.ToResult();
+        }
+
         if (authorizedInstanceList.Count <= 0)
         {
             return Forbid();
@@ -243,7 +248,7 @@ public class MessageBoxInstancesController : ControllerBase
         [FromRoute] Guid instanceGuid
     )
     {
-        (_, ProblemDetails problem) = await _authorizationService.GetAuthorizedInstance(
+        (_, ProblemDetails? problem) = await _authorizationService.GetAuthorizedInstance(
             instanceOwnerPartyId,
             instanceGuid,
             AuthorizationActions.Read,
@@ -252,7 +257,7 @@ public class MessageBoxInstancesController : ControllerBase
         );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         string[] eventTypes =
@@ -305,7 +310,7 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ProblemDetails? problem) =
+        (InstanceInternal? instance, ProblemDetails? problem) =
             await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -313,9 +318,9 @@ public class MessageBoxInstancesController : ControllerBase
                 includeElements: false,
                 cancellationToken
             );
-        if (problem is not null)
+        if (instance is null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem!.ToResult();
         }
 
         if (instance.Status.IsHardDeleted)
@@ -390,7 +395,7 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        (InstanceInternal instance, ProblemDetails? problem) =
+        (InstanceInternal? instance, ProblemDetails? problem) =
             await _authorizationService.GetAuthorizedInstance(
                 instanceOwnerPartyId,
                 instanceGuid,
@@ -398,9 +403,9 @@ public class MessageBoxInstancesController : ControllerBase
                 includeElements: false,
                 cancellationToken
             );
-        if (problem is not null)
+        if (instance is null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem!.ToResult();
         }
 
         instance.Status ??= new InstanceStatus();
@@ -682,8 +687,12 @@ public class MessageBoxInstancesController : ControllerBase
             return StatusCode(499, "Request was cancelled.");
         }
 
-        List<MessageBoxInstance> authorizedInstances =
+        (List<MessageBoxInstance>? authorizedInstances, ProblemDetails? authorizationProblem) =
             await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);
+        if (authorizedInstances is null)
+        {
+            return authorizationProblem!.ToResult();
+        }
 
         if (authorizedInstances.Count == 0)
         {

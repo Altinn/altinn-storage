@@ -711,7 +711,7 @@ public class InstanceMutationsControllerUnitTests
                 .ProcessAuthorizer.Setup(authorizer =>
                     authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
                 )
-                .ReturnsAsync(false);
+                .ReturnsAuthorization(false);
         }
         else
         {
@@ -719,7 +719,7 @@ public class InstanceMutationsControllerUnitTests
                 .ProcessAuthorizer.Setup(authorizer =>
                     authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
                 )
-                .ReturnsAsync(false);
+                .ReturnsAuthorization(false);
         }
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -728,7 +728,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
         fixture.DataRepository.Verify(
             repository =>
                 repository.CreateBlobVersionId(
@@ -3163,7 +3166,7 @@ public class InstanceMutationsControllerUnitTests
             .ProcessAuthorizer.Setup(authorizer =>
                 authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
         fixture
             .MutationRepository.Setup(repository =>
                 repository.TryReplayAdmission(
@@ -3478,7 +3481,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -3486,7 +3489,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -3515,7 +3521,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -3523,7 +3529,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
         fixture.ProcessAuthorizer.Verify(
             authorizer =>
                 authorizer.AuthorizeProcessNext(fixture.InstanceInternal, It.IsAny<ProcessState>()),
@@ -5419,7 +5428,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
@@ -5691,10 +5703,10 @@ public class InstanceMutationsControllerUnitTests
             .Setup(authorizer =>
                 authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizerMock
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizerMock
             .Setup(authorizer =>
                 authorizer.AuthorizeProcessNext(
@@ -5702,7 +5714,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         authorizationServiceMock
             .Setup(service =>
                 service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
@@ -5855,7 +5867,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync(writeAuthorized);
+            .ReturnsAuthorization(writeAuthorized);
 
         return fixture;
     }

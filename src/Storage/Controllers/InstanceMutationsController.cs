@@ -135,7 +135,7 @@ public class InstanceMutationsController(
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -433,26 +433,28 @@ public class InstanceMutationsController(
 
         if (
             mutationRequest.ProcessState?.State is { } nextProcessState
-            && !await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
+            && await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
+                is { } processNextProblem
         )
         {
-            return Forbid();
+            return processNextProblem.ToResult();
         }
 
         if (
             mutationRequest.PresentationTexts?.Count > 0
-            && !await processAuthorizer.AuthorizePresentationTextsUpdate(instance)
+            && await processAuthorizer.AuthorizePresentationTextsUpdate(instance)
+                is { } presentationTextsProblem
         )
         {
-            return Forbid();
+            return presentationTextsProblem.ToResult();
         }
 
         if (
             mutationRequest.DataValues?.Count > 0
-            && !await processAuthorizer.AuthorizeDataValuesUpdate(instance)
+            && await processAuthorizer.AuthorizeDataValuesUpdate(instance) is { } dataValuesProblem
         )
         {
-            return Forbid();
+            return dataValuesProblem.ToResult();
         }
 
         HashSet<string> checkedDataTypeIds = new(StringComparer.Ordinal);
@@ -476,9 +478,11 @@ public class InstanceMutationsController(
                 continue;
             }
 
-            if (!await dataType.CanWrite(authorizationService, instance))
+            if (
+                await dataType.AuthorizeWrite(authorizationService, instance) is { } dataTypeProblem
+            )
             {
-                return Forbid();
+                return dataTypeProblem.ToResult();
             }
         }
 
@@ -1747,7 +1751,7 @@ public class InstanceMutationsController(
             AuthorizationActions.Delete
         );
 
-        return problem is null ? null : new ObjectResult(problem) { StatusCode = problem.Status };
+        return problem is null ? null : problem.ToResult();
     }
 
     private async Task<ActionResult> AuthorizeCompleteConfirmationMutation(
@@ -1770,7 +1774,7 @@ public class InstanceMutationsController(
             AuthorizationActions.Complete
         );
 
-        return problem is null ? null : new ObjectResult(problem) { StatusCode = problem.Status };
+        return problem is null ? null : problem.ToResult();
     }
 
     private static InstanceStatus BuildHardDeleteStatus(InstanceStatus status, DateTime now)

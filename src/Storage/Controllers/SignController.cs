@@ -72,7 +72,7 @@ public class SignController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =

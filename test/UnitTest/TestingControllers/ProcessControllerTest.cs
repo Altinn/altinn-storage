@@ -399,7 +399,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -581,7 +581,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         // Act
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -661,7 +661,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         using HttpResponseMessage response = await SendUpdateRequest(
             useInstanceAndEventsEndpoint,
@@ -750,7 +750,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         using HttpResponseMessage response = await SendUpdateRequest(
             useInstanceAndEventsEndpoint: true,
@@ -822,7 +822,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         DateTime before = DateTime.UtcNow;
 
         using HttpResponseMessage response = await SendUpdateRequest(
@@ -1022,7 +1022,7 @@ public class ProcessControllerTest : IAsyncLifetime
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         using HttpResponseMessage response = await SendUpdateRequest(
             useInstanceAndEventsEndpoint,

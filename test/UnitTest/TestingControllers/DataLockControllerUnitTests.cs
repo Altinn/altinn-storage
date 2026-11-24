@@ -252,7 +252,10 @@ public class DataLockControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
     }
 
     [Fact]
@@ -371,10 +374,10 @@ public class DataLockControllerUnitTests
                     It.IsAny<List<string>>()
                 )
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         processAuthorizerMock
             .Setup(a => a.AuthorizeDataElementLock(It.IsAny<InstanceInternal>()))
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         if (instanceFound)
         {
             instanceRepositoryMock

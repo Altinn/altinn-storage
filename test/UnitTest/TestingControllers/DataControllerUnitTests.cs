@@ -678,7 +678,7 @@ public class DataControllerUnitTests
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         fixture
             .DataRepository.Setup(d =>
                 d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
@@ -734,7 +734,10 @@ public class DataControllerUnitTests
         }
         else
         {
-            Assert.IsType<ForbidResult>(result);
+            Assert.Equal(
+                StatusCodes.Status403Forbidden,
+                Assert.IsType<ObjectResult>(result).StatusCode
+            );
             VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
         }
     }
@@ -2904,7 +2907,10 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result.Result);
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            Assert.IsType<ObjectResult>(result.Result).StatusCode
+        );
     }
 
     [Theory]
@@ -3640,7 +3646,7 @@ public class DataControllerUnitTests
             .Setup(a =>
                 a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), "write", It.IsAny<string>())
             )
-            .ReturnsAsync(dataTypeWriteAuthorized);
+            .ReturnsAuthorization(dataTypeWriteAuthorized);
         authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         Mock<HttpContext> httpContextMock = new();

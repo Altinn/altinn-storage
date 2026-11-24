@@ -32,6 +32,8 @@ using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -244,7 +246,11 @@ public class DataControllerTests : IAsyncLifetime
         }
         else
         {
-            await Assert.ThrowsAsync<JsonException>(content);
+            ProblemDetails problem = JsonSerializer.Deserialize<ProblemDetails>(
+                await response.Content.ReadAsStringAsync(),
+                _serializerOptions
+            );
+            Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
         }
     }
 
@@ -953,7 +959,18 @@ public class DataControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(expectedStatusCode, response.StatusCode);
-        Assert.Equal(expectedContent, content);
+        if (expectedStatusCode == HttpStatusCode.Forbidden)
+        {
+            ProblemDetails problem = JsonSerializer.Deserialize<ProblemDetails>(
+                content,
+                _serializerOptions
+            );
+            Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
+        }
+        else
+        {
+            Assert.Equal(expectedContent, content);
+        }
     }
 
     [Fact]

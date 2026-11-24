@@ -6,6 +6,7 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
 using AltinnCore.Authentication.Constants;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -22,6 +23,15 @@ public class ProcessAuthorizerTests
     public ProcessAuthorizerTests()
     {
         _claimsPrincipalProviderMock.Setup(p => p.GetUser()).Returns(new ClaimsPrincipal());
+        _authorizationMock
+            .Setup(a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAuthorization(false);
     }
 
     private static readonly IOptions<GeneralSettings> _settings = Options.Create(
@@ -70,7 +80,7 @@ public class ProcessAuthorizerTests
     private void SetupAuthorizeAction(string action, string taskId, bool returns) =>
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), action, taskId))
-            .ReturnsAsync(returns);
+            .ReturnsAuthorization(returns);
 
     #region AuthorizeProcessNext
 
@@ -91,7 +101,7 @@ public class ProcessAuthorizerTests
 
         var result = await CreateSut().AuthorizeProcessNext(instance, new ProcessState());
 
-        Assert.True(result);
+        Assert.Null(result);
     }
 
     [Theory]
@@ -105,7 +115,7 @@ public class ProcessAuthorizerTests
 
         var result = await CreateSut().AuthorizeProcessNext(instance, new ProcessState());
 
-        Assert.False(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, (result)?.Status);
     }
 
     [Fact]
@@ -113,7 +123,10 @@ public class ProcessAuthorizerTests
     {
         var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeProcessNext(instance, new ProcessState()))?.Status
+        );
     }
 
     [Fact]
@@ -121,7 +134,10 @@ public class ProcessAuthorizerTests
     {
         var instance = new InstanceInternal { Process = null };
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeProcessNext(instance, new ProcessState()))?.Status
+        );
     }
 
     [Fact]
@@ -134,7 +150,7 @@ public class ProcessAuthorizerTests
         };
         SetupAuthorizeAction("reject", "Task_1", true);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, nextState));
         _authorizationMock.Verify(
             a =>
                 a.AuthorizeInstanceAction(
@@ -161,7 +177,7 @@ public class ProcessAuthorizerTests
         };
         SetupAuthorizeAction("sign", "Task_2", true);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, nextState));
     }
 
     [Fact]
@@ -179,7 +195,7 @@ public class ProcessAuthorizerTests
         };
         SetupAuthorizeAction("sign", "Task_1", true);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, nextState));
     }
 
     [Theory]
@@ -190,7 +206,10 @@ public class ProcessAuthorizerTests
         var instance = CreateInstance(altinnTaskType: taskType);
         SetupAuthorizeAction("write", "Task_1", true);
 
-        Assert.False(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeProcessNext(instance, new ProcessState()))?.Status
+        );
     }
 
     #endregion
@@ -206,7 +225,7 @@ public class ProcessAuthorizerTests
         var instance = CreateInstance(altinnTaskType: taskType);
         SetupCallerOrg(AppOrg);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
         VerifyPdpNeverAsked();
     }
 
@@ -220,7 +239,7 @@ public class ProcessAuthorizerTests
         };
         SetupCallerOrg(AppOrg);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, nextState));
         VerifyPdpNeverAsked();
     }
 
@@ -234,7 +253,7 @@ public class ProcessAuthorizerTests
         };
         SetupCallerOrg(AppOrg);
 
-        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Null(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
         VerifyPdpNeverAsked();
     }
 
@@ -254,10 +273,10 @@ public class ProcessAuthorizerTests
         SetupCallerOrg(AppOrg);
         var sut = CreateSut();
 
-        Assert.True(await sut.AuthorizeInstanceLock(instance));
-        Assert.True(await sut.AuthorizeDataElementLock(instance));
-        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
-        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+        Assert.Null(await sut.AuthorizeInstanceLock(instance));
+        Assert.Null(await sut.AuthorizeDataElementLock(instance));
+        Assert.Null(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.Null(await sut.AuthorizeDataValuesUpdate(instance));
         VerifyPdpNeverAsked();
     }
 
@@ -269,11 +288,11 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("write", "Task_1", true);
         var sut = CreateSut();
 
-        Assert.True(await sut.AuthorizeProcessNext(instance, new ProcessState()));
-        Assert.True(await sut.AuthorizeInstanceLock(instance));
-        Assert.True(await sut.AuthorizeDataElementLock(instance));
-        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
-        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+        Assert.Null(await sut.AuthorizeProcessNext(instance, new ProcessState()));
+        Assert.Null(await sut.AuthorizeInstanceLock(instance));
+        Assert.Null(await sut.AuthorizeDataElementLock(instance));
+        Assert.Null(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.Null(await sut.AuthorizeDataValuesUpdate(instance));
     }
 
     [Theory]
@@ -286,11 +305,26 @@ public class ProcessAuthorizerTests
         SetupCallerOrg("other-org");
         var sut = CreateSut();
 
-        Assert.False(await sut.AuthorizeProcessNext(instance, new ProcessState()));
-        Assert.False(await sut.AuthorizeInstanceLock(instance));
-        Assert.False(await sut.AuthorizeDataElementLock(instance));
-        Assert.False(await sut.AuthorizePresentationTextsUpdate(instance));
-        Assert.False(await sut.AuthorizeDataValuesUpdate(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await sut.AuthorizeProcessNext(instance, new ProcessState()))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await sut.AuthorizeInstanceLock(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await sut.AuthorizeDataElementLock(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await sut.AuthorizePresentationTextsUpdate(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await sut.AuthorizeDataValuesUpdate(instance))?.Status
+        );
     }
 
     #endregion
@@ -312,8 +346,8 @@ public class ProcessAuthorizerTests
         var instance = CreateInstance(altinnTaskType: taskType);
         SetupAuthorizeAction(authorizedAction, "Task_1", true);
 
-        Assert.True(await CreateSut().AuthorizeDataElementLock(instance));
-        Assert.True(await CreateSut().AuthorizeInstanceLock(instance));
+        Assert.Null(await CreateSut().AuthorizeDataElementLock(instance));
+        Assert.Null(await CreateSut().AuthorizeInstanceLock(instance));
     }
 
     [Theory]
@@ -324,8 +358,14 @@ public class ProcessAuthorizerTests
     {
         var instance = CreateInstance(altinnTaskType: taskType);
 
-        Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
-        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataElementLock(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeInstanceLock(instance))?.Status
+        );
     }
 
     [Fact]
@@ -333,8 +373,14 @@ public class ProcessAuthorizerTests
     {
         var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
-        Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
-        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataElementLock(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeInstanceLock(instance))?.Status
+        );
     }
 
     [Fact]
@@ -343,12 +389,12 @@ public class ProcessAuthorizerTests
         var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
         _authorizationMock
             .Setup(a => a.AuthorizeInstanceAction(instance, "write", null))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         var sut = CreateSut();
 
-        Assert.True(await sut.AuthorizeInstanceLock(instance));
-        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.Null(await sut.AuthorizeInstanceLock(instance));
+        Assert.Null(await sut.AuthorizeDataElementLock(instance));
     }
 
     [Fact]
@@ -356,8 +402,14 @@ public class ProcessAuthorizerTests
     {
         var instance = new InstanceInternal { Process = null };
 
-        Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
-        Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataElementLock(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeInstanceLock(instance))?.Status
+        );
     }
 
     #endregion
@@ -379,8 +431,8 @@ public class ProcessAuthorizerTests
         var instance = CreateInstance(altinnTaskType: taskType);
         SetupAuthorizeAction(authorizedAction, "Task_1", true);
 
-        Assert.True(await CreateSut().AuthorizePresentationTextsUpdate(instance));
-        Assert.True(await CreateSut().AuthorizeDataValuesUpdate(instance));
+        Assert.Null(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.Null(await CreateSut().AuthorizeDataValuesUpdate(instance));
     }
 
     [Theory]
@@ -391,8 +443,14 @@ public class ProcessAuthorizerTests
     {
         var instance = CreateInstance(altinnTaskType: taskType);
 
-        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
-        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizePresentationTextsUpdate(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataValuesUpdate(instance))?.Status
+        );
     }
 
     [Fact]
@@ -400,8 +458,14 @@ public class ProcessAuthorizerTests
     {
         var instance = new InstanceInternal { Process = new ProcessState { CurrentTask = null } };
 
-        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
-        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizePresentationTextsUpdate(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataValuesUpdate(instance))?.Status
+        );
     }
 
     [Fact]
@@ -412,7 +476,7 @@ public class ProcessAuthorizerTests
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);
 
-        Assert.True(await CreateSut().AuthorizeDataValuesUpdate(instance));
+        Assert.Null(await CreateSut().AuthorizeDataValuesUpdate(instance));
     }
 
     [Fact]
@@ -423,7 +487,10 @@ public class ProcessAuthorizerTests
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(true);
 
-        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizePresentationTextsUpdate(instance))?.Status
+        );
     }
 
     [Fact]
@@ -434,8 +501,14 @@ public class ProcessAuthorizerTests
             .Setup(a => a.UserHasRequiredScope("altinn:storage/instances.syncadapter"))
             .Returns(false);
 
-        Assert.False(await CreateSut().AuthorizePresentationTextsUpdate(instance));
-        Assert.False(await CreateSut().AuthorizeDataValuesUpdate(instance));
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizePresentationTextsUpdate(instance))?.Status
+        );
+        Assert.Equal(
+            StatusCodes.Status403Forbidden,
+            (await CreateSut().AuthorizeDataValuesUpdate(instance))?.Status
+        );
     }
 
     #endregion

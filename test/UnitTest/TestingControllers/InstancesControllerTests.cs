@@ -1612,7 +1612,7 @@ public class InstancesControllerTests : IAsyncLifetime
             .Returns(false);
         authorization
             .Setup(service => service.AuthorizeInstances(It.IsAny<List<InstanceInternal>>()))
-            .ReturnsAsync([authorizedInstance]);
+            .ReturnsAsync(([authorizedInstance], null));
         HttpClient client = GetTestClient(repository, authorizationService: authorization);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
@@ -3410,7 +3410,9 @@ public class InstancesControllerTests : IAsyncLifetime
             .Setup(repo => repo.GetOne(instance.Id, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(instance);
         var authorizer = new Mock<IProcessAuthorizer>();
-        authorizer.Setup(auth => auth.AuthorizeDataValuesUpdate(instance)).ReturnsAsync(true);
+        authorizer
+            .Setup(auth => auth.AuthorizeDataValuesUpdate(instance))
+            .ReturnsAuthorization(true);
         return new InstancesController(
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),
@@ -3542,10 +3544,10 @@ public class InstancesControllerTests : IAsyncLifetime
         Mock<IProcessAuthorizer> processAuthorizer = new();
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizePresentationTextsUpdate(internalInstance))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(internalInstance))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         DefaultHttpContext httpContext = new()
         {
             User = new ClaimsPrincipal(

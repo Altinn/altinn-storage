@@ -91,12 +91,14 @@ public class InstanceLockController(
             );
         }
 
-        if (!await processAuthorizer.AuthorizeInstanceLock(instance))
+        if (await processAuthorizer.AuthorizeInstanceLock(instance) is { } lockProblem)
         {
-            return Problem(
-                detail: "Not authorized to acquire instance lock.",
-                statusCode: StatusCodes.Status403Forbidden
-            );
+            if (lockProblem.Status == StatusCodes.Status403Forbidden)
+            {
+                lockProblem.Detail = "Not authorized to acquire instance lock.";
+            }
+
+            return lockProblem.ToResult();
         }
 
         var (result, lockToken) = await instanceLockRepository.TryAcquireLock(

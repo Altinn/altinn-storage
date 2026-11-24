@@ -8,7 +8,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Altinn.Authorization.ABAC.Xacml;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Common.PEP.Configuration;
 using Altinn.Common.PEP.Constants;
@@ -57,8 +56,6 @@ public class AuthorizationService(
     private readonly IMemoryCache _memoryCache = memoryCache;
     private readonly PepSettings _pepSettings = pepSettings.Value;
 
-    private static readonly string _indeterminate = XacmlContextDecision.Indeterminate.ToString();
-
     private const string XacmlResourceTaskId = "urn:altinn:task";
     private const string XacmlResourceEndId = "urn:altinn:end-event";
     private const string XacmlResourceActionId = "urn:oasis:names:tc:xacml:1.0:action:action-id";
@@ -69,14 +66,14 @@ public class AuthorizationService(
     private const string ResourceId = "r";
 
     /// <inheritdoc />
-    public async Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<InstanceInternal> instances,
-        bool keyAccessMode
-    )
+    public async Task<(
+        List<MessageBoxInstance> Instances,
+        ProblemDetails Problem
+    )> AuthorizeMesseageBoxInstances(List<InstanceInternal> instances, bool keyAccessMode)
     {
         if (instances.Count <= 0)
         {
-            return [];
+            return ([], null);
         }
 
         SortedList<Guid, MessageBoxInstance> authorizedInstanceList = [];
@@ -117,74 +114,77 @@ public class AuthorizationService(
         );
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
-        if (response != null && response.Response?.Count > 0)
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            foreach (
-                XacmlJsonResult result in response.Response.Where(result =>
-                    DecisionHelper.ValidateDecisionResult(result, user)
+            LogNoDecision(nameof(AuthorizeMesseageBoxInstances), xacmlJsonRequest);
+            return (null, AuthorizationProblems.AuthorizationUnavailable());
+        }
+
+        foreach (
+            XacmlJsonResult result in response.Response.Where(result =>
+                DecisionHelper.ValidateDecisionResult(result, user)
+            )
+        )
+        {
+            string instanceId = string.Empty;
+            string actiontype = string.Empty;
+
+            foreach (var attributes in result.Category.Select(c => c.Attribute))
+            {
+                foreach (var attribute in attributes)
+                {
+                    if (attribute.AttributeId.Equals(XacmlResourceActionId))
+                    {
+                        actiontype = attribute.Value;
+                    }
+
+                    if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
+                    {
+                        instanceId = attribute.Value;
+                    }
+                }
+            }
+
+            Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
+            InstanceInternal authorizedInstance = instances.First(i => i.Id == instanceGuid);
+
+            if (
+                !authorizedInstanceList.TryGetValue(
+                    authorizedInstance.Id,
+                    out MessageBoxInstance authorizedMessageBoxInstance
                 )
             )
             {
-                string instanceId = string.Empty;
-                string actiontype = string.Empty;
+                authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(
+                    authorizedInstance
+                );
+                authorizedInstanceList[authorizedInstance.Id] = authorizedMessageBoxInstance;
+            }
 
-                foreach (var attributes in result.Category.Select(c => c.Attribute))
-                {
-                    foreach (var attribute in attributes)
-                    {
-                        if (attribute.AttributeId.Equals(XacmlResourceActionId))
-                        {
-                            actiontype = attribute.Value;
-                        }
-
-                        if (attribute.AttributeId.Equals(AltinnXacmlUrns.InstanceId))
-                        {
-                            instanceId = attribute.Value;
-                        }
-                    }
-                }
-
-                Guid instanceGuid = Guid.Parse(instanceId.Split('/')[1]);
-                InstanceInternal authorizedInstance = instances.First(i => i.Id == instanceGuid);
-
-                if (
-                    !authorizedInstanceList.TryGetValue(
-                        authorizedInstance.Id,
-                        out MessageBoxInstance authorizedMessageBoxInstance
-                    )
-                )
-                {
-                    authorizedMessageBoxInstance = InstanceHelper.ConvertToMessageBoxInstance(
-                        authorizedInstance
-                    );
-                    authorizedInstanceList[authorizedInstance.Id] = authorizedMessageBoxInstance;
-                }
-
-                switch (actiontype)
-                {
-                    case AuthorizationActions.Write:
-                        authorizedMessageBoxInstance.AuthorizedForWrite = true;
-                        break;
-                    case AuthorizationActions.Delete:
-                        authorizedMessageBoxInstance.AllowDelete = true;
-                        break;
-                    case AuthorizationActions.Instantiate:
-                        authorizedMessageBoxInstance.AllowNewCopy = true;
-                        break;
-                    case AuthorizationActions.Sign:
-                        authorizedMessageBoxInstance.AuthorizedForSign = true;
-                        break;
-                    case AuthorizationActions.Read:
-                        break;
-                }
+            switch (actiontype)
+            {
+                case AuthorizationActions.Write:
+                    authorizedMessageBoxInstance.AuthorizedForWrite = true;
+                    break;
+                case AuthorizationActions.Delete:
+                    authorizedMessageBoxInstance.AllowDelete = true;
+                    break;
+                case AuthorizationActions.Instantiate:
+                    authorizedMessageBoxInstance.AllowNewCopy = true;
+                    break;
+                case AuthorizationActions.Sign:
+                    authorizedMessageBoxInstance.AuthorizedForSign = true;
+                    break;
+                case AuthorizationActions.Read:
+                    break;
             }
         }
 
-        return authorizedInstanceList.Values.ToList();
+        return (authorizedInstanceList.Values.ToList(), null);
     }
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeInstanceAction(
+    public async Task<ProblemDetails> AuthorizeInstanceAction(
         InstanceInternal instance,
         string action,
         string task = null
@@ -221,18 +221,7 @@ public class AuthorizationService(
         }
 
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(request);
-
-        if (response?.Response == null)
-        {
-            _logger.LogInformation(
-                "// Authorization Helper // Authorize instance action failed for request: {request}.",
-                JsonSerializer.Serialize(request)
-            );
-            return false;
-        }
-
-        bool authorized = DecisionHelper.ValidatePdpDecision(response.Response, user);
-        return authorized;
+        return ToProblem(response, user, nameof(AuthorizeInstanceAction), request);
     }
 
     /// <inheritdoc />
@@ -258,7 +247,7 @@ public class AuthorizationService(
 
         if (instance is null)
         {
-            return (null, InstanceProblems.NotFound(instanceOwnerPartyId, instanceGuid));
+            return (null, AuthorizationProblems.NotFound(instanceOwnerPartyId, instanceGuid));
         }
 
         return (instance, null);
@@ -279,7 +268,7 @@ public class AuthorizationService(
         // is not asked. Every caller gets the same answer whether or not the instance exists.
         if (instance is null)
         {
-            return InstanceProblems.Forbidden();
+            return AuthorizationProblems.Forbidden();
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -293,37 +282,47 @@ public class AuthorizationService(
         SetResourceFromInstance(request, instance);
         XacmlJsonResponse response = await GetDecisionForRequestWithCache(request);
 
-        if (!HasDecision(response))
+        return ToProblem(response, user, nameof(AuthorizeInstanceRequest), request);
+    }
+
+    /// <summary>
+    /// Turns a single PDP decision into the problem to answer with: null when the user is authorized,
+    /// 503 when Altinn Authorization gave no decision, and 403 otherwise.
+    /// </summary>
+    private ProblemDetails ToProblem(
+        XacmlJsonResponse response,
+        ClaimsPrincipal user,
+        string operation,
+        XacmlJsonRequestRoot request
+    )
+    {
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            _logger.LogWarning(
-                "// Authorization Helper // AuthorizeInstanceRequest got no decision from Altinn Authorization for request: {request}.",
-                JsonSerializer.Serialize(request)
-            );
-            return InstanceProblems.AuthorizationUnavailable();
+            LogNoDecision(operation, request);
+            return AuthorizationProblems.AuthorizationUnavailable();
         }
 
         return DecisionHelper.ValidatePdpDecision(response.Response, user)
             ? null
-            : InstanceProblems.Forbidden();
+            : AuthorizationProblems.Forbidden();
     }
 
-    /// <summary>
-    /// Whether Altinn Authorization reached a decision. It answers <c>Indeterminate</c> when it fails
-    /// while evaluating the request, so that is treated like no response at all.
-    /// </summary>
-    private static bool HasDecision(XacmlJsonResponse response) =>
-        response?.Response is not null
-        && !response.Response.Exists(result => result.Decision == _indeterminate);
+    private void LogNoDecision(string operation, XacmlJsonRequestRoot request) =>
+        _logger.LogWarning(
+            "// Authorization Helper // {Operation} got no decision from Altinn Authorization for request: {Request}.",
+            operation,
+            JsonSerializer.Serialize(request)
+        );
 
     /// <inheritdoc />
-    public async Task<bool> AuthorizeAnyOfInstanceActions(
+    public async Task<ProblemDetails> AuthorizeAnyOfInstanceActions(
         InstanceInternal instance,
         List<string> actions
     )
     {
         if (actions.Count == 0)
         {
-            return false;
+            return AuthorizationProblems.Forbidden();
         }
 
         ClaimsPrincipal user = _claimsPrincipalProvider.GetUser();
@@ -339,26 +338,36 @@ public class AuthorizationService(
             "// Authorization Helper // AuthorizeAnyOfInstanceActions // response: {Response}",
             JsonSerializer.Serialize(response)
         );
-        if (response?.Response != null)
-        {
-            return response.Response.Exists(result =>
+
+        // One permitted action is enough, even when Altinn Authorization could not decide on another.
+        if (
+            response?.Response is not null
+            && response.Response.Exists(result =>
                 DecisionHelper.ValidateDecisionResult(result, user)
-            );
+            )
+        )
+        {
+            return null;
         }
 
-        _logger.LogInformation(
-            "// Authorization Helper // Authorize instance action failed for request: {request}.",
-            JsonSerializer.Serialize(request)
-        );
-        return false;
+        if (!AuthorizationProblems.HasDecision(response))
+        {
+            LogNoDecision(nameof(AuthorizeAnyOfInstanceActions), request);
+            return AuthorizationProblems.AuthorizationUnavailable();
+        }
+
+        return AuthorizationProblems.Forbidden();
     }
 
     /// <inheritdoc />
-    public async Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances)
+    public async Task<(
+        List<InstanceInternal> Instances,
+        ProblemDetails Problem
+    )> AuthorizeInstances(List<InstanceInternal> instances)
     {
         if (instances.Count <= 0)
         {
-            return instances;
+            return (instances, null);
         }
 
         List<InstanceInternal> authorizedInstanceList = [];
@@ -371,6 +380,11 @@ public class AuthorizationService(
             actionTypes
         );
         XacmlJsonResponse response = await _pdp.GetDecisionForRequest(xacmlJsonRequest);
+        if (!AuthorizationProblems.HasDecision(response))
+        {
+            LogNoDecision(nameof(AuthorizeInstances), xacmlJsonRequest);
+            return (null, AuthorizationProblems.AuthorizationUnavailable());
+        }
 
         foreach (
             XacmlJsonResult result in response.Response.Where(result =>
@@ -398,7 +412,7 @@ public class AuthorizationService(
             authorizedInstanceList.Add(instance);
         }
 
-        return authorizedInstanceList;
+        return (authorizedInstanceList, null);
     }
 
     /// <inheritdoc />
@@ -468,7 +482,7 @@ public class AuthorizationService(
             MemoryCacheEntryOptions cacheEntryOptions = new MemoryCacheEntryOptions()
                 .SetPriority(CacheItemPriority.High)
                 .SetAbsoluteExpiration(new TimeSpan(0, _pepSettings.PdpDecisionCachingTimeout, 0));
-            if (HasDecision(response))
+            if (AuthorizationProblems.HasDecision(response))
             {
                 _memoryCache.Set(cacheKey, response, cacheEntryOptions);
             }

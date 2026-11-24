@@ -407,7 +407,7 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
             .Setup(a =>
                 a.AuthorizeProcessNext(It.IsAny<InstanceInternal>(), It.IsAny<ProcessState>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
 
         return new ProcessController(
             _fixture.InstanceRepo,

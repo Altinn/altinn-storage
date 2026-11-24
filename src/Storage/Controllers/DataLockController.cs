@@ -83,9 +83,9 @@ public class DataLockController : ControllerBase
             return instanceError!;
         }
 
-        if (!await _processAuthorizer.AuthorizeDataElementLock(instance))
+        if (await _processAuthorizer.AuthorizeDataElementLock(instance) is { } lockProblem)
         {
-            return Forbid();
+            return lockProblem.ToResult();
         }
 
         DataElementInternal? dataElement = instance.Data.FirstOrDefault(d => d.Id == dataGuid);
@@ -157,13 +157,13 @@ public class DataLockController : ControllerBase
             return Forbid();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(
+        ProblemDetails? unlockProblem = await _authorizationService.AuthorizeAnyOfInstanceActions(
             instance,
             [AuthorizationActions.Write, "unlock", AuthorizationActions.Reject]
         );
-        if (!authorized)
+        if (unlockProblem is not null)
         {
-            return Forbid();
+            return unlockProblem.ToResult();
         }
 
         try

@@ -1,6 +1,4 @@
-﻿#nullable disable
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,18 +17,25 @@ public interface IAuthorization
     /// <summary>
     /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
     /// </summary>
-    public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<InstanceInternal> instances,
-        bool keyAccessMode
-    );
+    /// <returns>
+    /// The authorized instances, or a 503 problem when Altinn Authorization gave no decision.
+    /// </returns>
+    public Task<(
+        List<MessageBoxInstance>? Instances,
+        ProblemDetails? Problem
+    )> AuthorizeMesseageBoxInstances(List<InstanceInternal> instances, bool keyAccessMode);
 
     /// <summary>
     /// Authorizes a given action on a storage instance.
     /// </summary>
-    public Task<bool> AuthorizeInstanceAction(
+    /// <returns>
+    /// Null when the user is authorized, 403 when the user is not, and 503 when Altinn Authorization
+    /// gave no decision.
+    /// </returns>
+    public Task<ProblemDetails?> AuthorizeInstanceAction(
         InstanceInternal instance,
         string action,
-        string task = null
+        string? task = null
     );
 
     /// <summary>
@@ -46,7 +51,10 @@ public interface IAuthorization
     /// authorized or the instance is missing, 503 when Altinn Authorization gave no decision and a retry
     /// may succeed.
     /// </returns>
-    public Task<ProblemDetails> AuthorizeInstanceRequest(InstanceInternal instance, string action);
+    public Task<ProblemDetails?> AuthorizeInstanceRequest(
+        InstanceInternal? instance,
+        string action
+    );
 
     /// <summary>
     /// Loads the instance identified by <paramref name="instanceOwnerPartyId"/> and <paramref name="instanceGuid"/>
@@ -64,7 +72,7 @@ public interface IAuthorization
     /// when the user is not authorized or the instance does not exist, and 503 when Altinn Authorization gave
     /// no decision. Only the sync adapter, which may read every instance, gets 404 for a missing instance.
     /// </returns>
-    public Task<(InstanceInternal Instance, ProblemDetails Problem)> GetAuthorizedInstance(
+    public Task<(InstanceInternal? Instance, ProblemDetails? Problem)> GetAuthorizedInstance(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         string action,
@@ -75,7 +83,11 @@ public interface IAuthorization
     /// <summary>
     /// Authorizes that the user has one or more of the actions on a storage instance.
     /// </summary>
-    public Task<bool> AuthorizeAnyOfInstanceActions(
+    /// <returns>
+    /// Null when the user is authorized for at least one of the actions. Otherwise 503 when Altinn
+    /// Authorization gave no decision, and 403 when it refused.
+    /// </returns>
+    public Task<ProblemDetails?> AuthorizeAnyOfInstanceActions(
         InstanceInternal instance,
         List<string> actions
     );
@@ -83,7 +95,12 @@ public interface IAuthorization
     /// <summary>
     /// Authorize storage instances, and returns the instances that the user has the right to read.
     /// </summary>
-    public Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances);
+    /// <returns>
+    /// The instances the user may read, or a 503 problem when Altinn Authorization gave no decision.
+    /// </returns>
+    public Task<(List<InstanceInternal>? Instances, ProblemDetails? Problem)> AuthorizeInstances(
+        List<InstanceInternal> instances
+    );
 
     /// <summary>
     /// Verifies that the user has at least one of the supplied scopes.
@@ -104,5 +121,5 @@ public interface IAuthorization
     /// </summary>
     /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
     /// <returns>The Xacml Json response contains the result of the request</returns>
-    public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
+    public Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
 }

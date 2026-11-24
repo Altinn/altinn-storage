@@ -130,7 +130,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -181,9 +181,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
@@ -295,7 +298,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         if (instanceOwnerPartyId == 0)
@@ -329,9 +332,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeRead(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
@@ -485,14 +491,14 @@ public class DataController : ControllerBase
         ProblemDetails problem =
             User.GetOrg() != instance.Org
             || _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope)
-                ? InstanceProblems.Forbidden()
+                ? AuthorizationProblems.Forbidden()
                 : await _authorizationService.AuthorizeInstanceRequest(
                     instance,
                     AuthorizationActions.Read
                 );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
@@ -542,9 +548,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeRead(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         Stream dataStream = await _blobRepository.ReadBlob(
@@ -591,7 +600,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         if (instanceOwnerPartyId == 0)
@@ -657,7 +666,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -693,9 +702,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
@@ -827,7 +839,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -870,9 +882,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
@@ -1154,7 +1169,7 @@ public class DataController : ControllerBase
             );
         if (problem is not null)
         {
-            return new ObjectResult(problem) { StatusCode = problem.Status };
+            return problem.ToResult();
         }
 
         (VersionPreconditions preconditions, ActionResult preconditionError) =
@@ -1206,9 +1221,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)

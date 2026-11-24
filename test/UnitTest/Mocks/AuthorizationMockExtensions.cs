@@ -58,7 +58,7 @@ internal static class AuthorizationMockExtensions
                     }
 
                     return instance is null
-                        ? (null, InstanceProblems.NotFound(instanceOwnerPartyId, instanceGuid))
+                        ? (null, AuthorizationProblems.NotFound(instanceOwnerPartyId, instanceGuid))
                         : (instance, null);
                 }
             );
@@ -82,11 +82,13 @@ internal static class AuthorizationMockExtensions
     }
 
     /// <summary>
-    /// Answers an <see cref="IAuthorization.AuthorizeInstanceRequest"/> setup with no problem when
-    /// <paramref name="authorized"/> is true, and with a 403 problem otherwise.
+    /// Answers an authorization setup with no problem when <paramref name="authorized"/> is true, and
+    /// with a 403 problem otherwise.
     /// </summary>
-    public static IReturnsResult<IAuthorization> ReturnsAuthorization(
-        this ISetup<IAuthorization, Task<ProblemDetails>> setup,
+    public static IReturnsResult<TMock> ReturnsAuthorization<TMock>(
+        this ISetup<TMock, Task<ProblemDetails>> setup,
         bool authorized
-    ) => setup.ReturnsAsync(authorized ? null : InstanceProblems.Forbidden());
+    )
+        where TMock : class =>
+        setup.ReturnsAsync(authorized ? null : AuthorizationProblems.Forbidden());
 }
