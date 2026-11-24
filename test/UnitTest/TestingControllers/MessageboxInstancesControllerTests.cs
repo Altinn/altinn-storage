@@ -1700,6 +1700,39 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetMessageBoxInstanceEvents_CallerNotAuthorized_ReturnsForbiddenWithoutReadingEvents()
+    {
+        // Arrange
+        Mock<IInstanceEventRepository> repoMock = new();
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
+        Mock<IAuthorization> authorization = new();
+        authorization
+            .Setup(a => a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read"))
+            .ReturnsAuthorization(false);
+        authorization.DelegateGetAuthorizedInstance(instanceRepository);
+        var sut = new MessageBoxInstancesController(
+            instanceRepository,
+            repoMock.Object,
+            null,
+            null,
+            authorization.Object,
+            null,
+            null
+        );
+
+        // Act
+        ActionResult result = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
+
+        // Assert
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        repoMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
         // Arrange

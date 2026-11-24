@@ -348,6 +348,88 @@ public class InstancesControllerTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// Test case: A caller the PDP refuses asks for an instance that does not exist.
+    /// Expected: 403, so the caller learns nothing about whether the instance exists.
+    /// </summary>
+    [Theory]
+    [InlineData("1337/")]
+    [InlineData("")]
+    public async Task Get_MissingInstance_PdpDenies_ReturnsForbidden(string partyPrefix)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/{partyPrefix}{Guid.NewGuid()}";
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock("Deny"));
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: A caller the PDP permits asks for an instance that does not exist.
+    /// Expected: 404.
+    /// </summary>
+    [Fact]
+    public async Task Get_MissingInstance_PdpPermits_ReturnsNotFound()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/{Guid.NewGuid()}";
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock("Permit"));
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Altinn Authorization gives no decision for an existing instance.
+    /// Expected: 503 with a problem body, so the caller knows a retry may succeed.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Indeterminate")]
+    public async Task Get_PdpGivesNoDecision_ReturnsServiceUnavailable(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock(decision));
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("authorization_unavailable", problem?.Type);
+    }
+
+    private static Mock<IPDP> CreatePdpMock(string decision)
+    {
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(
+                decision is null
+                    ? null
+                    : new XacmlJsonResponse
+                    {
+                        Response = [new XacmlJsonResult { Decision = decision }],
+                    }
+            );
+        return pdpMock;
+    }
+
+    /// <summary>
     /// Test case: Reading the instance from the repository fails.
     /// Expected: Returns status internal server error, not not found.
     /// </summary>

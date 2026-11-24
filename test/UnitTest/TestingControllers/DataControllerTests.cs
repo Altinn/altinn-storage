@@ -522,6 +522,48 @@ public class DataControllerTests : IAsyncLifetime
         await _testTelemetry.AssertRequestsWithInvalidScopesCountAsync(invalidScopeRequests);
     }
 
+    [Theory]
+    [InlineData("altinn:storage/instances.syncadapter", HttpStatusCode.OK)]
+    [InlineData("altinn:instances.read", HttpStatusCode.Forbidden)]
+    public async Task Get_DataElement_SyncAdapterScope_BypassesPdp(
+        string scope,
+        HttpStatusCode expectedStatusCode
+    )
+    {
+        // Arrange - user 1 has no role on party 1337, so only the sync adapter scope lets it read.
+        string dataPathWithData =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/data/f4feb26c-8eed-4d1d-9d75-9239c40724e9";
+        string token = PrincipalUtil.GetToken(1, 1337, 3, scopes: [scope]);
+        HttpClient client = GetTestClient(bearerAuthToken: token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(dataPathWithData);
+
+        // Assert
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("altinn:storage/instances.syncadapter", HttpStatusCode.OK)]
+    [InlineData("altinn:instances.read", HttpStatusCode.Forbidden)]
+    public async Task Get_DataElements_SyncAdapterScope_BypassesPdp(
+        string scope,
+        HttpStatusCode expectedStatusCode
+    )
+    {
+        // Arrange
+        string dataPath =
+            $"{_versionPrefix}/instances/1337/d91fd644-1028-4efd-924f-4ca187354514/dataelements/";
+        string token = PrincipalUtil.GetToken(1, 1337, 3, scopes: [scope]);
+        HttpClient client = GetTestClient(bearerAuthToken: token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(dataPath);
+
+        // Assert
+        Assert.Equal(expectedStatusCode, response.StatusCode);
+    }
+
     [Fact]
     public async Task Get_DataElementStoredAtVersionedBlobStoragePath_ReturnsContent()
     {
