@@ -252,10 +252,7 @@ public class DataLockControllerUnitTests
         );
 
         // Assert
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Microsoft.AspNetCore.Http;
@@ -59,8 +60,15 @@ internal static class AuthorizationProblems
         };
 
     /// <summary>
-    /// The action result that answers with <paramref name="problem"/> and its status code.
+    /// The action result that answers with <paramref name="problem"/> and its status code, as
+    /// <c>application/problem+json</c> whatever content types the action declares with <c>[Produces]</c>.
     /// </summary>
-    internal static ObjectResult ToResult(this ProblemDetails problem) =>
-        new(problem) { StatusCode = problem.Status, ContentTypes = { "application/problem+json" } };
+    internal static ActionResult ToResult(this ProblemDetails problem) =>
+        new ProblemResult(problem);
+
+    private sealed class ProblemResult(ProblemDetails problem) : ActionResult
+    {
+        public override Task ExecuteResultAsync(ActionContext context) =>
+            TypedResults.Problem(problem).ExecuteAsync(context.HttpContext);
+    }
 }

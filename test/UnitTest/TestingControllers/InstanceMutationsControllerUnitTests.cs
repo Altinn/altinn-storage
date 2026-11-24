@@ -728,10 +728,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.DataRepository.Verify(
             repository =>
                 repository.CreateBlobVersionId(
@@ -1236,9 +1233,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
-        Assert.IsType<ProblemDetails>(forbidden.Value);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
         fixture.AuthorizationService.Verify(
             service =>
                 service.AuthorizeInstanceRequest(instanceInternal, AuthorizationActions.Write),
@@ -1278,8 +1276,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
         fixture.AuthorizationService.Verify(
             service =>
                 service.AuthorizeInstanceRequest(
@@ -1392,9 +1392,11 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult notFound = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status404NotFound, notFound.StatusCode);
-        ProblemDetails problem = Assert.IsType<ProblemDetails>(notFound.Value);
+        ProblemDetails notFoundProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status404NotFound
+        );
+        ProblemDetails problem = notFoundProblem;
         Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", problem.Detail);
         fixture.AuthorizationService.Verify(
             service =>
@@ -2486,8 +2488,10 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result.Result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -3489,10 +3493,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -3529,10 +3530,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.ProcessAuthorizer.Verify(
             authorizer =>
                 authorizer.AuthorizeProcessNext(fixture.InstanceInternal, It.IsAny<ProcessState>()),
@@ -5428,10 +5426,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }

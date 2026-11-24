@@ -1727,8 +1727,10 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
         ActionResult result = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
 
         // Assert
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         repoMock.VerifyNoOtherCalls();
     }
 

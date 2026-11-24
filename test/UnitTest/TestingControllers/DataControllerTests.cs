@@ -966,6 +966,10 @@ public class DataControllerTests : IAsyncLifetime
                 _serializerOptions
             );
             Assert.Equal(StatusCodes.Status403Forbidden, problem?.Status);
+            Assert.Equal(
+                "application/problem+json",
+                response.Content.Headers.ContentType?.MediaType
+            );
         }
         else
         {

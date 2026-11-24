@@ -734,10 +734,7 @@ public class DataControllerUnitTests
         }
         else
         {
-            Assert.Equal(
-                StatusCodes.Status403Forbidden,
-                Assert.IsType<ObjectResult>(result).StatusCode
-            );
+            await ProblemAsserts.AssertProblemAsync(result, StatusCodes.Status403Forbidden);
             VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
         }
     }
@@ -914,8 +911,10 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         fixture.DataRepository.Verify(
             d =>
                 d.ReadBlobVersion(
@@ -953,8 +952,10 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
     }
 
@@ -1179,9 +1180,10 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
-        Assert.IsType<ProblemDetails>(forbidden.Value);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         dataRepositoryMock.Verify(
             repository =>
                 repository.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
@@ -2907,10 +2909,7 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.Equal(
-            StatusCodes.Status403Forbidden,
-            Assert.IsType<ObjectResult>(result.Result).StatusCode
-        );
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
     }
 
     [Theory]

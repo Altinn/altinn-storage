@@ -4,7 +4,7 @@
     Content: {
       Headers: {
         Content-Length: 114,
-        Content-Type: application/json; charset=utf-8
+        Content-Type: application/problem+json
       },
       Value: {
         type: instance_forbidden,
