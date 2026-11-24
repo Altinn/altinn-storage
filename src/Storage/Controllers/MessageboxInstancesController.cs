@@ -76,6 +76,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>List of messagebox instances</returns>
     [Authorize]
     [HttpPost("search")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> SearchMessageBoxInstances(
         [FromBody] MessageBoxQueryModel queryModel,
         CancellationToken cancellationToken
@@ -167,6 +175,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>list of instances</returns>
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> GetMessageBoxInstance(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -216,7 +232,7 @@ public class MessageBoxInstancesController : ControllerBase
 
         if (authorizedInstanceList.Count <= 0)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         MessageBoxInstance authorizedInstance = authorizedInstanceList[0];
@@ -243,6 +259,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>list of instances</returns>
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}/events")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> GetMessageBoxInstanceEvents(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid
@@ -304,6 +328,14 @@ public class MessageBoxInstancesController : ControllerBase
     [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> Undelete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -388,6 +420,14 @@ public class MessageBoxInstancesController : ControllerBase
     [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> Delete(
         Guid instanceGuid,
         int instanceOwnerPartyId,
