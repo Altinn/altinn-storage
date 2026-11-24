@@ -159,7 +159,7 @@ public class DataLockController : ControllerBase
 
         bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(
             instance,
-            ["write", "unlock", "reject"]
+            [AuthorizationActions.Write, "unlock", AuthorizationActions.Reject]
         );
         if (!authorized)
         {

@@ -897,7 +897,7 @@ public class DataControllerUnitTests
             : CreateOrgPrincipal(org);
         fixture
             .Authorization.Setup(a =>
-                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), "read")
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read")
             )
             .ReturnsAsync(authorized);
 
@@ -1146,7 +1146,9 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result);
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.IsType<ProblemDetails>(forbidden.Value);
         dataRepositoryMock.Verify(
             repository =>
                 repository.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
@@ -3601,7 +3603,7 @@ public class DataControllerUnitTests
 
         authorizationServiceMock
             .Setup(a =>
-                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
             .ReturnsAsync(authorized);
         authorizationServiceMock
@@ -3609,6 +3611,7 @@ public class DataControllerUnitTests
                 a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), "write", It.IsAny<string>())
             )
             .ReturnsAsync(dataTypeWriteAuthorized);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
@@ -3768,9 +3771,8 @@ public class DataControllerUnitTests
         applicationRepository
             .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
-        authorization
-            .Setup(a => a.AuthorizeEnrichedInstanceAction(instance, "read"))
-            .ReturnsAsync(true);
+        authorization.Setup(a => a.AuthorizeInstanceRequest(instance, "read")).ReturnsAsync(true);
+        authorization.DelegateGetAuthorizedInstance(instanceRepository.Object);
 
         DefaultHttpContext httpContext = new() { User = CreateOrgPrincipal(_org) };
         DataController sut = new(
@@ -3845,6 +3847,12 @@ public class DataControllerUnitTests
         Mock<IInstanceEventService> instanceEventServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
 
+        authorizationServiceMock
+            .Setup(service =>
+                service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+            )
+            .ReturnsAsync(true);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
         dataRepositoryMock
             .Setup(repository =>
                 repository.Read(instanceGuid, dataElementId, It.IsAny<CancellationToken>())
