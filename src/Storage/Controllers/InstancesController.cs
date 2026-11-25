@@ -249,7 +249,9 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> Get(
         int instanceOwnerPartyId,
@@ -302,7 +304,9 @@ public class InstancesController : ControllerBase
     [Authorize]
     [HttpGet("{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status503ServiceUnavailable)]
     [Produces("application/json")]
     public async Task<ActionResult<Instance>> GetByGuid(
         Guid instanceGuid,
