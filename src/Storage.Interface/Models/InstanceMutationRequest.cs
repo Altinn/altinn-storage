@@ -227,12 +227,6 @@ public class InstanceMutationDeleteDataElement
     /// </summary>
     [JsonProperty(PropertyName = "dataElementId")]
     public Guid DataElementId { get; set; }
-
-    /// <summary>
-    /// Whether to delete the data element even when it is locked.
-    /// </summary>
-    [JsonProperty(PropertyName = "ignoreLock")]
-    public bool IgnoreLock { get; set; }
 }
 
 /// <summary>

@@ -24,11 +24,10 @@ public sealed record BlobVersionReferencesInternal
         AppId = appId ?? throw new ArgumentNullException(nameof(appId));
         BlobStorageOrg = blobStorageOrg ?? throw new ArgumentNullException(nameof(blobStorageOrg));
         StorageAccountNumber = storageAccountNumber;
-        BlobVersionIds =
-            blobVersionIds
-                ?.Where(versionId => !string.IsNullOrEmpty(versionId))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray()
+        BlobVersionIds = blobVersionIds
+            ?.Where(versionId => !string.IsNullOrEmpty(versionId))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray()
             ?? [];
     }
 

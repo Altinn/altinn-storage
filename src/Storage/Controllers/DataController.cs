@@ -106,6 +106,7 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Delete(
         int instanceOwnerPartyId,
@@ -181,6 +182,11 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
+        {
+            return conflict;
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -689,6 +695,11 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
+        }
+
         DateTime creationTime = DateTime.UtcNow;
         (Stream stream, string contentType, string contentFileName, _) =
             await DataElementHelper.GetStream(
@@ -859,9 +870,29 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (dataElement.Locked)
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
+        }
+
+        bool taskBound = dataTypeDefinition.IsTaskBound();
+        if (dataElement.Locked && !taskBound)
         {
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != instance.Versions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    instance.Versions.InstanceVersion,
+                    instance.Versions.ProcessStateVersion
+                )
+            );
         }
 
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
@@ -985,10 +1016,12 @@ public class DataController : ControllerBase
                 updatedProperties,
                 new DataElementUpdateContext
                 {
-                    IgnoreLock = false,
+                    IgnoreLock = taskBound,
                     ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
-                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                    ExpectedProcessStateVersion = taskBound
+                        ? instance.Versions.ProcessStateVersion
+                        : preconditions.ProcessStateVersion,
                 },
                 cancellationToken
             );
@@ -1132,6 +1165,21 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
+        (DataElementInternal storedDataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
+        if (storedDataElement == null)
+        {
+            return dataElementError;
+        }
+
+        if (dataElement.DataType != storedDataElement.DataType)
+        {
+            return Problem(
+                detail: "You can't change dataElement.DataType in an update request",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
             instance.AppId,
             instance.Org,
@@ -1144,7 +1192,7 @@ public class DataController : ControllerBase
 
         (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            dataElement.DataType
+            storedDataElement.DataType
         );
         if (dataTypeDefinition is null)
         {
@@ -1154,6 +1202,11 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
         }
 
         Dictionary<string, object> propertyList = new()
@@ -1378,8 +1431,9 @@ public class DataController : ControllerBase
         }
 
         InstanceInternal updatedInstance = applyResult.Instance;
-        DataElementInternal updatedDataElement =
-            updatedInstance.Data?.FirstOrDefault(element => element.Id == dataElement.Id)
+        DataElementInternal updatedDataElement = updatedInstance.Data?.FirstOrDefault(element =>
+            element.Id == dataElement.Id
+        )
             ?? throw new InvalidOperationException(
                 "Delayed-delete apply result did not include the updated data element."
             );
