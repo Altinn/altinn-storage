@@ -60,6 +60,9 @@ public class BlobRepository(
     private static readonly TimeSpan _maxReadUrlLifetime = TimeSpan.FromHours(1);
     private static readonly TimeSpan _userDelegationKeyLifetime = TimeSpan.FromDays(1);
 
+    // How much longer than a URL a key must be valid when the URL's times are set after the key request.
+    private static readonly TimeSpan _userDelegationKeyMargin = TimeSpan.FromMinutes(1);
+
     private static readonly MemoryCacheEntryOptions _cacheEntryOptionsBlobClient =
         new MemoryCacheEntryOptions()
             .SetPriority(CacheItemPriority.High)
@@ -304,8 +307,21 @@ public class BlobRepository(
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, _maxReadUrlLifetime);
 
+        // The times are set after the key is available, so that a slow key request does not shorten the URL's
+        // lifetime. The key is valid for longer than the URL needs, and a SAS cannot outlive its key.
+        UserDelegationKey key = await GetUserDelegationKey(
+            org,
+            storageAccountNumber,
+            DateTimeOffset.UtcNow.Add(lifetime).Add(_userDelegationKeyMargin),
+            cancellationToken
+        );
         DateTimeOffset now = DateTimeOffset.UtcNow;
         DateTimeOffset expiresOn = now.Add(lifetime);
+        if (expiresOn > key.SignedExpiresOn)
+        {
+            expiresOn = key.SignedExpiresOn;
+        }
+
         BlobClient blob = CreateBlobClient(org, blobStoragePath, storageAccountNumber);
         BlobSasBuilder sasBuilder = new(BlobSasPermissions.Read, expiresOn)
         {
@@ -318,10 +334,7 @@ public class BlobRepository(
 
         BlobUriBuilder uriBuilder = new(blob.Uri)
         {
-            Sas = sasBuilder.ToSasQueryParameters(
-                await GetUserDelegationKey(org, storageAccountNumber, expiresOn, cancellationToken),
-                blob.AccountName
-            ),
+            Sas = sasBuilder.ToSasQueryParameters(key, blob.AccountName),
         };
 
         return (uriBuilder.ToUri(), expiresOn);

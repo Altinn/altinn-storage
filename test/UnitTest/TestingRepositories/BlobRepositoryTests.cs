@@ -289,6 +289,34 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
         Assert.Equal("second", await client.GetStringAsync(secondUrl));
     }
 
+    [Fact]
+    public async Task GetReadUrl_SlowKeyRequest_KeepsFullLifetime()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/slow-key");
+        await fixture.UploadText(blobStoragePath, "slow key");
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        AzuriteTokenCredential credential = new(delay: TimeSpan.FromSeconds(2));
+        BlobRepository repository = fixture.CreateRepository(memoryCache, credential);
+        TimeSpan lifetime = TimeSpan.FromSeconds(5);
+
+        (Uri url, DateTimeOffset expiresOn) = await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            lifetime
+        );
+        DateTimeOffset returnedAt = DateTimeOffset.UtcNow;
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+
+        Assert.Equal(1, credential.RequestCount);
+        Assert.InRange(
+            expiresOn,
+            returnedAt.Add(lifetime).AddSeconds(-1),
+            returnedAt.Add(lifetime)
+        );
+        Assert.Equal("slow key", await client.GetStringAsync(url));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

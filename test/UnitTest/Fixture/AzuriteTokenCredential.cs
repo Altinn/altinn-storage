@@ -10,7 +10,8 @@ namespace Altinn.Platform.Storage.UnitTest.Fixture;
 /// Issues bearer tokens for Azure Storage that Azurite accepts with <c>--oauth basic</c>, which checks a
 /// token's audience, issuer and lifetime but not its signature.
 /// </summary>
-public sealed class AzuriteTokenCredential : TokenCredential
+/// <param name="delay">How long <see cref="GetTokenAsync"/> waits before it returns a token.</param>
+public sealed class AzuriteTokenCredential(TimeSpan delay = default) : TokenCredential
 {
     private int _requestCount;
 
@@ -39,12 +40,17 @@ public sealed class AzuriteTokenCredential : TokenCredential
     }
 
     /// <inheritdoc/>
-    public override ValueTask<AccessToken> GetTokenAsync(
+    public override async ValueTask<AccessToken> GetTokenAsync(
         TokenRequestContext requestContext,
         CancellationToken cancellationToken
     )
     {
-        return ValueTask.FromResult(GetToken(requestContext, cancellationToken));
+        if (delay > TimeSpan.Zero)
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+
+        return GetToken(requestContext, cancellationToken);
     }
 
     private static string Base64UrlEncode(string value)
