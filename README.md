@@ -52,7 +52,12 @@ cd altinn-storage
 
 The tests start their own PostgreSQL and Azurite containers through [Testcontainers](https://dotnet.testcontainers.org/), so they only need a running Docker or Podman. Every test run starts from an empty database, and the containers are removed when the run ends. Azurite serves HTTPS, as Azure Storage does, with a certificate the tests create for the run and trust. They don't use the containers from `docker compose`.
 
-With Podman, Testcontainers needs the Podman socket: run `systemctl --user enable --now podman.socket` and set `DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock` (rootless). If Testcontainers' cleanup container (Ryuk) can't run on your setup, set `TESTCONTAINERS_RYUK_DISABLED=true` and remove leftover containers yourself.
+With Podman, Testcontainers needs the Podman socket in `DOCKER_HOST`:
+
+- Linux (rootless): run `systemctl --user enable --now podman.socket` and `export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock`.
+- macOS: Podman runs in a virtual machine. Run `podman machine start` and `export DOCKER_HOST=unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')`.
+
+If Testcontainers' cleanup container (Ryuk) can't run on your setup, `export TESTCONTAINERS_RYUK_DISABLED=true` and remove leftover containers yourself.
 
 You can run the tests by executing the following command.
 

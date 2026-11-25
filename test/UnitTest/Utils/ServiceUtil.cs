@@ -56,7 +56,7 @@ public static class ServiceUtil
 
     private static ServiceProvider BuildServiceProvider()
     {
-        var config = new ConfigurationBuilder().AddTestSettings().AddEnvironmentVariables().Build();
+        var config = new ConfigurationBuilder().AddTestSettings().Build();
 
         WebApplication.CreateBuilder().Build().SetUpPostgreSql(true, config);
 
