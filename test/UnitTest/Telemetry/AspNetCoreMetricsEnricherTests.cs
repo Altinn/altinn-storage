@@ -15,7 +15,6 @@ using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
-using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
@@ -94,8 +93,6 @@ public class AspNetCoreMetricsEnricherTests : IAsyncLifetime
         {
             builder.ConfigureTestServices(services =>
             {
-                services.AddMockRepositories();
-
                 services.AddSingleton(keyVaultWrapper.Object);
 
                 services.AddSingleton<

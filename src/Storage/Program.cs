@@ -319,13 +319,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddHttpContextAccessor();
     services.AddSingleton<IClaimsPrincipalProvider, ClaimsPrincipalProvider>();
 
-    PostgreSqlSettings postgresSettings = config
-        .GetSection("PostgreSqlSettings")
-        .Get<PostgreSqlSettings>();
-    services.AddRepositoriesPostgreSQL(
-        string.Format(postgresSettings.ConnectionString, postgresSettings.StorageDbPwd),
-        postgresSettings.LogParameters
-    );
+    services.AddRepositoriesPostgreSQL();
 
     services.AddScoped<MetricsApiKeyFilter>();
 
