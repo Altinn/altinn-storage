@@ -893,7 +893,7 @@ public class InstancesController : ControllerBase
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         InstanceInternal updatedInstance;
@@ -1251,7 +1251,7 @@ public class InstancesController : ControllerBase
             && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
         )
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         if (

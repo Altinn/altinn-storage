@@ -163,7 +163,7 @@ public class InstanceMutationsController(
 
         if (User.GetUserOrOrgNo() is null)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         (
@@ -435,7 +435,7 @@ public class InstanceMutationsController(
         // Only the instance's own org may set the substatus
         if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         if (
@@ -1773,7 +1773,7 @@ public class InstanceMutationsController(
 
         if (User.GetOrg() is null)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         ProblemDetails problem = await authorizationService.AuthorizeInstanceRequest(

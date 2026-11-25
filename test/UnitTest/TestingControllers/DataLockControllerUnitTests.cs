@@ -283,7 +283,7 @@ public class DataLockControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
     }
 
     private static bool VerifyPropertyListInput(

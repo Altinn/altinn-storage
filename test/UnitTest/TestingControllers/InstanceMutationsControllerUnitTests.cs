@@ -1193,7 +1193,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.InstanceRepository.Verify(
             repository =>
                 repository.GetOne(
@@ -2516,7 +2516,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.AuthorizationService.Verify(
             service =>
                 service.AuthorizeInstanceRequest(
@@ -2676,7 +2676,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 

@@ -168,7 +168,7 @@ public class DataLockController : ControllerBase
         );
         if (instance == null)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         ProblemDetails? unlockProblem = await _authorizationService.AuthorizeAnyOfInstanceActions(
