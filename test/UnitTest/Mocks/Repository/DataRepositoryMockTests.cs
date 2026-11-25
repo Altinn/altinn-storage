@@ -558,9 +558,8 @@ public class DataRepositoryMockTests
         Guid otherInstance = Guid.NewGuid();
         string otherVersion = await AllocateBlobVersion(repo, otherInstance, id);
         DataElementInternal beforeOwnerFailures = await repo.Read(instance, id);
-        await AssertDataElementNotFound(
-            id,
-            () => repo.Update(otherInstance, id, BlobVersionUpdate(otherVersion), atVersionTwo)
+        await AssertDataElementNotFound(id, () =>
+            repo.Update(otherInstance, id, BlobVersionUpdate(otherVersion), atVersionTwo)
         );
         await AssertDataElementNotFound(id, () => repo.UpdateReadStatus(otherInstance, id, true));
         await AssertDataElementNotFound(id, () => repo.UpdateLockStatus(otherInstance, id, true));

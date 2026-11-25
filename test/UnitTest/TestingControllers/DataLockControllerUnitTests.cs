@@ -400,10 +400,9 @@ public class DataLockControllerUnitTests
                             Org = _org,
                             AppId = _appId,
                         };
-                        List<DataElementInternal> dataElements =
-                            instance
-                                .Data?.Select(dataElement => dataElement.FromApiModel())
-                                .ToList()
+                        List<DataElementInternal> dataElements = instance
+                            .Data?.Select(dataElement => dataElement.FromApiModel())
+                            .ToList()
                             ?? [];
 
                         return InstanceInternalTestFactory.Create(

@@ -593,29 +593,27 @@ public class PgInstanceRepository : IInstanceRepository
 
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
         return await InstanceResultReader.ReadAsync(
-                reader,
-                includeElements: true,
-                cancellationToken,
-                firstRowCallback: row =>
+            reader,
+            includeElements: true,
+            cancellationToken,
+            firstRowCallback: row =>
+            {
+                string result = row.GetFieldValue<string>(row.GetOrdinal("result"));
+                if (result != "ok")
                 {
-                    string result = row.GetFieldValue<string>(row.GetOrdinal("result"));
-                    if (result != "ok")
+                    throw result switch
                     {
-                        throw result switch
-                        {
-                            "not_found" => CreateInstanceNotFoundException(),
-                            "instance_version_mismatch" => CreateInstanceVersionMismatchException(
-                                row
-                            ),
-                            "process_state_version_mismatch" =>
-                                CreateProcessStateVersionMismatchException(row),
-                            _ => new UnreachableException(
-                                $"Unexpected instance update result '{result}'."
-                            ),
-                        };
-                    }
+                        "not_found" => CreateInstanceNotFoundException(),
+                        "instance_version_mismatch" => CreateInstanceVersionMismatchException(row),
+                        "process_state_version_mismatch" =>
+                            CreateProcessStateVersionMismatchException(row),
+                        _ => new UnreachableException(
+                            $"Unexpected instance update result '{result}'."
+                        ),
+                    };
                 }
-            ) ?? throw CreateMissingUpdateResultException("storage.updateinstance_datavalues");
+            }
+        ) ?? throw CreateMissingUpdateResultException("storage.updateinstance_datavalues");
     }
 
     /// <inheritdoc/>

@@ -74,7 +74,7 @@ public class DataType
     public ApplicationLogic AppLogic { get; set; }
 
     /// <summary>
-    /// Gets or sets the process element id of the task that elements of this data type belong to, as v8 apps
+    /// The process element id of the task that elements of this data type belong to, as v8 apps
     /// declare it.
     /// </summary>
     /// <remarks>
@@ -92,7 +92,8 @@ public class DataType
     /// Null or empty means the data type is not bound to any task. Otherwise Storage refuses to create, change or
     /// delete its elements, whoever the caller is and whether or not a process transition is running, unless the
     /// instance's current task is in the list. Once the process has ended, elements of a data type that sets
-    /// <see cref="ApplicationLogic.AutoDeleteOnProcessEnd"/> may also be deleted.
+    /// <see cref="ApplicationLogic.AutoDeleteOnProcessEnd"/> may also be deleted. This takes the place of data element
+    /// locking: Storage ignores <see cref="DataElement.Locked"/> on elements of a data type that lists tasks.
     /// </remarks>
     [JsonProperty(PropertyName = "taskIds")]
     [TextJson.JsonIgnore(Condition = TextJson.JsonIgnoreCondition.WhenWritingNull)]

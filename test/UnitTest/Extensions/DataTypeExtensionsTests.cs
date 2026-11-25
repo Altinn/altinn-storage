@@ -1,0 +1,124 @@
+#nullable disable
+
+using System;
+using System.Linq;
+using Altinn.Platform.Storage.Extensions;
+using Altinn.Platform.Storage.Interface.Models;
+using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Xunit;
+
+namespace Altinn.Platform.Storage.UnitTest.Extensions;
+
+public class DataTypeExtensionsTests
+{
+    [Theory]
+    [InlineData(null, "Task_1")]
+    [InlineData(new string[0], "Task_1")]
+    [InlineData(new string[0], null)]
+    [InlineData(new[] { "Task_1", "Task_2" }, "Task_1")]
+    [InlineData(new[] { "Task_1", "Task_2" }, "Task_2")]
+    public void GetTaskBindingConflict_UnboundOrInItsTasks_ReturnsNull(
+        string[] taskIds,
+        string currentTask
+    )
+    {
+        DataType dataType = new() { Id = "model", TaskIds = taskIds?.ToList() };
+
+        Assert.Null(dataType.GetTaskBindingConflict(CreateInstance(currentTask), isDelete: false));
+    }
+
+    [Theory]
+    [InlineData(
+        new[] { "Task_2", "Task_3" },
+        "Task_1",
+        "Data element of type model can only be modified in Task_2, Task_3 (current task Task_1)"
+    )]
+    [InlineData(
+        new[] { "Task_2" },
+        null,
+        "Data element of type model can only be modified in Task_2 (no current task)"
+    )]
+    public void GetTaskBindingConflict_OutsideItsTasks_NamesDataTypeTasksAndCurrentTask(
+        string[] taskIds,
+        string currentTask,
+        string expected
+    )
+    {
+        DataType dataType = new() { Id = "model", TaskIds = [.. taskIds] };
+
+        JsonResult conflict = dataType.GetTaskBindingConflict(
+            CreateInstance(currentTask),
+            isDelete: false
+        );
+
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        Assert.Equal("application/problem+json", conflict.ContentType);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(conflict.Value);
+        Assert.Equal("task_binding_conflict", problem.Type);
+        Assert.Equal(StatusCodes.Status409Conflict, problem.Status);
+        Assert.Equal(expected, problem.Detail);
+    }
+
+    [Fact]
+    public void GetTaskBindingConflict_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsNull()
+    {
+        DataType dataType = CreateAutoDeleteOnProcessEndDataType();
+
+        Assert.Null(
+            dataType.GetTaskBindingConflict(
+                CreateInstance(currentTask: null, ended: true),
+                isDelete: true
+            )
+        );
+    }
+
+    [Theory]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    public void GetTaskBindingConflict_AutoDeleteOnProcessEndExemptsOnlyDeletesAfterProcessEnd(
+        bool isDelete,
+        bool autoDeleteOnProcessEnd,
+        bool ended
+    )
+    {
+        DataType dataType = CreateAutoDeleteOnProcessEndDataType();
+        dataType.AppLogic.AutoDeleteOnProcessEnd = autoDeleteOnProcessEnd;
+
+        Assert.NotNull(
+            dataType.GetTaskBindingConflict(CreateInstance(currentTask: null, ended), isDelete)
+        );
+    }
+
+    [Fact]
+    public void GetTaskBindingConflict_IgnoresTaskId()
+    {
+#pragma warning disable CS0618 // Type or member is obsolete
+        DataType dataType = new() { Id = "model", TaskId = "Task_2" };
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        Assert.Null(dataType.GetTaskBindingConflict(CreateInstance("Task_1"), isDelete: false));
+    }
+
+    private static DataType CreateAutoDeleteOnProcessEndDataType() =>
+        new()
+        {
+            Id = "model",
+            TaskIds = ["Task_2"],
+            AppLogic = new ApplicationLogic { AutoDeleteOnProcessEnd = true },
+        };
+
+    private static InstanceInternal CreateInstance(string currentTask, bool ended = false) =>
+        new()
+        {
+            Process = new ProcessState
+            {
+                CurrentTask = currentTask is null
+                    ? null
+                    : new ProcessElementInfo { ElementId = currentTask },
+                Ended = ended ? DateTime.UtcNow : null,
+            },
+        };
+}

@@ -7,6 +7,7 @@ using Altinn.Platform.Storage.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging;
 
 namespace Altinn.Platform.Storage.Controllers;
@@ -34,22 +35,22 @@ public class StudioMetricsController(
     [Produces("application/json")]
     public async Task<ActionResult<StudioDailyMetrics>> GetDailyMetrics(
         [FromRoute] string org,
-        [FromQuery] DateOnly? date,
+        [FromQuery, BindRequired] DateOnly date,
         CancellationToken ct
     )
     {
-        if (date is null)
-        {
-            return BadRequest("date must be given as YYYY-MM-DD.");
-        }
-
         try
         {
-            return Ok(await studioMetricsRepository.GetDailyMetrics(org, date.Value, ct));
+            return Ok(await studioMetricsRepository.GetDailyMetrics(org, date, ct));
         }
         catch (Exception e)
         {
-            logger.LogError(e, "Unable to read studio metrics for {Org} on {Date}", org, date);
+            logger.LogError(
+                e,
+                "Unable to read studio metrics for {Org} on {Date}",
+                org.Clean(),
+                date
+            );
             return StatusCode(
                 ct.IsCancellationRequested ? 499 : 500,
                 $"Unable to read studio metrics due to: {e.Message}"

@@ -258,72 +258,54 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
 
     services
         .AddAuthentication(JwtCookieDefaults.AuthenticationScheme)
-        .AddJwtCookie(
-            JwtCookieDefaults.AuthenticationScheme,
-            options =>
+        .AddJwtCookie(JwtCookieDefaults.AuthenticationScheme, options =>
+        {
+            options.JwtCookieName = generalSettings.RuntimeCookieName;
+            options.MetadataAddress = generalSettings.OpenIdWellKnownEndpoint;
+            options.TokenValidationParameters = new TokenValidationParameters
             {
-                options.JwtCookieName = generalSettings.RuntimeCookieName;
-                options.MetadataAddress = generalSettings.OpenIdWellKnownEndpoint;
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    RequireExpirationTime = true,
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.Zero,
-                };
+                ValidateIssuerSigningKey = true,
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                RequireExpirationTime = true,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
+            };
 
-                if (builder.Environment.IsDevelopment())
-                {
-                    options.RequireHttpsMetadata = false;
-                }
+            if (builder.Environment.IsDevelopment())
+            {
+                options.RequireHttpsMetadata = false;
             }
-        );
+        });
 
     services
         .AddAuthorizationBuilder()
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_READ,
-            policy => policy.Requirements.Add(new AppAccessRequirement("read"))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_READ, policy =>
+            policy.Requirements.Add(new AppAccessRequirement("read"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_WRITE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("write"))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_WRITE, policy =>
+            policy.Requirements.Add(new AppAccessRequirement("write"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_DELETE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("delete"))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_DELETE, policy =>
+            policy.Requirements.Add(new AppAccessRequirement("delete"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_COMPLETE,
-            policy => policy.Requirements.Add(new AppAccessRequirement("complete"))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_COMPLETE, policy =>
+            policy.Requirements.Add(new AppAccessRequirement("complete"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_INSTANCE_SIGN,
-            policy => policy.Requirements.Add(new AppAccessRequirement("sign"))
+        .AddPolicy(AuthzConstants.POLICY_INSTANCE_SIGN, policy =>
+            policy.Requirements.Add(new AppAccessRequirement("sign"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_SCOPE_APPDEPLOY,
-            policy => policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
+        .AddPolicy(AuthzConstants.POLICY_SCOPE_APPDEPLOY, policy =>
+            policy.Requirements.Add(new ScopeAccessRequirement("altinn:appdeploy"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_STUDIO_DESIGNER,
-            policy =>
-                policy.Requirements.Add(
-                    new ClaimAccessRequirement("urn:altinn:app", "studio.designer")
-                )
+        .AddPolicy(AuthzConstants.POLICY_STUDIO_DESIGNER, policy =>
+            policy.Requirements.Add(new ClaimAccessRequirement("urn:altinn:app", "studio.designer"))
         )
-        .AddPolicy(
-            AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE,
-            policy =>
-                policy.Requirements.Add(
-                    new ScopeAccessRequirement("altinn:correspondence.sblbridge")
-                )
+        .AddPolicy(AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE, policy =>
+            policy.Requirements.Add(new ScopeAccessRequirement("altinn:correspondence.sblbridge"))
         )
-        .AddPolicy(
-            "PlatformAccess",
-            policy => policy.Requirements.Add(new AccessTokenRequirement())
+        .AddPolicy("PlatformAccess", policy =>
+            policy.Requirements.Add(new AccessTokenRequirement())
         );
 
     services.AddSingleton<ClientIpCheckActionFilterAttribute>(container =>
