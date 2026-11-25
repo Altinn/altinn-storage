@@ -5,30 +5,30 @@ using Newtonsoft.Json.Serialization;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// The response to setting the file scan status of a data element.
+/// The response when the file scanner sets the file scan result of a data element.
 /// </summary>
-/// <param name="Status">Whether the status was set, and if not, why.</param>
+/// <param name="Status">The outcome.</param>
 public sealed record FileScanStatusResponse(FileScanStatusOutcome Status);
 
 /// <summary>
-/// Whether a file scan status was set on a data element, and if not, why.
+/// The outcome when the file scanner sets the file scan result of a data element.
 /// </summary>
 [JsonConverter(typeof(StringEnumConverter), typeof(CamelCaseNamingStrategy))]
 public enum FileScanStatusOutcome
 {
     /// <summary>
-    /// The file scan status was set.
+    /// Storage set the file scan result.
     /// </summary>
     Updated,
 
     /// <summary>
-    /// The scanned blob version is no longer the data element's current version, so the status was not set.
-    /// The current version's own scan reports for the data element.
+    /// Storage did not set the result, because a newer blob version replaced the scanned version. The scan of the
+    /// newer version sets the result.
     /// </summary>
     Superseded,
 
     /// <summary>
-    /// The data element or its instance no longer exists.
+    /// Storage did not set the result, because the data element or its instance does not exist.
     /// </summary>
     Deleted,
 }

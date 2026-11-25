@@ -6,15 +6,14 @@ using Newtonsoft.Json.Serialization;
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// What the file scanner should do with a blob version it has a scan request for.
+/// The scan state of a blob version, with a URL to read it when the scan is pending.
 /// </summary>
-/// <param name="Status">Whether the version awaits its scan, and if not, why.</param>
+/// <param name="Status">The scan state of the blob version.</param>
 /// <param name="ReadUrl">
-/// When <paramref name="Status"/> is <see cref="FileScanTargetStatus.Pending"/>, a URL that reads the blob version
-/// and nothing else until <paramref name="ExpiresAt"/>. It grants access to anyone who holds it, so it is never
-/// logged.
+/// A read-only URL for the blob version. Set only for <see cref="FileScanTargetStatus.Pending"/>. Each person or
+/// system that has the URL can read the blob, so do not write the URL to logs.
 /// </param>
-/// <param name="ExpiresAt">When <paramref name="ReadUrl"/> stops working.</param>
+/// <param name="ExpiresAt">The time after which <paramref name="ReadUrl"/> does not work.</param>
 public sealed record FileScanTarget(
     FileScanTargetStatus Status,
     [property: JsonProperty(NullValueHandling = NullValueHandling.Ignore)] Uri? ReadUrl = null,
@@ -23,28 +22,28 @@ public sealed record FileScanTarget(
 );
 
 /// <summary>
-/// Whether a blob version awaits its file scan, and if not, why.
+/// The scan state of a blob version.
 /// </summary>
 [JsonConverter(typeof(StringEnumConverter), typeof(CamelCaseNamingStrategy))]
 public enum FileScanTargetStatus
 {
     /// <summary>
-    /// The version is the data element's current version and its scan is pending.
+    /// The blob version is the current version of the data element, and its scan is pending. Scan it.
     /// </summary>
     Pending,
 
     /// <summary>
-    /// A newer blob version has replaced this one; the newer version's scan reports for the data element.
+    /// A newer blob version replaced this version. Do not scan it. The scan of the newer version sets the result.
     /// </summary>
     Superseded,
 
     /// <summary>
-    /// The version is current, but its file scan result is no longer pending.
+    /// The blob version is the current version, but it already has a file scan result. Do not scan it.
     /// </summary>
     NotPending,
 
     /// <summary>
-    /// The data element no longer exists.
+    /// The data element does not exist. Do not scan it.
     /// </summary>
     Deleted,
 }

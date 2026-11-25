@@ -979,7 +979,7 @@
         "tags": [
           "Data"
         ],
-        "summary": "Sets the file scan status for an existing data element.",
+        "summary": "Sets the file scan result of a data element. Only the file scanner can call this endpoint.",
         "parameters": [
           {
             "name": "instanceGuid",
@@ -1011,7 +1011,7 @@
           }
         ],
         "requestBody": {
-          "description": "The file scan results for this data element.",
+          "description": "The file scan result for the data element.",
           "content": {
             "application/json": {
               "schema": {
@@ -5333,7 +5333,7 @@
           "deleted"
         ],
         "type": "string",
-        "description": "Whether a file scan status was set on a data element, and if not, why."
+        "description": "The outcome when the file scanner sets the file scan result of a data element."
       },
       "FileScanStatusResponse": {
         "type": "object",
@@ -5343,7 +5343,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "The response to setting the file scan status of a data element."
+        "description": "The response when the file scanner sets the file scan result of a data element."
       },
       "HideSettings": {
         "type": "object",

@@ -252,7 +252,11 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddAspNetCoreMetricsEnricher();
 
     services.Configure<AzureStorageConfiguration>(config.GetSection("AzureStorageConfiguration"));
-    services.Configure<GeneralSettings>(config.GetSection("GeneralSettings"));
+    services
+        .AddOptions<GeneralSettings>()
+        .Bind(config.GetSection("GeneralSettings"))
+        .ValidateDataAnnotations()
+        .ValidateOnStart();
     services.Configure<KeyVaultSettings>(config.GetSection("kvSetting"));
     services.Configure<PepSettings>(config.GetSection("PepSettings"));
     services.Configure<PlatformSettings>(config.GetSection("PlatformSettings"));
@@ -263,7 +267,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.Configure<StorageCleanupSettings>(config.GetSection("StorageCleanupSettings"));
     services.Configure<WolverineSettings>(config.GetSection("WolverineSettings"));
 
-    services.AddSingleton<IAuthorizationHandler, AccessTokenHandler>();
     services.AddSingleton<IAuthorizationHandler, PlatformAccessTokenAppHandler>();
     services.AddSingleton<IAccessTokenValidator, AccessTokenValidator>();
     services.AddSingleton<IPublicSigningKeyProvider, PublicSigningKeyProvider>();
@@ -315,9 +318,6 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
         )
         .AddPolicy(AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE, policy =>
             policy.Requirements.Add(new ScopeAccessRequirement("altinn:correspondence.sblbridge"))
-        )
-        .AddPolicy("PlatformAccess", policy =>
-            policy.Requirements.Add(new AccessTokenRequirement())
         )
         .AddPolicy(AuthzConstants.POLICY_PLATFORM_FILE_SCAN, policy =>
             policy.Requirements.Add(new PlatformAccessTokenAppRequirement("platform", "file-scan"))

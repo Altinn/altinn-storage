@@ -1,3 +1,4 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -55,7 +57,18 @@ public sealed class PlatformAccessTokenAppHandler(
             return;
         }
 
-        JwtSecurityToken jwt = tokenHandler.ReadJwtToken(token);
+        JwtSecurityToken jwt;
+        try
+        {
+            jwt = tokenHandler.ReadJwtToken(token);
+        }
+        catch (Exception exception)
+            when (exception is SecurityTokenMalformedException or ArgumentException)
+        {
+            // CanReadToken checks only the format, not that the header and payload are valid JSON.
+            return;
+        }
+
         string? app = jwt
             .Claims.FirstOrDefault(claim => claim.Type == AccessTokenClaimTypes.App)
             ?.Value;

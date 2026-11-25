@@ -311,7 +311,7 @@ public class BlobRepository(
         {
             BlobContainerName = blob.BlobContainerName,
             BlobName = blob.Name,
-            Resource = "b",
+            Resource = "b", // The SAS gives access to this one blob only.
             StartsOn = now.Subtract(_sasClockSkew),
             Protocol = SasProtocol.Https,
         };
@@ -501,11 +501,7 @@ public class BlobRepository(
                     Path = $"{containerName}",
                 };
 
-                client = new BlobContainerClient(
-                    fullUri.Uri,
-                    GetCachedCredentials(),
-                    _clientOptions
-                );
+                client = new BlobContainerClient(fullUri.Uri, GetCredential(), _clientOptions);
                 _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
             }
 
@@ -537,7 +533,7 @@ public class BlobRepository(
 
             return new BlobServiceClient(
                 fullUri.Uri,
-                GetCachedCredentials(),
+                GetCredential(),
                 _clientOptions
             ).GetBlobBatchClient();
         }
@@ -595,7 +591,7 @@ public class BlobRepository(
             key = (
                 await new BlobServiceClient(
                     serviceUri,
-                    GetCachedCredentials(),
+                    GetCredential(),
                     _clientOptions
                 ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
             ).Value;
@@ -610,7 +606,7 @@ public class BlobRepository(
             key = (
                 await new BlobServiceClient(
                     serviceUri,
-                    GetCachedCredentials(),
+                    GetCredential(),
                     _clientOptions
                 ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
             ).Value;
@@ -633,7 +629,7 @@ public class BlobRepository(
             );
     }
 
-    private TokenCredential GetCachedCredentials()
+    private TokenCredential GetCredential()
     {
         if (_credential is not null)
         {

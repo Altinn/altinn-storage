@@ -1,10 +1,12 @@
 namespace Altinn.Platform.Storage.Models;
 
 /// <summary>
-/// Result from setting the file scan status of a data element.
+/// The result when Storage sets the file scan result of a data element.
 /// </summary>
-/// <param name="Outcome">Whether the status was set, and if not, why.</param>
-/// <param name="WriteResult">The updated data element and instance versions when the status was set.</param>
+/// <param name="Outcome">The outcome.</param>
+/// <param name="WriteResult">
+/// The updated data element and instance versions. Set only for <see cref="FileScanStatusOutcome.Updated"/>.
+/// </param>
 public sealed record FileScanStatusUpdateResult(
     FileScanStatusOutcome Outcome,
     DataElementWriteResult? WriteResult = null

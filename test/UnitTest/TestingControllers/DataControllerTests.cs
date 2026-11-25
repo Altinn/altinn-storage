@@ -1219,7 +1219,7 @@ public class DataControllerTests : IAsyncLifetime
             Content = JsonContent.Create(newFileScanStatus),
         };
 
-        putRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        putRequest.Headers.Add("PlatformAccessToken", FileScanAccessToken());
 
         // Act
         HttpResponseMessage setFileScanStatusResponse = await client.SendAsync(putRequest);
@@ -1306,7 +1306,7 @@ public class DataControllerTests : IAsyncLifetime
                 new FileScanStatus { FileScanResult = FileScanResult.Clean }
             ),
         };
-        request.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        request.Headers.Add("PlatformAccessToken", FileScanAccessToken());
 
         // Act
         HttpResponseMessage response = await client.SendAsync(request);
@@ -1340,7 +1340,7 @@ public class DataControllerTests : IAsyncLifetime
             $"{dataPath}/dataelementexists/{dataElementId}"
         );
 
-        getRequest.Headers.Add("PlatformAccessToken", PrincipalUtil.GetAccessToken());
+        getRequest.Headers.Add("PlatformAccessToken", FileScanAccessToken());
 
         // Act
         HttpResponseMessage response = await client.SendAsync(getRequest);
@@ -1418,8 +1418,16 @@ public class DataControllerTests : IAsyncLifetime
         repoMock.VerifyAll();
     }
 
-    [Fact]
-    public async Task GetFileScanTarget_PendingCurrentVersion_ReturnsPendingWithReadUrlOfTheVersionedBlob()
+    /// <summary>
+    /// A data element with a pending delete is still scanned, because the service owner can download it until
+    /// the delete is done.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetFileScanTarget_PendingCurrentVersion_ReturnsPendingWithReadUrlOfTheVersionedBlob(
+        bool pendingDelete
+    )
     {
         // Arrange
         Guid instanceGuid = Guid.NewGuid();
@@ -1439,6 +1447,9 @@ public class DataControllerTests : IAsyncLifetime
                     InstanceGuid = instanceGuid,
                     BlobVersionId = blobVersionId,
                     FileScanResult = FileScanResult.Pending,
+                    DeleteStatus = pendingDelete
+                        ? new DeleteStatus { IsHardDeleted = true, HardDeleted = DateTime.UtcNow }
+                        : null,
                 }
             );
         dataRepositoryMock
@@ -1655,31 +1666,57 @@ public class DataControllerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
     }
 
-    public static TheoryData<string, string> TokensNotFromFileScan =>
-        new()
+    public enum FileScanEndpoint
+    {
+        GetFileScanTarget,
+        SetFileScanStatus,
+        DataElementExists,
+    }
+
+    public static TheoryData<FileScanEndpoint, string, string> TokensNotFromFileScan
+    {
+        get
         {
-            { "other-app", FileScanAccessToken(app: "other-app") },
-            { "issuer ttd", FileScanAccessToken(issuer: "ttd") },
-            { "no app claim", PrincipalUtil.GetAccessToken() },
+            (string Description, string Token)[] tokens =
+            [
+                ("other-app", FileScanAccessToken(app: "other-app")),
+                ("issuer ttd", FileScanAccessToken(issuer: "ttd")),
+                ("no app claim", PrincipalUtil.GetAccessToken()),
+                (
+                    "signed with another key",
+                    FileScanAccessToken(
+                        certificateFile: "selfSignedTestCertificate.pfx",
+                        certificatePassword: "qwer1234"
+                    )
+                ),
+                (
+                    "expired",
+                    FileScanAccessToken(
+                        notBefore: DateTime.UtcNow.AddMinutes(-10),
+                        expires: DateTime.UtcNow.AddMinutes(-5)
+                    )
+                ),
+                // Has the format of a JWT, but the header and payload are not JSON.
+                ("malformed", "e30.Zm9v.YQ"),
+            ];
+
+            TheoryData<FileScanEndpoint, string, string> data = [];
+            foreach (FileScanEndpoint endpoint in Enum.GetValues<FileScanEndpoint>())
             {
-                "signed with another key",
-                FileScanAccessToken(
-                    certificateFile: "selfSignedTestCertificate.pfx",
-                    certificatePassword: "qwer1234"
-                )
-            },
-            {
-                "expired",
-                FileScanAccessToken(
-                    notBefore: DateTime.UtcNow.AddMinutes(-10),
-                    expires: DateTime.UtcNow.AddMinutes(-5)
-                )
-            },
-        };
+                foreach ((string description, string token) in tokens)
+                {
+                    data.Add(endpoint, description, token);
+                }
+            }
+
+            return data;
+        }
+    }
 
     [Theory]
     [MemberData(nameof(TokensNotFromFileScan))]
-    public async Task GetFileScanTarget_TokenNotAValidFileScanToken_Forbidden(
+    public async Task FileScanEndpoint_TokenNotAValidFileScanToken_Forbidden(
+        FileScanEndpoint endpoint,
         string description,
         string accessToken
     )
@@ -1693,10 +1730,29 @@ public class DataControllerTests : IAsyncLifetime
             blobRepositoryMock: blobRepositoryMock,
             bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3)
         );
-        HttpRequestMessage request = new(
-            HttpMethod.Get,
-            FileScanTargetPath(Guid.NewGuid(), Guid.NewGuid(), "version")
-        );
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataGuid = Guid.NewGuid();
+        HttpRequestMessage request = endpoint switch
+        {
+            FileScanEndpoint.GetFileScanTarget => new(
+                HttpMethod.Get,
+                FileScanTargetPath(instanceGuid, dataGuid, "version")
+            ),
+            FileScanEndpoint.SetFileScanStatus => new(
+                HttpMethod.Put,
+                $"{_versionPrefix}/instances/1337/{instanceGuid}/dataelements/{dataGuid}/filescanstatus"
+            )
+            {
+                Content = JsonContent.Create(
+                    new FileScanStatus { FileScanResult = FileScanResult.Clean }
+                ),
+            },
+            FileScanEndpoint.DataElementExists => new(
+                HttpMethod.Get,
+                $"{_versionPrefix}/instances/1337/{instanceGuid}/dataelementexists/{dataGuid}"
+            ),
+            _ => throw new ArgumentOutOfRangeException(nameof(endpoint)),
+        };
         request.Headers.Add("PlatformAccessToken", accessToken);
 
         // Act

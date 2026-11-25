@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Altinn.Platform.Storage.Configuration;
 
@@ -117,8 +118,10 @@ public class GeneralSettings
     public int OrganisationsCacheLifeTimeInSeconds { get; set; } = 600;
 
     /// <summary>
-    /// Gets or sets how long, in seconds, a blob read URL handed to the file scanner stays valid. A download
-    /// that has started when the URL expires completes.
+    /// Gets or sets how long, in seconds, a blob read URL for the file scanner works. A download that started
+    /// before the URL expires continues to the end. The value must be from 1 to 3600, which Storage checks at
+    /// startup.
     /// </summary>
+    [Range(1, 3600)]
     public int FileScanReadUrlLifetimeSeconds { get; set; } = 300;
 }

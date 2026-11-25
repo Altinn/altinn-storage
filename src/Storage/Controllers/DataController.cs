@@ -1255,16 +1255,16 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Sets the file scan status for an existing data element.
+    /// Sets the file scan result of a data element. Only the file scanner can call this endpoint.
     /// </summary>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to update.</param>
-    /// <param name="fileScanStatus">The file scan results for this data element.</param>
+    /// <param name="fileScanStatus">The file scan result for the data element.</param>
     /// <returns>
-    /// Whether the status was set. It is not set when the data element is gone, or when
-    /// <see cref="FileScanStatus.BlobVersionId"/> is no longer the element's current blob version.
+    /// The outcome. Storage does not set the result when the data element does not exist, or when
+    /// <see cref="FileScanStatus.BlobVersionId"/> is not the current blob version of the data element.
     /// </returns>
-    [Authorize(Policy = "PlatformAccess")]
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
     [HttpPut("dataelements/{dataGuid}/filescanstatus")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -1313,7 +1313,7 @@ public class DataController : ControllerBase
     /// element is gone from <see cref="GetFileScanTarget"/>. Keep it until #466 runs in every environment, so that
     /// Storage can be released before the scanner.
     /// </remarks>
-    [Authorize(Policy = "PlatformAccess")]
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
     [HttpGet("dataelementexists/{dataGuid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
@@ -1328,20 +1328,31 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Tells the file scanner whether a blob version awaits its scan, and if it does, gives a short-lived URL that
-    /// reads it.
+    /// Gets the scan state of a blob version, with a URL to read the blob when the scan is pending. Only the file
+    /// scanner can call this endpoint.
     /// </summary>
     /// <remarks>
-    /// Only the data element's current blob version, while its file scan is pending, awaits a scan: that is the
-    /// only version the scanner has a result to report for. The URL grants read access to that blob and nothing
-    /// else until it expires, after <see cref="GeneralSettings.FileScanReadUrlLifetimeSeconds"/>. Every decision is
-    /// a <c>200</c>, so any other response is an error the scanner retries.
+    /// <para>
+    /// The scan is pending only for the current blob version of the data element, when its file scan result is
+    /// <see cref="FileScanResult.Pending"/>. The scanner can set a result only for that version.
+    /// </para>
+    /// <para>
+    /// The URL gives read access to that one blob. It stops working after
+    /// <see cref="GeneralSettings.FileScanReadUrlLifetimeSeconds"/>.
+    /// </para>
+    /// <para>
+    /// Each scan state has status code <c>200</c>. The scanner retries when it gets a different status code.
+    /// </para>
+    /// <para>
+    /// A data element with a pending delete (<see cref="DeleteStatus.IsHardDeleted"/>) is still scanned. The
+    /// service owner can download it until the delete is done.
+    /// </para>
     /// </remarks>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="blobVersionId">The blob version the scan request is for.</param>
     /// <param name="cancellationToken">CancellationToken</param>
-    /// <returns>Whether the version awaits its scan, with the read URL when it does.</returns>
+    /// <returns>The scan state of the blob version, with the read URL when the scan is pending.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
     [HttpGet("dataelements/{dataGuid:guid}/blobversions/{blobVersionId}/filescan")]
     [ProducesResponseType(StatusCodes.Status200OK)]
