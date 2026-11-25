@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Altinn.Platform.Storage.Controllers;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.UnitTest.Fixture;
-using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -99,13 +98,10 @@ public class StorageHeaderApiDescriptionTests : IAsyncLifetime
         WebApplicationFactory<ProcessController> webApplicationFactory =
             _factory.WithWebHostBuilder(builder =>
             {
-                IConfiguration configuration = new ConfigurationBuilder()
-                    .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-                    .Build();
+                IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
                 builder.ConfigureAppConfiguration(
                     (hostingContext, config) => config.AddConfiguration(configuration)
                 );
-                builder.ConfigureTestServices(services => services.AddMockRepositories());
             });
         webApplicationFactory.CreateClient().Dispose();
 

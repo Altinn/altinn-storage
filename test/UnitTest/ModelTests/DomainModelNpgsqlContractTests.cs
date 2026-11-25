@@ -178,10 +178,7 @@ public sealed class DomainModelNpgsqlFixture : IAsyncLifetime
 
     public Task InitializeAsync()
     {
-        IConfigurationRoot config = new ConfigurationBuilder()
-            .AddJsonFile(ServiceUtil.GetAppsettingsPath())
-            .AddEnvironmentVariables()
-            .Build();
+        IConfigurationRoot config = new ConfigurationBuilder().AddTestSettings().Build();
 
         PostgreSqlSettings settings = config
             .GetSection("PostgreSQLSettings")
