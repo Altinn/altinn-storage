@@ -1270,6 +1270,7 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<ActionResult<FileScanStatusResponse>> SetFileScanStatus(
         Guid instanceGuid,
         Guid dataGuid,

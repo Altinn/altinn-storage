@@ -146,7 +146,6 @@ public static class SwaggerExtensions
                     Policy: AuthzConstants.POLICY_STUDIO_DESIGNER
                         or AuthzConstants.POLICY_CORRESPONDENCE_SBLBRIDGE
                         or AuthzConstants.POLICY_SCOPE_APPDEPLOY
-                        or AuthzConstants.POLICY_PLATFORM_FILE_SCAN
                 }
         );
     }
