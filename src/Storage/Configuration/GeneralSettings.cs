@@ -1,7 +1,7 @@
-#nullable disable
-
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using Altinn.Platform.Storage.Interface.Models;
 
 namespace Altinn.Platform.Storage.Configuration;
 
@@ -10,40 +10,91 @@ namespace Altinn.Platform.Storage.Configuration;
 /// </summary>
 public class GeneralSettings
 {
+    private string? _platformBaseUrl;
+
     /// <summary>
     /// Open Id Connect Well known endpoint. Related to JSON WEB token validation.
     /// </summary>
-    public string OpenIdWellKnownEndpoint { get; set; }
+    public string? OpenIdWellKnownEndpoint { get; set; }
 
     /// <summary>
     /// Hostname
     /// </summary>
-    public string Hostname { get; set; }
+    public string? Hostname { get; set; }
+
+    /// <summary>
+    /// Gets or sets the scheme and host that clients use to reach the platform, for example
+    /// <c>https://platform.altinn.no</c>. Links to Storage endpoints in responses (paging links and
+    /// self links) start with it.
+    /// Defaults to <c>https://platform.{Hostname}</c>.
+    /// </summary>
+    public string PlatformBaseUrl
+    {
+        get =>
+            string.IsNullOrEmpty(_platformBaseUrl)
+                ? $"https://platform.{Hostname}"
+                : _platformBaseUrl;
+        set => _platformBaseUrl = value?.TrimEnd('/');
+    }
+
+    /// <summary>
+    /// Sets the platform self link of the instance and of each of its data elements.
+    /// </summary>
+    /// <param name="instance">The instance to set the self links on.</param>
+    public void SetPlatformSelfLinks(Instance instance)
+    {
+        instance.SelfLinks ??= new ResourceLinks();
+        instance.SelfLinks.Platform = $"{PlatformBaseUrl}/storage/api/v1/instances/{instance.Id}";
+
+        if (instance.Data != null)
+        {
+            int instanceOwnerPartyId = int.Parse(
+                instance.InstanceOwner.PartyId,
+                CultureInfo.InvariantCulture
+            );
+            foreach (DataElement dataElement in instance.Data)
+            {
+                SetPlatformSelfLinks(dataElement, instanceOwnerPartyId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Sets the platform self link of the data element.
+    /// </summary>
+    /// <param name="dataElement">The data element to set the self link on.</param>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    public void SetPlatformSelfLinks(DataElement dataElement, int instanceOwnerPartyId)
+    {
+        dataElement.SelfLinks ??= new ResourceLinks();
+        dataElement.SelfLinks.Platform =
+            $"{PlatformBaseUrl}/storage/api/v1/instances/{instanceOwnerPartyId}/{dataElement.InstanceGuid}/data/{dataElement.Id}";
+    }
 
     /// <summary>
     /// Name of the cookie for runtime
     /// </summary>
-    public string RuntimeCookieName { get; set; }
+    public string? RuntimeCookieName { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the SBL Bridge Authorization API.
     /// </summary>
-    public Uri BridgeApiAuthorizationEndpoint { get; set; }
+    public Uri? BridgeApiAuthorizationEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the SBL Bridge Authorization API.
     /// </summary>
-    public Uri BridgeApiCorrespondenceEndpoint { get; set; }
+    public Uri? BridgeApiCorrespondenceEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the scopes for Instance Read.
     /// </summary>
-    public List<string> InstanceReadScope { get; set; }
+    public List<string>? InstanceReadScope { get; set; }
 
     /// <summary>
     /// Gets or sets the scope for storage sync adapters.
     /// </summary>
-    public string InstanceSyncAdapterScope { get; set; }
+    public string? InstanceSyncAdapterScope { get; set; }
 
     /// <summary>
     /// Gets or sets the cache lifetime for text resources.
@@ -63,17 +114,17 @@ public class GeneralSettings
     /// <summary>
     /// Gets or sets a semicolon separated white list of IP addresses for the migration controller
     /// </summary>
-    public string MigrationIpWhiteList { get; set; }
+    public string? MigrationIpWhiteList { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the ondemand API
     /// </summary>
-    public string OndemandEndpoint { get; set; }
+    public string? OndemandEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets the URI for the pdf generator
     /// </summary>
-    public string PdfGeneratorEndpoint { get; set; }
+    public string? PdfGeneratorEndpoint { get; set; }
 
     /// <summary>
     /// Gets or sets whether to use Ttd as service owner for environements without "normal" service owners
@@ -109,7 +160,7 @@ public class GeneralSettings
     /// <summary>
     /// Gets or sets the url to organisations on CDN
     /// </summary>
-    public string OrganisationsUrl { get; set; }
+    public string? OrganisationsUrl { get; set; }
 
     /// <summary>
     /// Gets or sets the cache lifetime for the Altinn CDN organisation list.
