@@ -793,76 +793,6 @@
         }
       }
     },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
-      "put": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Sets the file scan result of a data element. Only the file scanner can call this endpoint.",
-        "parameters": [
-          {
-            "name": "instanceGuid",
-            "in": "path",
-            "description": "The id of the instance that the data element is associated with.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "dataGuid",
-            "in": "path",
-            "description": "The id of the data element to update.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "instanceOwnerPartyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "The file scan result for the data element.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FileScanStatus"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FileScanStatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
       "put": {
         "tags": [
@@ -3655,42 +3585,6 @@
           "Infected"
         ],
         "type": "string"
-      },
-      "FileScanStatus": {
-        "type": "object",
-        "properties": {
-          "contentHash": {
-            "type": "string",
-            "nullable": true
-          },
-          "blobVersionId": {
-            "type": "string",
-            "nullable": true
-          },
-          "fileScanResult": {
-            "$ref": "#/components/schemas/FileScanResult"
-          }
-        },
-        "additionalProperties": false
-      },
-      "FileScanStatusOutcome": {
-        "enum": [
-          "updated",
-          "superseded",
-          "deleted"
-        ],
-        "type": "string",
-        "description": "The outcome when the file scanner sets the file scan result of a data element."
-      },
-      "FileScanStatusResponse": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "$ref": "#/components/schemas/FileScanStatusOutcome"
-          }
-        },
-        "additionalProperties": false,
-        "description": "The response when the file scanner sets the file scan result of a data element."
       },
       "HideSettings": {
         "type": "object",
