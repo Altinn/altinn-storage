@@ -361,9 +361,8 @@ public class DomainModelContractTests
         Assert.Equal(
             typeof(FileScanStatusUpdateResult),
             Assert
-                .Single(
-                    methods,
-                    method => method.Name == nameof(IDataRepository.UpdateFileScanStatus)
+                .Single(methods, method =>
+                    method.Name == nameof(IDataRepository.UpdateFileScanStatus)
                 )
                 .ReturnType.GetGenericArguments()
                 .Single()
