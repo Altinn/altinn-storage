@@ -178,13 +178,11 @@ public sealed class DomainModelNpgsqlFixture : IAsyncLifetime
 
     public Task InitializeAsync()
     {
-        IConfigurationRoot config = new ConfigurationBuilder()
-            .AddTestSettings()
-            .AddEnvironmentVariables()
-            .Build();
+        IConfigurationRoot config = new ConfigurationBuilder().AddTestSettings().Build();
 
-        PostgreSqlSettings settings =
-            config.GetSection("PostgreSQLSettings").Get<PostgreSqlSettings>()
+        PostgreSqlSettings settings = config
+            .GetSection("PostgreSQLSettings")
+            .Get<PostgreSqlSettings>()
             ?? throw new ArgumentNullException(
                 nameof(config),
                 "Required PostgreSQLSettings is missing from application configuration"

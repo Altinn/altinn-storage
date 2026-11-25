@@ -23,6 +23,8 @@
     <PackageReference Include="Azure.Storage.Queues" Version="12.28.1" />
     <PackageReference Include="JWTCookieAuthentication" Version="4.0.4" />
     <PackageReference Include="PDFsharp" Version="6.2.4" />
+    <!-- PDFsharp 6.2.x depends on System.Security.Cryptography.Pkcs 8.0.1, which has known vulnerabilities -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.3.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -31,14 +33,15 @@
     <PackageReference Include="Yuniql.AspNetCore" Version="1.2.25" />
     <PackageReference Include="Yuniql.PostgreSql" Version="1.3.15" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.10.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.2" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.20.2" />
-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.21.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
     <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3" />
-    <PackageReference Include="WolverineFx" Version="6.63.0" />
-    <PackageReference Include="WolverineFx.AzureServiceBus" Version="6.63.0" />
-    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.63.0" />
+    <PackageReference Include="WolverineFx" Version="6.64.1" />
+    <PackageReference Include="WolverineFx.AzureServiceBus" Version="6.64.1" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.64.1" />
     <PackageReference Include="Parquet.Net" Version="6.1.0" />
   </ItemGroup>
 

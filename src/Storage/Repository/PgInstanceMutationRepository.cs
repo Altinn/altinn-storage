@@ -96,8 +96,12 @@ public sealed class PgInstanceMutationRepository(
             }
         }
 
-        InstanceInternal instance =
-            await ReadInstanceForReplay(connection, transaction, instanceGuid, cancellationToken)
+        InstanceInternal instance = await ReadInstanceForReplay(
+            connection,
+            transaction,
+            instanceGuid,
+            cancellationToken
+        )
             ?? throw new UnreachableException(
                 "Replay admission succeeded but follow-up instance read returned no result."
             );
@@ -208,17 +212,16 @@ public sealed class PgInstanceMutationRepository(
             await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
             bool replayed = false;
             IReadOnlyList<string> createdDataElementIds = [];
-            InstanceInternal instance =
-                await InstanceResultReader.ReadAsync(
-                    reader,
-                    includeElements: true,
-                    cancellationToken,
-                    firstRowCallback: row =>
-                    {
-                        replayed = row.GetBoolean(row.GetOrdinal("replayed"));
-                        createdDataElementIds = ReadTextArray(row, "createddataelementids");
-                    }
-                )
+            InstanceInternal instance = await InstanceResultReader.ReadAsync(
+                reader,
+                includeElements: true,
+                cancellationToken,
+                firstRowCallback: row =>
+                {
+                    replayed = row.GetBoolean(row.GetOrdinal("replayed"));
+                    createdDataElementIds = ReadTextArray(row, "createddataelementids");
+                }
+            )
                 ?? throw new UnreachableException(
                     "Apply mutation function returned no instance rows."
                 );
@@ -354,13 +357,12 @@ public sealed class PgInstanceMutationRepository(
 
     internal static string BuildInstanceUpdatesPayload(InstanceMutationCommit mutation)
     {
-        List<string> instanceUpdateProperties =
-            mutation
-                .InstanceUpdateProperties?.Where(property =>
-                    property != nameof(InstanceInternal.LastChanged)
-                    && property != nameof(InstanceInternal.LastChangedBy)
-                )
-                .ToList()
+        List<string> instanceUpdateProperties = mutation
+            .InstanceUpdateProperties?.Where(property =>
+                property != nameof(InstanceInternal.LastChanged)
+                && property != nameof(InstanceInternal.LastChangedBy)
+            )
+            .ToList()
             ?? [];
         if (instanceUpdateProperties.Count == 0)
         {

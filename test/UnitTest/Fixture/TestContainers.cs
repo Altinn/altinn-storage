@@ -46,7 +46,7 @@ public static class TestContainers
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 
     private const string _postgresImage =
-        "postgres:16@sha256:f9a7b9ebf6f56201f949db745e47bc423c0f0f8294bafe991cc10bf74b029657";
+        "postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f";
     private const string _azuriteImage =
         "mcr.microsoft.com/azure-storage/azurite:3.37.0@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5";
     private const string _postgresAdminUser = "platform_storage_admin";
@@ -172,8 +172,7 @@ public static class TestContainers
 
     private static byte[] ReadEmbeddedResource(string name)
     {
-        using Stream stream =
-            Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
+        using Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name)
             ?? throw new InvalidOperationException($"Embedded resource '{name}' not found");
         using MemoryStream copy = new();
         stream.CopyTo(copy);

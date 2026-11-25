@@ -367,9 +367,11 @@ public class PepWithPDPAuthorizationMockSI : IPDP
             return;
         }
 
-        List<Role> roleList =
-            await GetDecisionPointRoles(subjectUserId, systemUserId, resourcePartyId)
-            ?? new List<Role>();
+        List<Role> roleList = await GetDecisionPointRoles(
+            subjectUserId,
+            systemUserId,
+            resourcePartyId
+        ) ?? new List<Role>();
 
         subjectContextAttributes.Attributes.Add(GetRoleAttribute(roleList));
     }

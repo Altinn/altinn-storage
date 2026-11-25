@@ -764,13 +764,11 @@ public class DataControllerTests : IAsyncLifetime
         }
 
         // Assert
-        Assert.All(
-            results,
-            x => Assert.Equal(expectedDataElementTypes.Count, x.DataElements.Count)
+        Assert.All(results, x =>
+            Assert.Equal(expectedDataElementTypes.Count, x.DataElements.Count)
         );
-        Assert.All(
-            results,
-            x => Assert.Equivalent(expectedDataElementTypes, x.DataElements.Select(y => y.DataType))
+        Assert.All(results, x =>
+            Assert.Equivalent(expectedDataElementTypes, x.DataElements.Select(y => y.DataType))
         );
     }
 
@@ -1107,9 +1105,8 @@ public class DataControllerTests : IAsyncLifetime
                 ),
             Times.Once
         );
-        Assert.Contains(
-            capturedMutation.DeleteDataElements,
-            delete => delete.DataElement.Id.ToString() == de.Id && delete.IgnoreLock
+        Assert.Contains(capturedMutation.DeleteDataElements, delete =>
+            delete.DataElement.Id.ToString() == de.Id && delete.IgnoreLock
         );
         InstanceEvent deletedEvent = Assert.Single(capturedMutation.InstanceEvents);
         Assert.Equal(InstanceEventType.Deleted.ToString(), deletedEvent.EventType);

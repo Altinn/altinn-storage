@@ -795,11 +795,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         CancellationToken cancellationToken = default
     )
     {
-        Guid[] versions =
-            blobVersionIds
-                ?.Where(versionId => !string.IsNullOrEmpty(versionId))
-                .Select(BlobVersionId.Decode)
-                .ToArray()
+        Guid[] versions = blobVersionIds
+            ?.Where(versionId => !string.IsNullOrEmpty(versionId))
+            .Select(BlobVersionId.Decode)
+            .ToArray()
             ?? [];
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteBlobVersionsSql);
@@ -817,11 +816,10 @@ public class PgDataRepository(ILogger<PgDataRepository> logger, NpgsqlDataSource
         CancellationToken cancellationToken = default
     )
     {
-        Guid[] versions =
-            blobVersionIds
-                ?.Where(versionId => !string.IsNullOrEmpty(versionId))
-                .Select(BlobVersionId.Decode)
-                .ToArray()
+        Guid[] versions = blobVersionIds
+            ?.Where(versionId => !string.IsNullOrEmpty(versionId))
+            .Select(BlobVersionId.Decode)
+            .ToArray()
             ?? [];
 
         await using NpgsqlCommand pgcom = _dataSource.CreateCommand(_deleteOrphanBlobVersionsSql);

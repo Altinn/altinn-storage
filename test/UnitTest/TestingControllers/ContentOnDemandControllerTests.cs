@@ -159,8 +159,8 @@ public class ContentOnDemandControllerTests : IAsyncLifetime
                 {
                     Id = _xmlDataGuid,
                     DataType = "a2-xml",
-                    BlobStoragePath =
-                        xmlBlobStoragePath ?? $"{_org}/{_app}/{_instanceGuid}/data/{_xmlDataGuid}",
+                    BlobStoragePath = xmlBlobStoragePath
+                        ?? $"{_org}/{_app}/{_instanceGuid}/data/{_xmlDataGuid}",
                     Metadata =
                     [
                         new KeyValueEntry { Key = "formid", Value = "1000" },

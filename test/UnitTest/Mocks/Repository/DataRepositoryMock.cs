@@ -171,8 +171,8 @@ public class DataRepositoryMock : IDataRepository
             stagedElement = DeserializeStoredDataElement(storedDataElement);
             string requestedBlobVersionId = ApplyUpdates(stagedElement, propertylist);
             string normalizedBlobVersionId = ValidateBlobVersionId(requestedBlobVersionId);
-            string currentBlobVersion =
-                normalizedBlobVersionId ?? storedDataElement.CurrentBlobVersion;
+            string currentBlobVersion = normalizedBlobVersionId
+                ?? storedDataElement.CurrentBlobVersion;
             stagedElement.BlobVersionId = currentBlobVersion;
 
             DataElementBlobVersion blobVersion = FindBlobVersionToAttachLocked(
@@ -406,9 +406,8 @@ public class DataRepositoryMock : IDataRepository
         Guid dataElementId,
         CancellationToken cancellationToken = default
     ) =>
-        ReadBlobVersions(
-            dataElementId,
-            version => version.DetachedAt is null && version.InstanceGuid == instanceGuid
+        ReadBlobVersions(dataElementId, version =>
+            version.DetachedAt is null && version.InstanceGuid == instanceGuid
         );
 
     private Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(

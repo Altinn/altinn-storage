@@ -245,6 +245,69 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         Assert.Equal("\"unrelated conflict\"", await unrelatedResponse.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task CommitMutation_TaskBoundDataTypeOutsideItsTasks_ReturnsProblemDetailsConflict()
+    {
+        InstanceInternal storedInstance = CreateMutationInstance(
+            new ProcessState
+            {
+                CurrentTask = new ProcessElementInfo
+                {
+                    ElementId = "Task_1",
+                    AltinnTaskType = "data",
+                },
+            },
+            status: null
+        );
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        applicationRepositoryMock
+            .Setup(repository =>
+                repository.FindOne("ttd/sensitive-data", "ttd", It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(
+                new Application
+                {
+                    Id = "ttd/sensitive-data",
+                    Org = "ttd",
+                    DataTypes = [new DataType { Id = "model", TaskIds = ["Task_2"] }],
+                }
+            );
+        HttpClient client = GetTestClient(
+            bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
+            instanceRepositoryMock: CreateMutationInstanceRepository(storedInstance),
+            applicationRepositoryMock: applicationRepositoryMock
+        );
+        InstanceMutationRequest request = new()
+        {
+            CreateDataElements =
+            [
+                new InstanceMutationCreateDataElement
+                {
+                    DataType = "model",
+                    ContentPartName = "created",
+                },
+            ],
+        };
+        using MultipartFormDataContent multipartContent = new();
+        multipartContent.Add(JsonContent.Create(request, options: _serializerOptions), "mutation");
+        multipartContent.Add(new ByteArrayContent([1]), "created", "created.bin");
+
+        HttpResponseMessage response = await client.PostAsync(
+            $"{SensitiveDataApp.GetInstanceUrl()}/mutations",
+            multipartContent
+        );
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using JsonDocument responseBody = JsonDocument.Parse(
+            await response.Content.ReadAsStreamAsync()
+        );
+        Assert.Equal(
+            "task_binding_conflict",
+            responseBody.RootElement.GetProperty("type").GetString()
+        );
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -272,9 +335,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -364,9 +426,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -431,9 +492,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -474,9 +534,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetToken(1337, 1337, 3),
@@ -518,9 +577,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
         );
         InstanceMutationCommit capturedMutation = null;
         Mock<IInstanceMutationRepository> mutationRepositoryMock =
-            CreatePersistingMutationRepository(
-                storedInstance,
-                mutation => capturedMutation = mutation
+            CreatePersistingMutationRepository(storedInstance, mutation =>
+                capturedMutation = mutation
             );
         HttpClient client = GetTestClient(
             bearerAuthToken: PrincipalUtil.GetOrgToken("ttd"),
@@ -563,10 +621,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
             nameof(InstanceInternal.CompleteConfirmations),
             capturedMutation.InstanceUpdateProperties
         );
-        Assert.Single(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
         );
     }
 
@@ -709,7 +765,8 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
     private HttpClient GetTestClient(
         string bearerAuthToken = null,
         Mock<IInstanceMutationRepository> mutationRepositoryMock = null,
-        Mock<IInstanceRepository> instanceRepositoryMock = null
+        Mock<IInstanceRepository> instanceRepositoryMock = null,
+        Mock<IApplicationRepository> applicationRepositoryMock = null
     )
     {
         if (mutationRepositoryMock is null)
@@ -757,6 +814,11 @@ public class InstanceMutationsControllerTests : IAsyncLifetime
                 if (instanceRepositoryMock is not null)
                 {
                     services.AddSingleton(instanceRepositoryMock.Object);
+                }
+
+                if (applicationRepositoryMock is not null)
+                {
+                    services.AddSingleton(applicationRepositoryMock.Object);
                 }
 
                 services.AddSingleton<

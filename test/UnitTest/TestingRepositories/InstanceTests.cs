@@ -1654,15 +1654,12 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Assert
         Assert.Equal(2, instances.Count);
         Assert.DoesNotContain(instances, i => i.Id == freshHardDeleted.Id);
-        Assert.All(
-            instances,
-            instance =>
-            {
-                Assert.Null(instance.Data);
-                Assert.Null(instance.Versions);
-                Assert.Equal(0, instance.InternalId);
-            }
-        );
+        Assert.All(instances, instance =>
+        {
+            Assert.Null(instance.Data);
+            Assert.Null(instance.Versions);
+            Assert.Equal(0, instance.InternalId);
+        });
     }
 
     /// <summary>
@@ -1725,9 +1722,8 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         // Assert
         Assert.Equal(3, dataElements3.Count);
         Assert.Equal(2, dataElements2.Count);
-        DeletedDataElementInternal versionedElement = Assert.Single(
-            dataElements3,
-            element => element.DataElement.Id == data1.Id
+        DeletedDataElementInternal versionedElement = Assert.Single(dataElements3, element =>
+            element.DataElement.Id == data1.Id
         );
         BlobVersionReferencesInternal blobVersions = Assert.Single(versionedElement.BlobVersions);
         Assert.Equal(data1.InstanceGuid, blobVersions.InstanceGuid);
@@ -1858,18 +1854,16 @@ public class InstanceTests : IClassFixture<InstanceFixture>
 
         // Assert
         Assert.Equal(2, blobVersions.Count);
-        BlobVersionReferencesInternal blobVersion = Assert.Single(
-            blobVersions,
-            versions => versions.BlobVersionIds.Contains(secondVersion)
+        BlobVersionReferencesInternal blobVersion = Assert.Single(blobVersions, versions =>
+            versions.BlobVersionIds.Contains(secondVersion)
         );
         Assert.Equal(Guid.Parse(dataElement.InstanceGuid), blobVersion.InstanceGuid);
         Assert.Equal(instance.AppId, blobVersion.AppId);
         Assert.Equal(instance.Org, blobVersion.BlobStorageOrg);
         Assert.Equal([secondVersion], blobVersion.BlobVersionIds);
         Assert.DoesNotContain(firstVersion, blobVersion.BlobVersionIds);
-        BlobVersionReferencesInternal otherBlobVersion = Assert.Single(
-            blobVersions,
-            versions => versions.BlobVersionIds.Contains(otherVersion)
+        BlobVersionReferencesInternal otherBlobVersion = Assert.Single(blobVersions, versions =>
+            versions.BlobVersionIds.Contains(otherVersion)
         );
         Assert.Equal([otherVersion], otherBlobVersion.BlobVersionIds);
     }
@@ -2115,15 +2109,13 @@ public class InstanceTests : IClassFixture<InstanceFixture>
         ];
 
         Assert.Equal(["ContinuationToken", "Exception", "Instances"], propertyNames);
-        Assert.All(
-            typeof(InstanceQueryResult).GetProperties(),
-            property =>
-                Assert.Empty(
-                    property.GetCustomAttributes(
-                        typeof(Newtonsoft.Json.JsonPropertyAttribute),
-                        inherit: true
-                    )
+        Assert.All(typeof(InstanceQueryResult).GetProperties(), property =>
+            Assert.Empty(
+                property.GetCustomAttributes(
+                    typeof(Newtonsoft.Json.JsonPropertyAttribute),
+                    inherit: true
                 )
+            )
         );
     }
 
