@@ -452,13 +452,12 @@ public class StorageAtomicSequencingRegressionTests : IClassFixture<StorageAtomi
         applicationService
             .Setup(s =>
                 s.ValidateDataTypeForApp(
-                    It.IsAny<string>(),
-                    It.IsAny<string>(),
+                    It.IsAny<Application>(),
                     It.IsAny<string>(),
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync((true, null));
+            .Returns((true, null));
 
         return applicationService;
     }

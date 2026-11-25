@@ -1801,9 +1801,8 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
         // Assert
         Assert.Equal(2, actual.Count);
         Assert.Single(actual, e => e.User.UserId == 1337);
-        Assert.Contains(
-            actual,
-            e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")
+        Assert.Contains(actual, e =>
+            e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")
         );
         repoMock.VerifyAll();
     }

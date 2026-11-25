@@ -24,48 +24,48 @@ jobs:
       tokenGeneratorUserPwd: ${{ secrets.TOKENGENERATOR_USERPASSWORD }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
+      - uses: grafana/setup-k6-action@c47136d33d365efbeb9ae7266908b5dcf98cdece # v1.3.0
       - name: Run regression tests for endpoint 'applications'
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/applications.js
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
 
       - name: Run regression tests for endpoint 'instances'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/instances.js
           flags: -e orgNumber=${{ secrets.ORG_NUMBER }} -e orgPartyId=${{ secrets.ORG_PARTY_ID }}
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'instances/sbl'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/messageboxinstances.js
           flags: -e apimSblSubsKey=${{ secrets.APIM_SBL_SUBSKEY }}
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'data'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/data.js
           inspect-flags: -e altinn_env=${{ inputs.environment }} -e app=${{ vars.APP }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'process'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/process.js
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'sign'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/sign.js
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined
       - name: Run regression tests for endpoint 'texts'
         if: always()
-        uses: grafana/run-k6-action@4082a08c7e40cf6d65863911077dfb60ae0a4f04 # v1.5.0
+        uses: grafana/run-k6-action@54385d2a25c222a08b4a3aec6b653b8fb370a1ed # v1.6.0
         with:
           path: test/k6/src/tests/texts.js
           inspect-flags: -e altinn_env=${{ inputs.environment }} # Supplies the value for pre-run validation, when env vars / flags are not yet defined

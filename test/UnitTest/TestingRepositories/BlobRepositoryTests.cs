@@ -156,9 +156,9 @@ public sealed class BlobRepositoryAzuriteFixture : IAsyncLifetime
     private const string _accountName = "devstoreaccount1";
     private const string _accountKey =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-    private static readonly string _blobEndPoint =
-        Environment.GetEnvironmentVariable("ALTINN_STORAGE_AZURITE_BLOB_ENDPOINT")
-        ?? "http://127.0.0.1:10000/devstoreaccount1";
+    private static readonly string _blobEndPoint = Environment.GetEnvironmentVariable(
+        "ALTINN_STORAGE_AZURITE_BLOB_ENDPOINT"
+    ) ?? "http://127.0.0.1:10000/devstoreaccount1";
     private readonly string _containerName = $"blobrepo-{Guid.NewGuid():N}"[..21];
     private readonly MemoryCache _memoryCache = new(new MemoryCacheOptions());
     private BlobContainerClient _container = null!;
