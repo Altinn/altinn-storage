@@ -4310,6 +4310,7 @@
             "name": "date",
             "in": "query",
             "description": "The UTC day, YYYY-MM-DD.",
+            "required": true,
             "schema": {
               "type": "string",
               "format": "date"
