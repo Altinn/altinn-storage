@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
+      - 'infra/postgres_init.sql'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -13,6 +14,7 @@ on:
       - 'src/**'
       - 'test/Altinn.Platform.Storage.Interface.Tests/**'
       - 'test/UnitTest/**'
+      - 'infra/postgres_init.sql'
   workflow_dispatch:
 jobs:
   build-test-analyze:
@@ -22,45 +24,20 @@ jobs:
     permissions:
       contents: read
       checks: write
-    services:
-     postgres:
-       image: postgres:16@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
-       env:
-         PGHOST: localhost
-         POSTGRES_USER: platform_storage_admin
-         POSTGRES_PASSWORD: Password
-         POSTGRES_DB: storagedb
-       options: >-
-         --health-cmd pg_isready
-         --health-interval 10s
-         --health-timeout 5s
-         --health-retries 5
-       ports:
-         - 5432:5432
     steps:
       - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: |
             10.0.x
       - name: Set up Java
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: 'temurin'
           java-version: 25
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - name: Setup PostgreSQL
-        run: |
-            chmod +x dbsetup.sh
-            ./dbsetup.sh
-      - name: Restart database to enable config changes
-        run: |
-          docker restart $(docker ps -q)
-      - name: Start Azurite
-        run: |
-          docker compose up -d --wait --wait-timeout 60 altinn_platform_storage_azurite
       - name: Install SonarCloud scanners
         run: |
           dotnet tool install --global dotnet-sonarscanner

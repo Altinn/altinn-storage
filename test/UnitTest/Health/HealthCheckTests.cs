@@ -14,14 +14,13 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Health;
 
-public class HealthCheckTests : IClassFixture<TestApplicationFactory<HealthCheck>>
+public class HealthCheckTests : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<HealthCheck> _factory;
+    private readonly TestApplicationFactory<HealthCheck> _factory = new();
 
-    public HealthCheckTests(TestApplicationFactory<HealthCheck> factory)
-    {
-        _factory = factory;
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Verify that component responds on health check

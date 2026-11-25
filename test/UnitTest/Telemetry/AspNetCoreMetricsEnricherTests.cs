@@ -15,7 +15,6 @@ using Altinn.Platform.Storage.UnitTest.Fixture;
 using Altinn.Platform.Storage.UnitTest.Mocks;
 using Altinn.Platform.Storage.UnitTest.Mocks.Authentication;
 using Altinn.Platform.Storage.UnitTest.Mocks.Clients;
-using Altinn.Platform.Storage.UnitTest.Mocks.Repository;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Altinn.Platform.Storage.Wrappers;
 using AltinnCore.Authentication.JwtCookie;
@@ -29,10 +28,13 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.Telemetry;
 
-public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesController> factory)
-    : IClassFixture<TestApplicationFactory<InstancesController>>
+public class AspNetCoreMetricsEnricherTests : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<InstancesController> _factory = factory;
+    private readonly TestApplicationFactory<InstancesController> _factory = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     [Fact]
     public async Task ActionsSnapshot()
@@ -91,8 +93,6 @@ public class AspNetCoreMetricsEnricherTests(TestApplicationFactory<InstancesCont
         {
             builder.ConfigureTestServices(services =>
             {
-                services.AddMockRepositories();
-
                 services.AddSingleton(keyVaultWrapper.Object);
 
                 services.AddSingleton<

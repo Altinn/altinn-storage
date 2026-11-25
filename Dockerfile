@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.402-resolute@sha256:ed736da7c0253cf85c2d36b27f827665b90d7d0b3d153e716e83007a5200d9da AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.404-resolute@sha256:f685dd6b5a970778b53cead9a11cf54206c4b4fc3c97e4424a59b8bff9aa43d7 AS build
 
 COPY src/Storage ./Storage
 COPY src/DbTools ./DbTools
@@ -15,7 +15,7 @@ WORKDIR ../Storage/
 RUN dotnet publish ./Altinn.Platform.Storage.csproj -c Release -o /app_output
 
 # -extra includes ICU and tzdata, needed for non-English cultures such as "no-NB"
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-resolute-chiseled-extra@sha256:e662e2bbca99a18b0922af83d794a212495e737e15ee8b56ffde9fcd24b0cba5 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15-resolute-chiseled-extra@sha256:728d90568c65ec25adf8bacd9da65356a7f5bbeb37eaca1193e6ed082900a1bc AS final
 EXPOSE 5010
 WORKDIR /app
 COPY --from=build /app_output .

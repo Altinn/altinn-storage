@@ -41,14 +41,9 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Test class for Process Controller. Focuses on authorization of requests.
 /// </summary>
-public class ProcessControllerTest : IClassFixture<TestApplicationFactory<ProcessController>>
+public class ProcessControllerTest : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<ProcessController> _factory;
-
-    public ProcessControllerTest(TestApplicationFactory<ProcessController> factory)
-    {
-        _factory = factory;
-    }
+    private readonly TestApplicationFactory<ProcessController> _factory = new();
 
     private async Task<HttpResponseMessage> SendUpdateRequest(
         bool useInstanceAndEventsEndpoint,
@@ -105,8 +100,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // rawExpectedInstanceVersion carries values the version precondition parser must reject,
         // so it is sent verbatim. It sets the same header as expectedInstanceVersion, and the two
         // are resolved here so the header can never be sent twice.
-        string? instanceVersionHeader =
-            rawExpectedInstanceVersion
+        string? instanceVersionHeader = rawExpectedInstanceVersion
             ?? expectedInstanceVersion?.ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (instanceVersionHeader is not null)
         {
@@ -134,6 +128,10 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
 
     public static TheoryData<string> MalformedVersionPreconditions =>
         ["0", "-1", "1.0", "not-a-version", "+5", " 5 ", "5,5"];
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Version preconditions are parsed strictly: only a plain positive 32-bit integer is
@@ -247,9 +245,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Act
         using HttpResponseMessage response = await client.GetAsync(requestUri);
         string responseString = await response.Content.ReadAsStringAsync();
-        ProcessHistoryList processHistory =
-            JsonConvert.DeserializeObject<ProcessHistoryList>(responseString)
-            ?? throw new Exception("Failed to deserialize response content");
+        ProcessHistoryList processHistory = JsonConvert.DeserializeObject<ProcessHistoryList>(
+            responseString
+        ) ?? throw new Exception("Failed to deserialize response content");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -677,9 +675,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         );
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Instance responseInstance =
-            JsonConvert.DeserializeObject<Instance>(await response.Content.ReadAsStringAsync())
-            ?? throw new Exception("Failed to deserialize response instance");
+        Instance responseInstance = JsonConvert.DeserializeObject<Instance>(
+            await response.Content.ReadAsStringAsync()
+        ) ?? throw new Exception("Failed to deserialize response instance");
         Assert.Equal(ProcessStatus.Processing, responseInstance.Process.Status);
         repositoryMock.Verify(
             repository =>
@@ -1397,8 +1395,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         string responseContent = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Instance actual =
-            JsonConvert.DeserializeObject<Instance>(responseContent)
+        Instance actual = JsonConvert.DeserializeObject<Instance>(responseContent)
             ?? throw new Exception("Failed to deserialize response content");
         Assert.True(actual.Status.IsArchived);
         repositoryMock.Verify(
@@ -1554,11 +1551,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(capturedMutation);
-        Assert.Contains(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
-                && instanceEvent.DataId == staleDataElement.Id.ToString()
+        Assert.Contains(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+            && instanceEvent.DataId == staleDataElement.Id.ToString()
         );
         dataServiceMock.Verify(
             d =>
@@ -1686,8 +1681,7 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         string responseContent = await response.Content.ReadAsStringAsync();
-        Instance actual =
-            JsonConvert.DeserializeObject<Instance>(responseContent)
+        Instance actual = JsonConvert.DeserializeObject<Instance>(responseContent)
             ?? throw new Exception("Failed to deserialize response content");
         Assert.NotNull(actual.LastChanged);
         Assert.Equal(snapshotLastChanged, actual.LastChanged.Value.ToUniversalTime());
@@ -2181,10 +2175,9 @@ public class ProcessControllerTest : IClassFixture<TestApplicationFactory<Proces
             currentProcessStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
             Assert.Single(response.Headers.GetValues(StorageHeaders.ProcessStateVersion))
         );
-        ProblemDetails problem =
-            JsonConvert.DeserializeObject<ProblemDetails>(
-                await response.Content.ReadAsStringAsync()
-            ) ?? throw new Exception("Failed to deserialize response content");
+        ProblemDetails problem = JsonConvert.DeserializeObject<ProblemDetails>(
+            await response.Content.ReadAsStringAsync()
+        ) ?? throw new Exception("Failed to deserialize response content");
         Assert.Equal(StatusCodes.Status412PreconditionFailed, problem.Status);
         Assert.Equal(expectedProblemType, problem.Type);
     }

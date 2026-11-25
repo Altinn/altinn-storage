@@ -24,36 +24,22 @@ public class ApplicationService : IApplicationService
     }
 
     /// <inheritdoc/>
-    public async Task<(bool IsValid, ServiceError ServiceError)> ValidateDataTypeForApp(
-        string org,
-        string appId,
+    public (bool IsValid, ServiceError ServiceError) ValidateDataTypeForApp(
+        Application application,
         string dataType,
         string currentTask
     )
     {
-        Application application = await _applicationRepository.FindOne(appId, org);
-
-        if (application == null)
-        {
-            return (false, new ServiceError(404, $"Cannot find application {appId} in storage"));
-        }
-
-#pragma warning disable CS0618 // Type or member is obsolete
-        if (
-            application.DataTypes.Exists(e =>
-                e.Id == dataType && (string.IsNullOrEmpty(e.TaskId) || e.TaskId == currentTask)
-            )
-        )
+        if (application.DataTypes.Exists(e => e.Id == dataType && IsAllowedInTask(e, currentTask)))
         {
             return (true, null);
         }
-#pragma warning restore CS0618 // Type or member is obsolete
 
         return (
             false,
             new ServiceError(
                 405,
-                $"DataType {dataType} is not declared in application metadata for app {appId}"
+                $"DataType {dataType} is not declared in application metadata for app {application.Id}"
             )
         );
     }
@@ -80,5 +66,18 @@ public class ApplicationService : IApplicationService
         }
 
         return (appInfo, serviceError);
+    }
+
+    private static bool IsAllowedInTask(DataType dataType, string task)
+    {
+        if (dataType.TaskIds is not null)
+        {
+            return dataType.TaskIds.Count == 0 || dataType.TaskIds.Contains(task);
+        }
+
+        // v8 apps upload taskId instead of taskIds.
+#pragma warning disable CS0618 // Type or member is obsolete
+        return string.IsNullOrEmpty(dataType.TaskId) || dataType.TaskId == task;
+#pragma warning restore CS0618 // Type or member is obsolete
     }
 }

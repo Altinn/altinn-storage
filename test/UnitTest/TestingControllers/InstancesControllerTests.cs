@@ -53,9 +53,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Constructor.
 /// </summary>
-/// <param name="factory">The web application factory.</param>
-public class InstancesControllerTests(TestApplicationFactory<InstancesController> factory)
-    : IClassFixture<TestApplicationFactory<InstancesController>>
+public class InstancesControllerTests : IAsyncLifetime
 {
     public enum GuardedInstanceUpdateRoute
     {
@@ -74,7 +72,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// </summary>
     private const string SystemUserId = "49913a53-0bf9-47fc-9cad-6aa3dc825008";
 
-    private readonly TestApplicationFactory<InstancesController> _factory = factory;
+    private readonly TestApplicationFactory<InstancesController> _factory = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Test case: User has to low authentication level.

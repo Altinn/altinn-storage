@@ -53,7 +53,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format �
 - `dotnet build Altinn.Platform.Storage.slnx` - Build the solution (also regenerates the SQL functions script via DbTools as a post-build step)
 - `dotnet run --project src/Storage` - Run the API locally at http://localhost:5010 (swagger at `/swagger`)
 - `dotnet watch --project src/Storage` - Run with hot reload
-- `docker compose up -d` - Start local infrastructure (Postgres on 5432, pgAdmin on 8888, Azurite). Usually not needed if a local Postgres instance is already running.
+- `docker compose up -d` - Start local infrastructure for running the API (Postgres on 5432, pgAdmin on 8888, Azurite). The tests don't use it.
 
 ### Testing
 
@@ -65,7 +65,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format �
 
 - **CSharpier** is the enforced formatter; CI runs `dotnet csharpier check .`. Run `dotnet tool restore` once, then `dotnet csharpier format .` before committing (the MSBuild integration also formats on build).
 - On CI (`CI=true`) **warnings are treated as errors**. StyleCop (`SA*`) rule severities are configured individually in `.editorconfig` (some `error`, most `warning`, some `none`), so a rule at `warning` severity still fails CI even though it builds locally as a warning — keep code warning-clean.
-- Follow the existing style: file-scoped namespaces and expression-bodied properties/accessors/lambdas (but not methods/constructors). Many files begin with `#nullable disable`; match the file you are in rather than introducing nullable annotations piecemeal.
+- Follow the existing style: file-scoped namespaces and expression-bodied properties/accessors/lambdas (but not methods/constructors). Nullable reference types are enabled in the projects, but many files begin with `#nullable disable`. New files must not add `#nullable disable`. A file that gets significant changes should remove it and annotate the file in full; for a small change, match the file you are in rather than introducing nullable annotations piecemeal.
 - **Changing database logic:** the data layer calls versioned functions/procedures by name (e.g. `storage.readinstancefromquery_v7`). Edit the source `.sql` files in `Migration/FunctionsAndProcedures/` (bump the version suffix, e.g. `_v7` → `_v8`, when changing a signature or behavior that must not break running instances) and update the calling `Pg*Repository`. **Never edit the generated `Migration/vX.YZ/02-functions-and-procedures.sql`** — DbTools regenerates it on build. Schema/structural changes go in a new `Migration/vX.YZ/` folder and are applied by Yuniql on startup.
 - **Comments describe the code, not the change.** A comment must make sense to someone reading the file a year from now with no knowledge of the task that produced it. Never write comments that narrate a fix or a diff — no "fixes the deadlock we saw in …", "previously this used …", "added to handle the bug where …", "changed because the test failed". That reasoning belongs in the commit message or PR description, not the source. Prefer a short comment on *why* the code is the way it is (a non-obvious invariant, a constraint from another component, a deliberate deviation) over a long one restating what the code already says. Default to no comment when the code is self-explanatory; use XML doc comments (`///`) on public members as the codebase already does.
 - Keep controllers thin: validation and normalization that isn't HTTP-specific belongs on the models (see `InstanceQueryParameters`) or in services.
@@ -75,7 +75,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format �
 
 ## Testing Guidelines
 
-- Most repository, controller, and service tests are **DB-backed**: they connect to `storagedb` (users `platform_storage_admin` and `platform_storage`, password `Password`) via `PostgresUtil` and fail with Npgsql connection errors if Postgres is not running (`docker compose up -d`). Controller tests using mocked repositories (e.g. the `GetInstances` query-endpoint tests) run without a database.
+- Most repository, controller, and service tests are **DB-backed**. The tests start PostgreSQL and Azurite containers through Testcontainers (`test/UnitTest/Fixture/TestContainers.cs`) on first use, so they need a running Docker or Podman but no other setup; every run starts from an empty database. Build configuration for tests with `ServiceUtil.AddTestSettings()`, which points `appsettings.unittest.json` at the containers. Controller tests using mocked repositories (e.g. the `GetInstances` query-endpoint tests) don't start the containers unless they build that configuration.
 - Mock external dependencies using `Moq`
 - Follow the Arrange, Act, Assert pattern
 - Place test files in the same folder structure as the source files

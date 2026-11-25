@@ -10,5 +10,16 @@
       "matchPackageNames": ["PDFsharp"],
       "allowedVersions": "<6.5.0"
     }
+  ],
+  "customManagers": [
+    {
+      "description": "Container images that the tests start through Testcontainers.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^test/UnitTest/Fixture/TestContainers\\.cs$/"],
+      "matchStrings": [
+        "\"(?<depName>[^\"\\s:@]+):(?<currentValue>[^\"\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker"
+    }
   ]
 }

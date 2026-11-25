@@ -32,21 +32,15 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class ApplicationsControllerTests
-    : IClassFixture<TestApplicationFactory<ApplicationsController>>
+public class ApplicationsControllerTests : IAsyncLifetime
 {
     private const string BasePath = "/storage/api/v1";
 
-    private readonly TestApplicationFactory<ApplicationsController> _factory;
+    private readonly TestApplicationFactory<ApplicationsController> _factory = new();
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ApplicationsControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
-    /// </summary>
-    /// <param name="factory">The <see cref="TestApplicationFactory{TStartup}"/> to use when setting up the test server.</param>
-    public ApplicationsControllerTests(TestApplicationFactory<ApplicationsController> factory)
-    {
-        _factory = factory;
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Testing that the <see cref="ApplicationsController.IsValidAppId"/> operation successfully identifies valid and invalid app id values.
