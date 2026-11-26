@@ -39,6 +39,17 @@ public static class ServiceUtil
         return _serviceProvider.Value.GetRequiredService<NpgsqlDataSource>();
     }
 
+    /// <summary>
+    /// Applies the migrations to the test database, once per test run. The test hosts don't
+    /// migrate the database on startup (<c>MigrateOnStartup</c> is off in appsettings.unittest.json),
+    /// because Yuniql keeps its settings in a process-wide singleton, and hosts that start at the
+    /// same time in tests running in parallel would overwrite each other's settings.
+    /// </summary>
+    public static void EnsureDatabaseMigrated()
+    {
+        _ = _serviceProvider.Value;
+    }
+
     public static string GetAppsettingsPath()
     {
         return "appsettings.unittest.json";

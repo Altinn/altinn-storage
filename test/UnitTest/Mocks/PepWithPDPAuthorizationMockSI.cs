@@ -39,16 +39,22 @@ public class PepWithPDPAuthorizationMockSI : IPDP
 
     private readonly string _altinnRoleAttributeId = "urn:altinn:rolecode";
 
-    public PepWithPDPAuthorizationMockSI(IInstanceRepository instanceService)
+    private readonly RequestTracker _requestTracker;
+
+    public PepWithPDPAuthorizationMockSI(
+        IInstanceRepository instanceService,
+        RequestTracker requestTracker = null
+    )
     {
         this._instanceService = instanceService;
+        _requestTracker = requestTracker;
     }
 
     public async Task<XacmlJsonResponse> GetDecisionForRequest(
         XacmlJsonRequestRoot xacmlJsonRequest
     )
     {
-        RequestTracker.AddRequest(
+        _requestTracker?.AddRequest(
             "GetDecisionForRequest" + GetInstanceID(xacmlJsonRequest),
             xacmlJsonRequest
         );

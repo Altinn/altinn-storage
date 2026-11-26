@@ -1,5 +1,6 @@
 #nullable disable
 
+using System.Diagnostics.Metrics;
 using System.Threading;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using Microsoft.AspNetCore.Hosting;
@@ -16,6 +17,8 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        ServiceUtil.EnsureDatabaseMigrated();
+
         IConfiguration configuration = new ConfigurationBuilder().AddTestSettings().Build();
         builder.ConfigureAppConfiguration(
             (hostingContext, config) =>
@@ -33,6 +36,8 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
                     httpClient.SetHandlerLifetime(Timeout.InfiniteTimeSpan)
                 );
 
+                services.AddSingleton<RequestTracker>();
+
                 ConcurrentList<MetricSnapshot> metricsList = [];
                 services.AddSingleton(sp =>
                     ActivatorUtilities.CreateInstance<TestTelemetry>(sp, metricsList)
@@ -42,6 +47,22 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
                     .WithMetrics(metrics =>
                     {
                         metrics.AddInMemoryExporter(metricsList);
+
+                        // A meter listener sees every meter in the process, so without this the
+                        // exporter would also record the requests of hosts in tests running in
+                        // parallel. Meters made by another host's IMeterFactory are dropped.
+                        ((IDeferredMeterProviderBuilder)metrics).Configure(
+                            (sp, meterProviderBuilder) =>
+                            {
+                                IMeterFactory meterFactory = sp.GetRequiredService<IMeterFactory>();
+                                meterProviderBuilder.AddView(instrument =>
+                                    instrument.Meter.Scope is null
+                                    || ReferenceEquals(instrument.Meter.Scope, meterFactory)
+                                        ? null
+                                        : MetricStreamConfiguration.Drop
+                                );
+                            }
+                        );
                     });
             }
         );

@@ -76,6 +76,7 @@ The solution file is `Altinn.Platform.Storage.slnx` (XML-based `.slnx` format â€
 ## Testing Guidelines
 
 - Most repository, controller, and service tests are **DB-backed**. The tests start PostgreSQL and Azurite containers through Testcontainers (`test/UnitTest/Fixture/TestContainers.cs`) on first use, so they need a running Docker or Podman but no other setup; every run starts from an empty database. Build configuration for tests with `ServiceUtil.AddTestSettings()`, which points `appsettings.unittest.json` at the containers. Controller tests using mocked repositories (e.g. the `GetInstances` query-endpoint tests) don't start the containers unless they build that configuration.
+- Test classes run in parallel. Tests that use the database are in the `StoragePostgreSQL` collection, which runs them one at a time, because several of them empty whole tables. State a test reads back must belong to its own test host: register it in the host's services, as `RequestTracker` and `TestTelemetry` are, not in a static field.
 - Mock external dependencies using `Moq`
 - Follow the Arrange, Act, Assert pattern
 - Place test files in the same folder structure as the source files
