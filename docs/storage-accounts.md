@@ -247,7 +247,8 @@ sequenceDiagram
     DB-->>Pods: picked up on the next refresh (at most one cache period)
     Note over Pods: new uploads go to the new account with the new id
     Ops->>Ops: wait until the old account has settled
-    Ops->>Old: remove Storage's write and delete access
+    Ops->>DB: check that no other pair still uses the old account
+    Ops->>Old: remove Storage's write and delete access, wait until it applies
     Ops->>Old: copy every blob under the org's prefix to the new account (azcopy)
     Old-->>New: blobs copied
     Ops->>New: audit: every version to re-point has its blob
@@ -272,8 +273,22 @@ sequenceDiagram
    account while it is read-only: those deletes fail and are retried after the re-point, against the
    new account. Without this, a blob that cleanup deletes after it was copied stays in the new
    account forever. Hard-delete cleanup reports 500 for the skipped elements until the move is done.
+   - **First check that no other pair uses the old account.** Several `(org, storageaccountnumber)`
+     pairs can name the same Azure account, each with its own container, and the old account can
+     also be the pattern default of another pair. Removing the role from the whole account would make
+     every such pair fail its uploads and cleanup. List the rows that name the account (see
+     [SQL for operations](#sql-for-operations)). If another pair still writes to it, remove the role
+     from the moved pair's container only, which requires the role to be assigned per container,
+     or move those pairs in the same operation.
+   - **Wait until the removal has applied.** Azure can take up to 10 minutes to apply a removed role
+     assignment, and several hours when Storage's identity holds the role through a group
+     ([Troubleshoot Azure RBAC](https://learn.microsoft.com/azure/role-based-access-control/troubleshooting#symptom---role-assignment-changes-are-not-being-detected)).
+     Start the final copy only after that.
 5. **Copy the blobs and audit.** The versioned blob path is the same in every account, so the copy is
-   a prefix copy. Then confirm that every version to be re-pointed has its blob in the new account.
+   a prefix copy. Then confirm that every version to be re-pointed has its blob in the new account,
+   and that the old account's resource logs (`StorageBlobLogs`) show no successful write or delete by
+   Storage's identity since the final copy started. If they do, the removal had not applied yet: copy
+   again, and remove from the new account every blob that the logs show was deleted from the old one.
 6. **Re-point the version rows** in batches. The condition on `storageaccountid` keeps the update to
    rows that still name the old location (`NULL` for the pattern default), so rows written to the new
    account are not touched. Every read of those elements now goes to the new account, and cleanup
@@ -299,6 +314,12 @@ SELECT storage.insertstorageaccount(
 
 -- List the accounts.
 SELECT * FROM storage.readstorageaccounts();
+
+-- Every pair whose rows name an Azure account, before Storage's access to it is removed.
+-- Also check whether the account is the pattern default of a pair without a writable row.
+SELECT id, org, storageaccountnumber, providerinfo ->> 'container' AS container, writable
+FROM storage.storageaccounts
+WHERE provider = 'azure-blob' AND providerinfo ->> 'accountName' = 'ttdaltinnprodstrg01';
 
 -- Where the versions of (ttd, 1) are today; NULL is the pattern default.
 -- Scans the version table: run off-peak or on a replica.
