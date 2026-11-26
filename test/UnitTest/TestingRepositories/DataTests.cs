@@ -7331,38 +7331,37 @@ public class DataTests(DataElementFixture dataElementFixture)
             """
         );
 
-    private static string CreateParitySeedJson() =>
-        """
+    private static string CreateParitySeedJson() => """
+        {
+          "DataValues": {
+            "parity-preserved-data": "preserved",
+            "parity-existing-data": "old"
+          },
+          "PresentationTexts": {
+            "parity-preserved-presentation": "preserved",
+            "parity-existing-presentation": "old"
+          },
+          "CompleteConfirmations": [
             {
-              "DataValues": {
-                "parity-preserved-data": "preserved",
-                "parity-existing-data": "old"
-              },
-              "PresentationTexts": {
-                "parity-preserved-presentation": "preserved",
-                "parity-existing-presentation": "old"
-              },
-              "CompleteConfirmations": [
-                {
-                  "StakeholderId": "existing",
-                  "ConfirmedOn": "2026-01-01T00:00:00Z"
-                }
-              ],
-              "Status": {
-                "ReadStatus": 0,
-                "IsArchived": false,
-                "Substatus": {
-                  "Label": "seed-label",
-                  "Description": "seed-description"
-                }
-              },
-              "Process": {
-                "CurrentTask": {
-                  "ElementId": "Task_Seed"
-                }
-              }
+              "StakeholderId": "existing",
+              "ConfirmedOn": "2026-01-01T00:00:00Z"
             }
-            """;
+          ],
+          "Status": {
+            "ReadStatus": 0,
+            "IsArchived": false,
+            "Substatus": {
+              "Label": "seed-label",
+              "Description": "seed-description"
+            }
+          },
+          "Process": {
+            "CurrentTask": {
+              "ElementId": "Task_Seed"
+            }
+          }
+        }
+        """;
 
     // No case confirms a stakeholder the seed already carries: mergeinstanceupdate skips those and
     // updateinstance_v4 appends them, the one place the two deliberately differ. That difference has
