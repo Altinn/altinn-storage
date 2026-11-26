@@ -1913,132 +1913,132 @@ public class InstanceMutationsControllerUnitTests
             {
                 "dataValues",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "dataValues": {
-                        "status": "deleted"
-                      }
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "dataValues": {
+                    "status": "deleted"
+                  }
+                }
+                """
             },
             {
                 "presentationTexts",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "presentationTexts": {
-                        "status": "deleted"
-                      }
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "presentationTexts": {
+                    "status": "deleted"
+                  }
+                }
+                """
             },
             {
                 "addCompleteConfirmation",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "addCompleteConfirmation": true
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "addCompleteConfirmation": true
+                }
+                """
             },
             {
                 "substatus",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "substatus": {
-                        "label": "deleted"
-                      }
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "substatus": {
+                    "label": "deleted"
+                  }
+                }
+                """
             },
             {
                 "processState.state",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "processState": {
-                        "state": {
-                          "started": "2024-01-01T00:00:00Z"
-                        }
-                      }
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "state": {
+                      "started": "2024-01-01T00:00:00Z"
                     }
-                    """
+                  }
+                }
+                """
             },
             {
                 "processState.events",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "processState": {
-                        "events": [
-                          {
-                            "eventType": "process_StartEvent",
-                            "instanceId": "555/11111111-1111-1111-1111-111111111111"
-                          }
-                        ]
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "events": [
+                      {
+                        "eventType": "process_StartEvent",
+                        "instanceId": "555/11111111-1111-1111-1111-111111111111"
                       }
-                    }
-                    """
+                    ]
+                  }
+                }
+                """
             },
             {
                 "createDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "createDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "createDataElements": [
-                        {
-                          "dataType": "attachment",
-                          "contentPartName": "attachment"
-                        }
-                      ]
+                      "dataType": "attachment",
+                      "contentPartName": "attachment"
                     }
-                    """
+                  ]
+                }
+                """
             },
             {
                 "updateDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "updateDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "updateDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111",
-                          "locked": true
-                        }
-                      ]
+                      "dataElementId": "11111111-1111-1111-1111-111111111111",
+                      "locked": true
                     }
-                    """
+                  ]
+                }
+                """
             },
             {
                 "deleteDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "deleteDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "deleteDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111"
-                        }
-                      ]
+                      "dataElementId": "11111111-1111-1111-1111-111111111111"
                     }
-                    """
+                  ]
+                }
+                """
             },
         };
     }
@@ -2058,137 +2058,137 @@ public class InstanceMutationsControllerUnitTests
         {
             {
                 $$"""
-                    {
-                      {{endedState}},
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  {{endedState}},
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "idle",
-                      {{endedState}},
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  "expectedProcessStatus": "idle",
+                  {{endedState}},
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "processing",
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "processing",
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1",
-                          "currentTask": {
-                            "elementId": "Task_1"
-                          }
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1",
+                      "currentTask": {
+                        "elementId": "Task_1"
+                      }
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "ended": "2026-06-07T08:09:10Z"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "2026-06-07T08:09:10Z"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "dataValues": {
-                        "unrelated": "update"
-                      },
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "dataValues": {
+                    "unrelated": "update"
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "createDataElements": [
                     {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "createDataElements": [
-                        {
-                          "dataType": "attachment",
-                          "contentPartName": "attachment"
-                        }
-                      ],
-                      "deleteInstance": { "hard": true }
+                      "dataType": "attachment",
+                      "contentPartName": "attachment"
                     }
-                    """
+                  ],
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "updateDataElements": [
                     {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "updateDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111",
-                          "locked": true
-                        }
-                      ],
-                      "deleteInstance": { "hard": true }
+                      "dataElementId": "11111111-1111-1111-1111-111111111111",
+                      "locked": true
                     }
-                    """
+                  ],
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
         };
     }
