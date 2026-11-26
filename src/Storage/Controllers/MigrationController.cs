@@ -796,9 +796,23 @@ public class MigrationController : ControllerBase
             );
         }
 
+        // The metadata is kept when a blob delete fails, so that the blobs left behind can still be found and the
+        // cleanup run again.
         foreach ((StorageAccount account, string appId) in contexts)
         {
-            await _blobRepository.DeleteDataBlobs(account, appId, instanceGuid, cancellationToken);
+            if (
+                !await _blobRepository.DeleteDataBlobs(
+                    account,
+                    appId,
+                    instanceGuid,
+                    cancellationToken
+                )
+            )
+            {
+                throw new InvalidOperationException(
+                    $"Could not delete the blobs of instance {instanceGuid} for {appId}; the instance is kept."
+                );
+            }
         }
 
         await _dataRepository.DeleteForInstance(instanceGuid, cancellationToken);

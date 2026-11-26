@@ -551,6 +551,86 @@ public class MigrationControllerTests : IClassFixture<InstanceFixture>
         blobRepository.VerifyNoOtherCalls();
     }
 
+    [Fact]
+    public async Task CleanupOldMigration_BlobDeleteFails_KeepsInstanceAndThrows()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = TestData.Instance_1_1.Clone().FromApiModel();
+        instance.Id = instanceGuid;
+        instance.Org = "tdd";
+        instance.AppId = "tdd/a2-named-account-test";
+        instance.DataValues = new Dictionary<string, string>
+        {
+            ["A2ArchRef"] = _a2ArchiveReference.ToString(),
+        };
+        BlobVersionReferencesInternal namedVersions = new(
+            instanceGuid,
+            instance.AppId,
+            instance.Org,
+            1,
+            _namedAccount.Id,
+            ["named-version"]
+        );
+        Mock<IInstanceRepository> instanceRepository = new(MockBehavior.Strict);
+        instanceRepository
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(instance);
+        instanceRepository
+            .Setup(repository =>
+                repository.GetBlobVersionsForInstance(instanceGuid, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([namedVersions]);
+        Mock<IApplicationRepository> applicationRepository = new();
+        applicationRepository
+            .Setup(repository =>
+                repository.FindOne(instance.AppId, instance.Org, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(new Application { Id = instance.AppId, Org = instance.Org });
+        StorageAccount patternDefault = TestStorageAccounts.PatternDefault(instance.Org);
+        Mock<IStorageAccountResolver> resolver = new(MockBehavior.Strict);
+        resolver.Setup(r => r.PatternDefault(instance.Org, 1)).Returns(patternDefault);
+        resolver
+            .Setup(r => r.ForVersion(namedVersions, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_namedAccount);
+        Mock<IBlobRepository> blobRepository = new();
+        blobRepository
+            .Setup(repository =>
+                repository.DeleteDataBlobs(
+                    It.IsAny<StorageAccount>(),
+                    instance.AppId,
+                    instanceGuid,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(false);
+        Mock<IDataRepository> dataRepository = new(MockBehavior.Strict);
+        Mock<IA2Repository> a2Repository = new(MockBehavior.Strict);
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        MigrationController controller = CreateController(
+            a2Repository.Object,
+            memoryCache,
+            instanceRepository.Object,
+            dataRepository.Object,
+            applicationRepository.Object,
+            blobRepository.Object,
+            resolver.Object,
+            false
+        );
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            controller.CleanupOldMigration(instanceGuid, CancellationToken.None)
+        );
+
+        dataRepository.VerifyNoOtherCalls();
+        a2Repository.VerifyNoOtherCalls();
+        instanceRepository.Verify(
+            repository => repository.Delete(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never
+        );
+    }
+
     private MigrationController CreateController(
         IA2Repository a2Repository,
         IMemoryCache memoryCache,
