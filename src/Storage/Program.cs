@@ -337,6 +337,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddRepositoriesPostgreSQL();
 
     services.AddScoped<MetricsApiKeyFilter>();
+    services.AddScoped<CleanupApiKeyFilter>();
 
     services.AddSingleton<IKeyVaultClientWrapper, KeyVaultClientWrapper>();
     services.AddSingleton<IPDP, PDPAppSI>();
