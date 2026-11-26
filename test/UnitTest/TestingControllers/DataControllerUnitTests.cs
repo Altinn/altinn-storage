@@ -1920,7 +1920,8 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.True(result is OkResult { StatusCode: StatusCodes.Status200OK });
+        OkObjectResult okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(new FileScanStatusResponse(FileScanStatusOutcome.Updated), okResult.Value);
         dataRepositoryMock.Verify(
             d =>
                 d.UpdateFileScanStatus(
@@ -1955,7 +1956,10 @@ public class DataControllerUnitTests
             )
             .Returns(
                 Task.FromResult(
-                    new DataElementWriteResult(new DataElementInternal(), expectedVersions)
+                    new FileScanStatusUpdateResult(
+                        FileScanStatusOutcome.Updated,
+                        new DataElementWriteResult(new DataElementInternal(), expectedVersions)
+                    )
                 )
             );
 
@@ -1971,7 +1975,8 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.True(result is OkResult { StatusCode: StatusCodes.Status200OK });
+        OkObjectResult okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(new FileScanStatusResponse(FileScanStatusOutcome.Updated), okResult.Value);
         Assert.Equal(
             "12",
             testController.Response.Headers[StorageHeaders.InstanceVersion].Single()
@@ -1995,8 +2000,12 @@ public class DataControllerUnitTests
         );
     }
 
-    [Fact]
-    public async Task SetFileScanStatus_MissingElement_ReturnsOk()
+    [Theory]
+    [InlineData(FileScanStatusOutcome.Deleted)]
+    [InlineData(FileScanStatusOutcome.Superseded)]
+    public async Task SetFileScanStatus_NotSet_ReturnsOutcomeWithoutVersionHeaders(
+        FileScanStatusOutcome outcome
+    )
     {
         // Arrange
         List<string> expectedPropertiesForPatch = ["/fileScanResult"];
@@ -2011,17 +2020,18 @@ public class DataControllerUnitTests
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Returns(Task.FromResult<DataElementWriteResult>(null));
+            .Returns(Task.FromResult(new FileScanStatusUpdateResult(outcome)));
 
         // Act
-        ActionResult result = await testController.SetFileScanStatus(
+        ActionResult<FileScanStatusResponse> result = await testController.SetFileScanStatus(
             Guid.NewGuid(),
             Guid.NewGuid(),
             new FileScanStatus { FileScanResult = FileScanResult.Infected }
         );
 
         // Assert
-        Assert.IsType<OkResult>(result);
+        OkObjectResult okResult = Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal(new FileScanStatusResponse(outcome), okResult.Value);
         Assert.False(testController.Response.Headers.ContainsKey(StorageHeaders.InstanceVersion));
         Assert.False(
             testController.Response.Headers.ContainsKey(StorageHeaders.ProcessStateVersion)
@@ -2049,7 +2059,7 @@ public class DataControllerUnitTests
             );
 
         // Act
-        ActionResult result = await testController.SetFileScanStatus(
+        ActionResult<FileScanStatusResponse> result = await testController.SetFileScanStatus(
             Guid.NewGuid(),
             Guid.NewGuid(),
             new FileScanStatus
@@ -2060,7 +2070,7 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result.Result);
         Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
         Assert.Equal("Invalid blob version", objectResult.Value);
     }
