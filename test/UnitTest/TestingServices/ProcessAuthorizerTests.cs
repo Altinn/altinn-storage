@@ -72,6 +72,11 @@ public class ProcessAuthorizerTests
             .Setup(a => a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), action, taskId))
             .ReturnsAsync(returns);
 
+    private void SetupNoDecision(string action, string taskId) =>
+        _authorizationMock
+            .Setup(a => a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), action, taskId))
+            .ThrowsAsync(new AuthorizationUnavailableException(null));
+
     #region AuthorizeProcessNext
 
     [Theory]
@@ -108,6 +113,45 @@ public class ProcessAuthorizerTests
         Assert.False(result);
     }
 
+    [Theory]
+    [InlineData("signing", "sign", "write")]
+    [InlineData("payment", "pay", "write")]
+    public async Task AuthorizeProcessNext_NoDecisionThenAllowedAction_ReturnsTrue(
+        string taskType,
+        string undecidedAction,
+        string authorizedAction
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupNoDecision(undecidedAction, "Task_1");
+        SetupAuthorizeAction(authorizedAction, "Task_1", true);
+
+        Assert.True(await CreateSut().AuthorizeProcessNext(instance, new ProcessState()));
+    }
+
+    [Theory]
+    [InlineData("signing", "sign")]
+    [InlineData("signing", "write")]
+    [InlineData("payment", "pay")]
+    [InlineData("payment", "write")]
+    public async Task AuthorizeProcessNext_NoDecisionAndNoAllowedAction_ThrowsAfterAskingAll(
+        string taskType,
+        string undecidedAction
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupNoDecision(undecidedAction, "Task_1");
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            CreateSut().AuthorizeProcessNext(instance, new ProcessState())
+        );
+
+        _authorizationMock.Verify(
+            a => a.AuthorizeInstanceAction(instance, It.IsAny<string>(), "Task_1"),
+            Times.Exactly(2)
+        );
+    }
+
     [Fact]
     public async Task AuthorizeProcessNext_NoCurrentTask_ReturnsFalse()
     {
@@ -135,6 +179,31 @@ public class ProcessAuthorizerTests
         SetupAuthorizeAction("reject", "Task_1", true);
 
         Assert.True(await CreateSut().AuthorizeProcessNext(instance, nextState));
+        _authorizationMock.Verify(
+            a =>
+                a.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                ),
+            Times.Never
+        );
+    }
+
+    [Fact]
+    public async Task AuthorizeProcessNext_AbandonFlow_NoDecision_ThrowsWithoutAskingOtherActions()
+    {
+        var instance = CreateInstance(altinnTaskType: "data");
+        var nextState = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { FlowType = "AbandonCurrentMoveToNext" },
+        };
+        SetupNoDecision("reject", "Task_1");
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            CreateSut().AuthorizeProcessNext(instance, nextState)
+        );
         _authorizationMock.Verify(
             a =>
                 a.AuthorizeInstanceAction(
@@ -326,6 +395,53 @@ public class ProcessAuthorizerTests
 
         Assert.False(await CreateSut().AuthorizeDataElementLock(instance));
         Assert.False(await CreateSut().AuthorizeInstanceLock(instance));
+    }
+
+    [Theory]
+    [InlineData("data", "write")]
+    [InlineData("signing", "sign")]
+    [InlineData("confirmation", "confirm")]
+    public async Task AuthorizeLockAndUpdate_NoDecisionThenReject_ReturnsTrue(
+        string taskType,
+        string undecidedAction
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupNoDecision(undecidedAction, "Task_1");
+        SetupAuthorizeAction("reject", "Task_1", true);
+        var sut = CreateSut();
+
+        Assert.True(await sut.AuthorizeInstanceLock(instance));
+        Assert.True(await sut.AuthorizeDataElementLock(instance));
+        Assert.True(await sut.AuthorizePresentationTextsUpdate(instance));
+        Assert.True(await sut.AuthorizeDataValuesUpdate(instance));
+    }
+
+    [Theory]
+    [InlineData("data", "write")]
+    [InlineData("data", "reject")]
+    [InlineData("signing", "sign")]
+    public async Task AuthorizeLockAndUpdate_NoDecisionAndNoAllowedAction_Throws(
+        string taskType,
+        string undecidedAction
+    )
+    {
+        var instance = CreateInstance(altinnTaskType: taskType);
+        SetupNoDecision(undecidedAction, "Task_1");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            sut.AuthorizeInstanceLock(instance)
+        );
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            sut.AuthorizeDataElementLock(instance)
+        );
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            sut.AuthorizePresentationTextsUpdate(instance)
+        );
+        await Assert.ThrowsAsync<AuthorizationUnavailableException>(() =>
+            sut.AuthorizeDataValuesUpdate(instance)
+        );
     }
 
     [Fact]
