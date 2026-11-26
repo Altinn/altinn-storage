@@ -478,6 +478,35 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ApplicationOnAccountNumberThree_WritableRowsForOneAndThree_WritesToTheRowForThree()
+    {
+        // Arrange
+        StorageHost host = await StartHost(seedApplication: true, storageAccountNumber: 3);
+        BlobContainerClient numberOne = await CreateContainer($"one-{Guid.NewGuid():N}");
+        BlobContainerClient numberThree = await CreateContainer($"three-{Guid.NewGuid():N}");
+        Guid instance = await CreateInstance(host);
+        await InsertWritableAccount(host, numberOne.Name);
+        short numberThreeId = await InsertWritableAccount(host, numberThree.Name, 3);
+
+        // Act
+        Guid element = await Upload(host, instance, "account three");
+
+        // Assert
+        string versionId = Assert.Single(await ReadVersionRows(element)).VersionId;
+        Assert.Equal(numberThreeId, Assert.Single(await ReadVersionRows(element)).StorageAccountId);
+        Assert.Equal(
+            1,
+            await PostgresUtil.RunCountQuery(
+                $"select count(*) from storage.dataelementblobversions where dataelementid = '{element}' and storageaccountnumber = 3"
+            )
+        );
+        Assert.Equal([BlobPath(instance, versionId)], await BlobNames(numberThree));
+        Assert.Empty(await BlobNames(numberOne));
+        Assert.Empty(await BlobNames(_patternContainer));
+        Assert.Equal("account three", await ReadData(host, instance, element));
+    }
+
+    [Fact]
     public async Task FileScanTarget_VersionInNamedAccount_ReadsFromThatAccountUntilScanned()
     {
         // Arrange
@@ -597,7 +626,8 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     private async Task<StorageHost> StartHost(
         int cacheSeconds = 60,
         bool seedApplication = false,
-        CapturingLoggerProvider? logs = null
+        CapturingLoggerProvider? logs = null,
+        int? storageAccountNumber = null
     )
     {
         TestApplicationFactory<DataController> root = new();
@@ -620,6 +650,7 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
                     {
                         Id = AppId,
                         Org = _org,
+                        StorageAccountNumber = storageAccountNumber,
                         Title = new Dictionary<string, string> { ["nb"] = "System test" },
                         DataTypes =
                         [
@@ -640,14 +671,18 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         return container;
     }
 
-    private async Task<short> InsertWritableAccount(StorageHost host, string containerName)
+    private async Task<short> InsertWritableAccount(
+        StorageHost host,
+        string containerName,
+        int storageAccountNumber = StorageAccountNaming.DefaultStorageAccountNumber
+    )
     {
         short id = await host
             .Services.GetRequiredService<IStorageAccountRepository>()
             .Insert(
                 BlobRepositoryAzuriteFixture.ProviderInfo(containerName),
                 _org,
-                StorageAccountNaming.DefaultStorageAccountNumber,
+                storageAccountNumber,
                 writable: true
             );
         host.ClearCache();
