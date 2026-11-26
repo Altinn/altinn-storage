@@ -101,18 +101,18 @@ public static class TestContainers
             .WithDatabase("postgres")
             .WithResourceMapping(
                 ReadEmbeddedResource("postgres_init.sql"),
-                "/docker-entrypoint-initdb.d/postgres_init.sql"
+                FilePath.Of("/docker-entrypoint-initdb.d/postgres_init.sql")
             )
             .Build();
 
         IContainer azurite = new ContainerBuilder(_azuriteImage)
             .WithResourceMapping(
                 Encoding.ASCII.GetBytes(azuriteCertificate.ExportCertificatePem()),
-                "/certs/azurite.pem"
+                FilePath.Of("/certs/azurite.pem")
             )
             .WithResourceMapping(
                 Encoding.ASCII.GetBytes(azuriteKey.ExportPkcs8PrivateKeyPem()),
-                "/certs/azurite-key.pem"
+                FilePath.Of("/certs/azurite-key.pem")
             )
             .WithCommand(
                 "azurite-blob",
