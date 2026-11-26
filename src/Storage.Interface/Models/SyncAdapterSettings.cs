@@ -77,6 +77,14 @@ public class SyncAdapterSettings
     public bool DisableMarkCompletedWhenConfirmed { get; set; }
 
     /// <summary>
+    /// Gets or sets the dialog status the sync adapter should set while an instance created by the service owner
+    /// awaits the first submission from the user. Supported values are Draft, InProgress and RequiresAttention.
+    /// The sync adapter uses InProgress when the value is missing or not supported.
+    /// </summary>
+    [JsonProperty(PropertyName = "statusWhenCreatedByServiceOwner")]
+    public string StatusWhenCreatedByServiceOwner { get; set; }
+
+    /// <summary>
     /// Gets or sets the flag controlling whether the sync adapter should disable synchronizing (overwrite) the title.
     /// </summary>
     [JsonProperty(PropertyName = "disableSyncContentTitle")]
