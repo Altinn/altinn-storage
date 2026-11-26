@@ -254,8 +254,9 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -280,8 +281,9 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -321,10 +323,10 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
     /// Scenario:
     ///   Non-existent instance to be restored
     /// Expected result:
-    ///   Internal server error
+    ///   Forbidden, the same as for an instance the caller may not restore
     /// </summary>
     [Fact]
-    public async Task Undelete_RestoreNonExistentInstance_ReturnsNotFound()
+    public async Task Undelete_RestoreNonExistentInstance_ReturnsForbidden()
     {
         // Arrange
         HttpClient client = GetTestClient();
@@ -340,7 +342,7 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     /// <summary>
@@ -401,8 +403,9 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -426,8 +429,9 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
 
         // Assert
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        string content = await response.Content.ReadAsStringAsync();
-        Assert.True(string.IsNullOrEmpty(content));
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal(StatusCodes.Status403Forbidden, problem.Status);
     }
 
     /// <summary>
@@ -1696,10 +1700,45 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetMessageBoxInstanceEvents_CallerNotAuthorized_ReturnsForbiddenWithoutReadingEvents()
+    {
+        // Arrange
+        Mock<IInstanceEventRepository> repoMock = new();
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
+        Mock<IAuthorization> authorization = new();
+        authorization
+            .Setup(a => a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read"))
+            .ReturnsAuthorization(false);
+        authorization.DelegateGetAuthorizedInstance(instanceRepository);
+        var sut = new MessageBoxInstancesController(
+            instanceRepository,
+            repoMock.Object,
+            null,
+            null,
+            authorization.Object,
+            null,
+            null
+        );
+
+        // Act
+        ActionResult result = await sut.GetMessageBoxInstanceEvents(1606, Guid.NewGuid());
+
+        // Assert
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
+        repoMock.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task GetMessageBoxInstanceEvents_AllEventTypesIncludedInSearch()
     {
         // Arrange
-        string[] extepctedEventTypes =
+        string[] expectedEventTypes =
         {
             "Created",
             "Deleted",
@@ -1716,19 +1755,23 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
             .Setup(rm =>
                 rm.ListInstanceEvents(
                     It.IsAny<Guid>(),
-                    It.Is<string[]>(eventTypes => !extepctedEventTypes.Except(eventTypes).Any()),
+                    It.Is<string[]>(eventTypes => !expectedEventTypes.Except(eventTypes).Any()),
                     It.IsAny<DateTime?>(),
                     It.IsAny<DateTime?>()
                 )
             )
             .ReturnsAsync(new List<InstanceEvent>());
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1783,12 +1826,16 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
             )
             .ReturnsAsync(eventList);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1836,12 +1883,16 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
             )
             .ReturnsAsync(largeNumberOfEvents);
 
+        IInstanceRepository instanceRepository = Mock.Of<IInstanceRepository>(r =>
+            r.GetOne(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>())
+            == Task.FromResult(new InstanceInternal())
+        );
         var sut = new MessageBoxInstancesController(
-            null,
+            instanceRepository,
             repoMock.Object,
             null,
             null,
-            null,
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(instanceRepository),
             null,
             null
         );
@@ -1902,7 +1953,7 @@ public class MessageBoxInstancesControllerTests : IAsyncLifetime
             instanceEventRepository.Object,
             Mock.Of<ITextRepository>(),
             Mock.Of<IApplicationRepository>(),
-            Mock.Of<IAuthorization>(),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             applicationService.Object,
             NullLogger<MessageBoxInstancesController>.Instance
         )

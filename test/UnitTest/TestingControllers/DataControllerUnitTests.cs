@@ -678,7 +678,7 @@ public class DataControllerUnitTests
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         fixture
             .DataRepository.Setup(d =>
                 d.Read(instanceGuid, dataGuid, It.IsAny<CancellationToken>())
@@ -734,7 +734,7 @@ public class DataControllerUnitTests
         }
         else
         {
-            Assert.IsType<ForbidResult>(result);
+            await ProblemAsserts.AssertProblemAsync(result, StatusCodes.Status403Forbidden);
             VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
         }
     }
@@ -897,9 +897,9 @@ public class DataControllerUnitTests
             : CreateOrgPrincipal(org);
         fixture
             .Authorization.Setup(a =>
-                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), "read")
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read")
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
 
         // Act
         ActionResult result = await fixture.Sut.GetBlobVersion(
@@ -911,7 +911,10 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         fixture.DataRepository.Verify(
             d =>
                 d.ReadBlobVersion(
@@ -921,6 +924,37 @@ public class DataControllerUnitTests
                     It.IsAny<CancellationToken>()
                 ),
             Times.Never
+        );
+        VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
+    }
+
+    [Fact]
+    public async Task GetBlobVersion_SyncAdapter_ReturnsForbiddenBeforeReadingBlob()
+    {
+        // Arrange - the sync adapter's PDP bypass does not extend to blob versions.
+        Guid instanceGuid = Guid.NewGuid();
+        BlobVersionReadFixture fixture = CreateBlobVersionReadFixture(instanceGuid);
+        fixture.HttpContext.User = CreateOrgPrincipal("ttd");
+        fixture.Authorization.Setup(a => a.UserHasRequiredScope(It.IsAny<string>())).Returns(true);
+        fixture
+            .Authorization.Setup(a =>
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), "read")
+            )
+            .ReturnsAuthorization(true);
+
+        // Act
+        ActionResult result = await fixture.Sut.GetBlobVersion(
+            12345,
+            instanceGuid,
+            Guid.NewGuid(),
+            BlobVersionId.Encode(Guid.CreateVersion7()),
+            CancellationToken.None
+        );
+
+        // Assert
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
         );
         VerifyNoContentReadSideEffects(fixture.DataRepository, fixture.BlobRepository);
     }
@@ -1146,7 +1180,10 @@ public class DataControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result,
+            StatusCodes.Status403Forbidden
+        );
         dataRepositoryMock.Verify(
             repository =>
                 repository.Read(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
@@ -2872,7 +2909,7 @@ public class DataControllerUnitTests
         );
 
         // Assert
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
     }
 
     [Theory]
@@ -3601,14 +3638,15 @@ public class DataControllerUnitTests
 
         authorizationServiceMock
             .Setup(a =>
-                a.AuthorizeEnrichedInstanceAction(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+                a.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(authorized);
+            .ReturnsAuthorization(authorized);
         authorizationServiceMock
             .Setup(a =>
                 a.AuthorizeInstanceAction(It.IsAny<InstanceInternal>(), "write", It.IsAny<string>())
             )
-            .ReturnsAsync(dataTypeWriteAuthorized);
+            .ReturnsAuthorization(dataTypeWriteAuthorized);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         Mock<HttpContext> httpContextMock = new();
         httpContextMock.Setup(c => c.User).Returns(PrincipalUtil.GetPrincipal(200001, 1337));
@@ -3769,8 +3807,9 @@ public class DataControllerUnitTests
             .Setup(repository => repository.FindOne(_appId, _org, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
         authorization
-            .Setup(a => a.AuthorizeEnrichedInstanceAction(instance, "read"))
-            .ReturnsAsync(true);
+            .Setup(a => a.AuthorizeInstanceRequest(instance, "read"))
+            .ReturnsAuthorization(true);
+        authorization.DelegateGetAuthorizedInstance(instanceRepository.Object);
 
         DefaultHttpContext httpContext = new() { User = CreateOrgPrincipal(_org) };
         DataController sut = new(
@@ -3845,6 +3884,12 @@ public class DataControllerUnitTests
         Mock<IInstanceEventService> instanceEventServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
 
+        authorizationServiceMock
+            .Setup(service =>
+                service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
+            )
+            .ReturnsAuthorization(true);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
         dataRepositoryMock
             .Setup(repository =>
                 repository.Read(instanceGuid, dataElementId, It.IsAny<CancellationToken>())

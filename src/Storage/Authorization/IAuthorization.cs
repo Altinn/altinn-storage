@@ -1,10 +1,11 @@
-﻿#nullable disable
-
+﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Authorization.ABAC.Xacml.JsonProfile;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Altinn.Platform.Storage.Authorization;
 
@@ -16,29 +17,77 @@ public interface IAuthorization
     /// <summary>
     /// Authorize instances, and returns a list of MesseageBoxInstances with information about read and write rights of each instance.
     /// </summary>
-    public Task<List<MessageBoxInstance>> AuthorizeMesseageBoxInstances(
-        List<InstanceInternal> instances,
-        bool keyAccessMode
-    );
+    /// <returns>
+    /// The authorized instances, or a 503 problem when Altinn Authorization gave no decision.
+    /// </returns>
+    public Task<(
+        List<MessageBoxInstance>? Instances,
+        ProblemDetails? Problem
+    )> AuthorizeMesseageBoxInstances(List<InstanceInternal> instances, bool keyAccessMode);
 
     /// <summary>
     /// Authorizes a given action on a storage instance.
     /// </summary>
-    public Task<bool> AuthorizeInstanceAction(
+    /// <returns>
+    /// Null when the user is authorized, 403 when the user is not, and 503 when Altinn Authorization
+    /// gave no decision.
+    /// </returns>
+    public Task<ProblemDetails?> AuthorizeInstanceAction(
         InstanceInternal instance,
         string action,
-        string task = null
+        string? task = null
     );
 
     /// <summary>
-    /// Authorizes a read action on a storage instance with full process context.
+    /// Authorizes the current user to perform <paramref name="action"/> on <paramref name="instance"/>.
+    /// Callers with the sync adapter scope are authorized for read, write and delete without asking
+    /// the PDP. Otherwise the XACML request includes the instance's process context (current task or
+    /// end event), and the decision is cached. A missing instance is refused without asking the PDP.
     /// </summary>
-    public Task<bool> AuthorizeEnrichedInstanceAction(InstanceInternal instance, string action);
+    /// <param name="instance">The instance to authorize against, or null when no instance exist.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
+    /// <returns>
+    /// Null when the user is authorized. Otherwise the problem to answer with: 403 when the user is not
+    /// authorized or the instance is missing, 503 when Altinn Authorization gave no decision and a retry
+    /// may succeed.
+    /// </returns>
+    public Task<ProblemDetails?> AuthorizeInstanceRequest(
+        InstanceInternal? instance,
+        string action
+    );
+
+    /// <summary>
+    /// Loads the instance identified by <paramref name="instanceOwnerPartyId"/> and <paramref name="instanceGuid"/>
+    /// and authorizes the current user to perform <paramref name="action"/> on it, as
+    /// <see cref="AuthorizeInstanceRequest"/> does.
+    /// </summary>
+    /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
+    /// <param name="instanceGuid">The id of the instance.</param>
+    /// <param name="action">The action to authorize, e.g. "read", "write" or "delete".</param>
+    /// <param name="includeElements">Whether to load the instance's data elements.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// Exactly one of <c>Instance</c> and <c>Problem</c> is set. <c>Instance</c> is the loaded instance when
+    /// the user is authorized and the instance exists. Otherwise <c>Problem</c> is the response to give: 403
+    /// when the user is not authorized or the instance does not exist, and 503 when Altinn Authorization gave
+    /// no decision. Only the sync adapter, which may read every instance, gets 404 for a missing instance.
+    /// </returns>
+    public Task<(InstanceInternal? Instance, ProblemDetails? Problem)> GetAuthorizedInstance(
+        int instanceOwnerPartyId,
+        Guid instanceGuid,
+        string action,
+        bool includeElements,
+        CancellationToken cancellationToken
+    );
 
     /// <summary>
     /// Authorizes that the user has one or more of the actions on a storage instance.
     /// </summary>
-    public Task<bool> AuthorizeAnyOfInstanceActions(
+    /// <returns>
+    /// Null when the user is authorized for at least one of the actions. Otherwise 503 when Altinn
+    /// Authorization gave no decision, and 403 when it refused.
+    /// </returns>
+    public Task<ProblemDetails?> AuthorizeAnyOfInstanceActions(
         InstanceInternal instance,
         List<string> actions
     );
@@ -46,7 +95,12 @@ public interface IAuthorization
     /// <summary>
     /// Authorize storage instances, and returns the instances that the user has the right to read.
     /// </summary>
-    public Task<List<InstanceInternal>> AuthorizeInstances(List<InstanceInternal> instances);
+    /// <returns>
+    /// The instances the user may read, or a 503 problem when Altinn Authorization gave no decision.
+    /// </returns>
+    public Task<(List<InstanceInternal>? Instances, ProblemDetails? Problem)> AuthorizeInstances(
+        List<InstanceInternal> instances
+    );
 
     /// <summary>
     /// Verifies that the user has at least one of the supplied scopes.
@@ -67,5 +121,5 @@ public interface IAuthorization
     /// </summary>
     /// <param name="xacmlJsonRequest">The Xacml Json Request</param>
     /// <returns>The Xacml Json response contains the result of the request</returns>
-    public Task<XacmlJsonResponse> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
+    public Task<XacmlJsonResponse?> GetDecisionForRequest(XacmlJsonRequestRoot xacmlJsonRequest);
 }

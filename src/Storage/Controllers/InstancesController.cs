@@ -97,6 +97,14 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<QueryResponse<Instance>>> GetInstances(
         InstanceQueryParameters queryParameters,
         CancellationToken cancellationToken
@@ -195,7 +203,14 @@ public class InstancesController : ControllerBase
                     throw new TimeoutException("Request was cancelled.");
                 }
 
-                result.Instances = await _authorizationService.AuthorizeInstances(result.Instances);
+                (List<InstanceInternal> authorizedInstances, ProblemDetails problem) =
+                    await _authorizationService.AuthorizeInstances(result.Instances);
+                if (problem is not null)
+                {
+                    return problem.ToResult();
+                }
+
+                result.Instances = authorizedInstances;
             }
 
             string nextContinuationToken = HttpUtility.UrlEncode(result.ContinuationToken);
@@ -251,45 +266,21 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> Get(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
-        {
-            Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(responseInstance);
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -304,44 +295,20 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> GetByGuid(
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceGuid}");
-        }
-
-        if (_authorizationService.UserHasRequiredScope([_generalSettings.InstanceSyncAdapterScope]))
-        {
-            Instance responseInstance = instance.ToApiModel();
-            responseInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-            VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-            return Ok(responseInstance);
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
-        }
-
-        Instance mappedInstance = instance.ToApiModel();
-        if (User.GetOrg() != instance.Org)
-        {
-            FilterOutDeletedDataElements(mappedInstance);
-        }
-
-        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
-        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
-        return Ok(mappedInstance);
+        return await GetInstanceResponseAsync(instanceGuid, cancellationToken);
     }
 
     /// <summary>
@@ -359,6 +326,14 @@ public class InstancesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> Post(
         string appId,
         [FromBody] Instance instance,
@@ -394,7 +369,7 @@ public class InstancesController : ControllerBase
                 appInfo.Org,
                 appInfo.Id.Split('/')[1],
                 HttpContext.User,
-                "instantiate",
+                AuthorizationActions.Instantiate,
                 instanceOwnerPartyId,
                 null
             );
@@ -426,13 +401,13 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (response?.Response == null)
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            _logger.LogInformation(
-                "// Instances Controller // Authorization of instantiation failed with request: {request}.",
+            _logger.LogWarning(
+                "// Instances Controller // Authorization of instantiation got no decision for request: {request}.",
                 JsonConvert.SerializeObject(request)
             );
-            return Forbid();
+            return AuthorizationProblems.AuthorizationUnavailable().ToResult();
         }
 
         bool authorized;
@@ -453,7 +428,7 @@ public class InstancesController : ControllerBase
 
         if (!authorized)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         InstanceInternal storedInstance = null;
@@ -514,15 +489,22 @@ public class InstancesController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Information from the deleted instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> Delete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -534,24 +516,24 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceOwnerPartyId}/{instanceGuid}"
-            );
         }
 
         instance.Status ??= new InstanceStatus();
@@ -657,12 +639,20 @@ public class InstancesController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>Returns a list of the process events.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_COMPLETE)]
+    [Authorize]
     [HttpPost("{instanceOwnerPartyId:int}/{instanceGuid:guid}/complete")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> AddCompleteConfirmation(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
@@ -673,6 +663,19 @@ public class InstancesController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Complete,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -681,16 +684,6 @@ public class InstancesController : ControllerBase
         }
 
         List<string> updateProperties = [];
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
-        }
-
         string org = User.GetOrg();
 
         instance.CompleteConfirmations ??= new List<CompleteConfirmation>();
@@ -765,12 +758,20 @@ public class InstancesController : ControllerBase
     /// <param name="status">The updated read status.</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>Returns the updated instance.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/readstatus")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> UpdateReadStatus(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
@@ -778,21 +779,24 @@ public class InstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         if (!Enum.TryParse(status, true, out ReadStatus newStatus))
         {
             return BadRequest(
                 $"Invalid read status: {status}. Accepted types include: {string.Join(", ", Enum.GetNames<ReadStatus>())}"
             );
-        }
-
-        InstanceInternal instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            true,
-            cancellationToken
-        );
-        if (instance is null)
-        {
-            return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
         InstanceInternal updatedInstance;
@@ -889,7 +893,7 @@ public class InstancesController : ControllerBase
         string org = User.GetOrg();
         if (!instance.Org.Equals(org))
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         InstanceInternal updatedInstance;
@@ -965,11 +969,18 @@ public class InstancesController : ControllerBase
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/presentationtexts")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Consumes("application/json")]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> UpdatePresentationTexts(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
@@ -1003,9 +1014,9 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
-        if (!await _processAuthorizer.AuthorizePresentationTextsUpdate(instance))
+        if (await _processAuthorizer.AuthorizePresentationTextsUpdate(instance) is { } problem)
         {
-            return Forbid();
+            return problem.ToResult();
         }
 
         if (instance.PresentationTexts == null)
@@ -1074,11 +1085,18 @@ public class InstancesController : ControllerBase
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/datavalues")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
     [Consumes("application/json")]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<Instance>> UpdateDataValues(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
@@ -1112,9 +1130,9 @@ public class InstancesController : ControllerBase
             return NotFound($"Unable to find instance {instanceOwnerPartyId}/{instanceGuid}.");
         }
 
-        if (!await _processAuthorizer.AuthorizeDataValuesUpdate(instance))
+        if (await _processAuthorizer.AuthorizeDataValuesUpdate(instance) is { } problem)
         {
-            return Forbid();
+            return problem.ToResult();
         }
 
         InstanceInternal updatedInstance;
@@ -1233,7 +1251,7 @@ public class InstancesController : ControllerBase
             && !_authorizationService.UserHasRequiredScope(_generalSettings.InstanceReadScope)
         )
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         if (
@@ -1282,7 +1300,7 @@ public class InstancesController : ControllerBase
             queryParameters.Org,
             appId,
             HttpContext.User,
-            "read"
+            AuthorizationActions.Read
         );
         XacmlJsonResponse response;
         try
@@ -1299,9 +1317,18 @@ public class InstancesController : ControllerBase
             throw;
         }
 
-        if (!DecisionHelper.ValidatePdpDecision(response?.Response, HttpContext.User))
+        if (!AuthorizationProblems.HasDecision(response))
         {
-            return Forbid();
+            _logger.LogWarning(
+                "// Instances Controller // Cross-org instance query got no decision for org: {Org}",
+                queryParameters.Org.Clean()
+            );
+            return AuthorizationProblems.AuthorizationUnavailable().ToResult();
+        }
+
+        if (!DecisionHelper.ValidatePdpDecision(response.Response, HttpContext.User))
+        {
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         return null;
@@ -1445,6 +1472,49 @@ public class InstancesController : ControllerBase
         queryParameters.Size ??= 100;
 
         return queryParameters;
+    }
+
+    /// <summary>
+    /// Shared implementation of the instance read endpoints: authorizes the read, then returns the
+    /// instance as seen by the caller.
+    /// </summary>
+    private async Task<ActionResult<Instance>> GetInstanceResponseAsync(
+        Guid instanceGuid,
+        CancellationToken cancellationToken
+    )
+    {
+        InstanceInternal instance = await _instanceRepository.GetOne(
+            instanceGuid,
+            true,
+            cancellationToken
+        );
+
+        ProblemDetails problem = await _authorizationService.AuthorizeInstanceRequest(
+            instance,
+            AuthorizationActions.Read
+        );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
+        if (instance is null)
+        {
+            return NotFound($"Unable to find instance {instanceGuid}");
+        }
+
+        Instance mappedInstance = instance.ToApiModel();
+        bool isSyncAdapter = _authorizationService.UserHasRequiredScope([
+            _generalSettings.InstanceSyncAdapterScope,
+        ]);
+        if (User.GetOrg() != instance.Org && !isSyncAdapter)
+        {
+            FilterOutDeletedDataElements(mappedInstance);
+        }
+
+        mappedInstance.SetPlatformSelfLinks(_storageBaseAndHost);
+        VersionPreconditionHelper.WriteVersionResponseHeaders(Response, instance);
+        return Ok(mappedInstance);
     }
 
     private static void FilterOutDeletedDataElements(Instance instance)

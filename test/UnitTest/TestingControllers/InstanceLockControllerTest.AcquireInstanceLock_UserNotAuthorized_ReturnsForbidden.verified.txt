@@ -3,15 +3,14 @@
     Status: 403 Forbidden,
     Content: {
       Headers: {
-        Content-Length: 214,
-        Content-Type: application/json; charset=utf-8
+        Content-Length: 114,
+        Content-Type: application/problem+json
       },
       Value: {
-        type: https://tools.ietf.org/html/rfc9110#section-15.5.4,
+        type: instance_forbidden,
         title: Forbidden,
         status: 403,
-        detail: Not authorized to acquire instance lock.,
-        traceId: {Scrubbed}
+        detail: Not authorized to acquire instance lock.
       }
     }
   }

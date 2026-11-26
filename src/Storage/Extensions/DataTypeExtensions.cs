@@ -13,9 +13,10 @@ namespace Altinn.Platform.Storage.Extensions;
 internal static class DataTypeExtensions
 {
     /// <summary>
-    /// Checks if the user has permission to read data of this type for the given storage instance.
+    /// Authorizes the user to read data of this type in the given storage instance.
     /// </summary>
-    public static async Task<bool> CanRead(
+    /// <returns>Null when the user may, otherwise the problem to answer with (403 or 503).</returns>
+    public static async Task<ProblemDetails?> AuthorizeRead(
         this DataType dataType,
         IAuthorization authorizationService,
         InstanceInternal instance,
@@ -24,7 +25,7 @@ internal static class DataTypeExtensions
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToRead))
         {
-            return true;
+            return null;
         }
 
         return await authorizationService.AuthorizeInstanceAction(
@@ -35,9 +36,10 @@ internal static class DataTypeExtensions
     }
 
     /// <summary>
-    /// Checks if the user has permission to write data of this type for the given storage instance.
+    /// Authorizes the user to write data of this type in the given storage instance.
     /// </summary>
-    public static async Task<bool> CanWrite(
+    /// <returns>Null when the user may, otherwise the problem to answer with (403 or 503).</returns>
+    public static async Task<ProblemDetails?> AuthorizeWrite(
         this DataType dataType,
         IAuthorization authorizationService,
         InstanceInternal instance,
@@ -46,7 +48,7 @@ internal static class DataTypeExtensions
     {
         if (string.IsNullOrWhiteSpace(dataType.ActionRequiredToWrite))
         {
-            return true;
+            return null;
         }
 
         return await authorizationService.AuthorizeInstanceAction(

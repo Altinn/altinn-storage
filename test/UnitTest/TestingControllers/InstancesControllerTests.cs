@@ -348,6 +348,96 @@ public class InstancesControllerTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// Test case: A caller asks for an instance that does not exist.
+    /// Expected: 403 without asking the PDP, so the caller learns nothing about whether the instance exists.
+    /// </summary>
+    [Theory]
+    [InlineData("1337/")]
+    [InlineData("")]
+    public async Task Get_MissingInstance_ReturnsForbiddenWithoutPdp(string partyPrefix)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/{partyPrefix}{Guid.NewGuid()}";
+        Mock<IPDP> pdpMock = CreatePdpMock("Permit");
+        HttpClient client = GetTestClient(pdpMock: pdpMock);
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        pdpMock.Verify(
+            pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()),
+            Times.Never()
+        );
+    }
+
+    /// <summary>
+    /// Test case: The Dialogporten sync adapter asks for an instance that does not exist.
+    /// Expected: 404, since the sync adapter may read every instance and relies on 404 for deleted ones.
+    /// </summary>
+    [Fact]
+    public async Task Get_MissingInstance_SyncAdapter_ReturnsNotFound()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/{Guid.NewGuid()}";
+        HttpClient client = GetTestClient();
+        string token = PrincipalUtil.GetOrgToken(
+            "digdir",
+            scope: "altinn:storage/instances.syncadapter"
+        );
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Test case: Altinn Authorization gives no decision for an existing instance.
+    /// Expected: 503 with a problem body, so the caller knows a retry may succeed.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("Indeterminate")]
+    public async Task Get_PdpGivesNoDecision_ReturnsServiceUnavailable(string decision)
+    {
+        // Arrange
+        string requestUri = $"{BasePath}/1337/46133fb5-a9f2-45d4-90b1-f6d93ad40713";
+        HttpClient client = GetTestClient(pdpMock: CreatePdpMock(decision));
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        ProblemDetails problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Equal("authorization_unavailable", problem?.Type);
+    }
+
+    private static Mock<IPDP> CreatePdpMock(string decision)
+    {
+        Mock<IPDP> pdpMock = new();
+        pdpMock
+            .Setup(pdp => pdp.GetDecisionForRequest(It.IsAny<XacmlJsonRequestRoot>()))
+            .ReturnsAsync(
+                decision is null
+                    ? null
+                    : new XacmlJsonResponse
+                    {
+                        Response = [new XacmlJsonResult { Decision = decision }],
+                    }
+            );
+        return pdpMock;
+    }
+
+    /// <summary>
     /// Test case: Reading the instance from the repository fails.
     /// Expected: Returns status internal server error, not not found.
     /// </summary>
@@ -1522,7 +1612,7 @@ public class InstancesControllerTests : IAsyncLifetime
             .Returns(false);
         authorization
             .Setup(service => service.AuthorizeInstances(It.IsAny<List<InstanceInternal>>()))
-            .ReturnsAsync([authorizedInstance]);
+            .ReturnsAsync(([authorizedInstance], null));
         HttpClient client = GetTestClient(repository, authorizationService: authorization);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
@@ -2418,6 +2508,35 @@ public class InstancesControllerTests : IAsyncLifetime
 
     /// <summary>
     /// Scenario:
+    ///   A user without the required role calls the complete operation.
+    /// Result:
+    ///   The inline authorization denies the request and returns status Forbidden.
+    /// </summary>
+    [Fact]
+    public async Task AddCompleteConfirmation_UserNotAuthorized_ReturnsForbidden()
+    {
+        // Arrange
+        int instanceOwnerPartyId = 1337;
+        string instanceGuid = "2f7fa5ce-e878-4e1f-a241-8c0eb1a83eab";
+        string requestUri = $"{BasePath}/{instanceOwnerPartyId}/{instanceGuid}/complete";
+
+        HttpClient client = GetTestClient();
+
+        string token = PrincipalUtil.GetToken(3, 1337, 3);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Act
+        HttpResponseMessage response = await client.PostAsync(
+            requestUri,
+            new StringContent(string.Empty)
+        );
+
+        // Assert
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Scenario:
     ///   A stakeholder calls the complete operation to indicate that they consider the instance as completed, but
     ///   they have already done so from before. The API makes no changes and return the original instancee.
     /// Result:
@@ -2466,13 +2585,12 @@ public class InstancesControllerTests : IAsyncLifetime
 
     /// <summary>
     /// Scenario:
-    ///   A stakeholder calls the complete operation to indicate that they consider the instance as completed, but
-    ///   the attempt to get the instance from the document database fails in an exception.
+    ///   A stakeholder calls the complete operation on an instance that does not exist.
     /// Result:
-    ///   The response has status code 500.
+    ///   The response has status code 403, the same as for an instance the caller may not complete.
     /// </summary>
     [Fact]
-    public async Task AddCompleteConfirmation_CompleteNonExistentInstance_ExceptionDuringAuthorization_RespondsWithInternalServerError()
+    public async Task AddCompleteConfirmation_CompleteNonExistentInstance_RespondsWithForbidden()
     {
         // Arrange
         string org = "tdd";
@@ -2492,15 +2610,14 @@ public class InstancesControllerTests : IAsyncLifetime
         );
 
         // Assert
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     /// <summary>
     /// Scenario:
-    ///   A stakeholder calls the complete operation to indicate that they consider the instance as completed, but
-    ///   the attempt to get the instance from the document database fails in an exception.
+    ///   A stakeholder calls the complete operation on an instance that does not exist.
     /// Result:
-    ///   The response has status code 500.
+    ///   The response has status code 403, the same as for an instance the caller may not complete.
     /// </summary>
     [Fact]
     public async Task AddCompleteConfirmation_AttemptToCompleteInstanceAsUser_ReturnsForbidden()
@@ -3293,12 +3410,14 @@ public class InstancesControllerTests : IAsyncLifetime
             .Setup(repo => repo.GetOne(instance.Id, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(instance);
         var authorizer = new Mock<IProcessAuthorizer>();
-        authorizer.Setup(auth => auth.AuthorizeDataValuesUpdate(instance)).ReturnsAsync(true);
+        authorizer
+            .Setup(auth => auth.AuthorizeDataValuesUpdate(instance))
+            .ReturnsAuthorization(true);
         return new InstancesController(
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             Mock.Of<IInstanceEventService>(),
             Mock.Of<IRegisterService>(),
             Mock.Of<IApplicationService>(),
@@ -3425,10 +3544,10 @@ public class InstancesControllerTests : IAsyncLifetime
         Mock<IProcessAuthorizer> processAuthorizer = new();
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizePresentationTextsUpdate(internalInstance))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizer
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(internalInstance))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         DefaultHttpContext httpContext = new()
         {
             User = new ClaimsPrincipal(
@@ -3445,7 +3564,7 @@ public class InstancesControllerTests : IAsyncLifetime
             repository.Object,
             Mock.Of<IPartiesWithInstancesClient>(),
             NullLogger<InstancesController>.Instance,
-            Mock.Of<IAuthorization>(),
+            AuthorizationMockExtensions.CreatePermissiveAuthorization(repository.Object),
             instanceEventService.Object,
             Mock.Of<IRegisterService>(),
             applicationService.Object,

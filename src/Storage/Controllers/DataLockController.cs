@@ -62,9 +62,16 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> Lock(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -83,9 +90,9 @@ public class DataLockController : ControllerBase
             return instanceError!;
         }
 
-        if (!await _processAuthorizer.AuthorizeDataElementLock(instance))
+        if (await _processAuthorizer.AuthorizeDataElementLock(instance) is { } lockProblem)
         {
-            return Forbid();
+            return lockProblem.ToResult();
         }
 
         DataElementInternal? dataElement = instance.Data.FirstOrDefault(d => d.Id == dataGuid);
@@ -136,9 +143,16 @@ public class DataLockController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> Unlock(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -154,16 +168,16 @@ public class DataLockController : ControllerBase
         );
         if (instance == null)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
-        bool authorized = await _authorizationService.AuthorizeAnyOfInstanceActions(
+        ProblemDetails? unlockProblem = await _authorizationService.AuthorizeAnyOfInstanceActions(
             instance,
-            ["write", "unlock", "reject"]
+            [AuthorizationActions.Write, "unlock", AuthorizationActions.Reject]
         );
-        if (!authorized)
+        if (unlockProblem is not null)
         {
-            return Forbid();
+            return unlockProblem.ToResult();
         }
 
         try

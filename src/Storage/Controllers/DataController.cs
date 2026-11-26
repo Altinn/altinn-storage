@@ -101,13 +101,21 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the deleted data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpDelete("data/{dataGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> Delete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -120,22 +128,24 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
         {
             return preconditionError;
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -179,9 +189,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
@@ -276,6 +289,14 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status412PreconditionFailed)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> Get(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -283,25 +304,22 @@ public class DataController : ControllerBase
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
         }
 
         (DataElementInternal dataElement, ActionResult dataElementError) =
@@ -330,9 +348,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeRead(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
@@ -461,8 +482,15 @@ public class DataController : ControllerBase
     [Authorize]
     [HttpGet("data/{dataGuid:guid}/versions/{blobVersionId}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> GetBlobVersion(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -482,13 +510,18 @@ public class DataController : ControllerBase
             return instanceError;
         }
 
-        if (
+        // Only the app owner reads blob versions. The sync adapter's bypass of the PDP does not apply here.
+        ProblemDetails problem =
             User.GetOrg() != instance.Org
-            || await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read")
-                is false
-        )
+            || _authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope)
+                ? AuthorizationProblems.Forbidden()
+                : await _authorizationService.AuthorizeInstanceRequest(
+                    instance,
+                    AuthorizationActions.Read
+                );
+        if (problem is not null)
         {
-            return Forbid();
+            return problem.ToResult();
         }
 
         DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
@@ -538,9 +571,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanRead(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeRead(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         Stream dataStream = await _blobRepository.ReadBlob(
@@ -571,31 +607,36 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElementList>> GetMany(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Read,
+                includeElements: true,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         if (instanceOwnerPartyId == 0)
         {
             return BadRequest("Missing parameter value: instanceOwnerPartyId can not be empty");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            true,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
-        }
-
-        if (await _authorizationService.AuthorizeEnrichedInstanceAction(instance, "read") is false)
-        {
-            return Forbid();
         }
 
         bool appOwnerRequestingElement = User.GetOrg() == instance.Org;
@@ -625,7 +666,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the new data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPost("data")]
     [DisableFormValueModelBinding]
     [RequestSizeLimit(RequestSizeLimit)]
@@ -633,6 +674,14 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> CreateAndUploadData(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid,
@@ -646,6 +695,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -658,17 +720,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, elementType or attached file content cannot be null"
             );
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -690,9 +741,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
@@ -792,7 +846,7 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The metadata of the updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("data/{dataGuid}")]
     [DisableFormValueModelBinding]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -801,6 +855,14 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> OverwriteData(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -814,6 +876,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -826,17 +901,6 @@ public class DataController : ControllerBase
             return BadRequest(
                 "Missing parameter values: instanceId, datafile or attached file content cannot be empty"
             );
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (Application application, ActionResult applicationError) = await GetApplicationAsync(
@@ -865,9 +929,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
@@ -1120,13 +1187,21 @@ public class DataController : ControllerBase
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
     /// <returns>The updated data element.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
+    [Authorize]
     [HttpPut("dataelements/{dataGuid}")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<DataElement>> Update(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -1139,6 +1214,19 @@ public class DataController : ControllerBase
             string ifProcessStateVersionMatch = null
     )
     {
+        (InstanceInternal instance, ProblemDetails problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Write,
+                includeElements: false,
+                cancellationToken
+            );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         (VersionPreconditions preconditions, ActionResult preconditionError) =
             VersionPreconditionHelper.TryParse(ifInstanceVersionMatch, ifProcessStateVersionMatch);
         if (preconditionError is not null)
@@ -1152,17 +1240,6 @@ public class DataController : ControllerBase
         )
         {
             return BadRequest("Mismatch between path and dataElement content");
-        }
-
-        (InstanceInternal instance, ActionResult instanceError) = await GetInstanceAsync(
-            instanceGuid,
-            instanceOwnerPartyId,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return instanceError;
         }
 
         (DataElementInternal storedDataElement, ActionResult dataElementError) =
@@ -1199,9 +1276,12 @@ public class DataController : ControllerBase
             return dataTypeError;
         }
 
-        if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
+        if (
+            await dataTypeDefinition.AuthorizeWrite(_authorizationService, instance) is
+            { } dataTypeProblem
+        )
         {
-            return Forbid();
+            return dataTypeProblem.ToResult();
         }
 
         if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)

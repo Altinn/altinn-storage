@@ -24,7 +24,6 @@ using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Utils;
 using AltinnCore.Authentication.Constants;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -479,7 +478,7 @@ public class InstanceMutationsControllerUnitTests
     [Theory]
     [InlineData("""{"expectedProcessStatus":"future","dataValues":{"value":"update"}}""")]
     [InlineData("""{"processState":{"state":{"status":"future"}}}""")]
-    public async Task CommitMutation_UnsupportedTransitionStatus_ReturnsBadRequestBeforeReads(
+    public async Task CommitMutation_UnsupportedTransitionStatus_ReturnsBadRequestBeforeMutationReads(
         string mutationJson
     )
     {
@@ -506,7 +505,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -584,7 +583,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -712,7 +711,7 @@ public class InstanceMutationsControllerUnitTests
                 .ProcessAuthorizer.Setup(authorizer =>
                     authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
                 )
-                .ReturnsAsync(false);
+                .ReturnsAuthorization(false);
         }
         else
         {
@@ -720,7 +719,7 @@ public class InstanceMutationsControllerUnitTests
                 .ProcessAuthorizer.Setup(authorizer =>
                     authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
                 )
-                .ReturnsAsync(false);
+                .ReturnsAuthorization(false);
         }
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -729,7 +728,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.DataRepository.Verify(
             repository =>
                 repository.CreateBlobVersionId(
@@ -1171,7 +1170,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_WhenPrincipalHasNoUserOrOrg_ReturnsForbidBeforeWork()
+    public async Task CommitMutation_WhenPrincipalHasNoUserOrOrg_ReturnsForbidBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1194,7 +1193,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.InstanceRepository.Verify(
             repository =>
                 repository.GetOne(
@@ -1202,13 +1201,52 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteInstanceHard_WhenDeletePolicyFails_ReturnsForbid()
+    public async Task CommitMutation_WhenWriteAuthorizationFails_ReturnsForbid()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(instanceGuid, []);
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            CreateAggregateApplication(),
+            """
+            {
+              "presentationTexts": { "title": "Updated" }
+            }
+            """
+        );
+        fixture
+            .AuthorizationService.Setup(service =>
+                service.AuthorizeInstanceRequest(instanceInternal, AuthorizationActions.Write)
+            )
+            .ReturnsAuthorization(false);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
+        fixture.AuthorizationService.Verify(
+            service =>
+                service.AuthorizeInstanceRequest(instanceInternal, AuthorizationActions.Write),
+            Times.Once
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceHard_WhenDeleteAuthorizationFails_ReturnsForbid()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1224,14 +1262,13 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         fixture
-            .PolicyAuthorizationService.Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+            .AuthorizationService.Setup(service =>
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 )
             )
-            .ReturnsAsync(AuthorizationResult.Failed());
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -1239,13 +1276,15 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
-        fixture.PolicyAuthorizationService.Verify(
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Once
         );
@@ -1286,14 +1325,13 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         fixture
-            .PolicyAuthorizationService.Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+            .AuthorizationService.Setup(service =>
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 )
             )
-            .ReturnsAsync(AuthorizationResult.Success());
+            .ReturnsAuthorization(true);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -1307,12 +1345,11 @@ public class InstanceMutationsControllerUnitTests
             "Instance cannot be deleted yet due to application restrictions.",
             forbidden.Value
         );
-        fixture.PolicyAuthorizationService.Verify(
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Once
         );
@@ -1341,14 +1378,13 @@ public class InstanceMutationsControllerUnitTests
             )
             .ReturnsAsync((InstanceInternal)null);
         fixture
-            .PolicyAuthorizationService.Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+            .AuthorizationService.Setup(service =>
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 )
             )
-            .ReturnsAsync(AuthorizationResult.Failed());
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -1356,14 +1392,17 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
-        Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", notFound.Value);
-        fixture.PolicyAuthorizationService.Verify(
+        ProblemDetails notFoundProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status404NotFound
+        );
+        ProblemDetails problem = notFoundProblem;
+        Assert.Equal($"Unable to find any instance with id: 555/{instanceGuid}.", problem.Detail);
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<ClaimsPrincipal>(),
-                    It.IsAny<object>(),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Never
         );
@@ -1380,7 +1419,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenHardIsFalse_ReturnsBadRequestBeforeInstanceFetch()
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_WhenHardIsFalse_ReturnsBadRequestBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -1421,7 +1460,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -1584,12 +1623,11 @@ public class InstanceMutationsControllerUnitTests
         Assert.Empty(capturedMutation.CreateDataElements);
         Assert.Empty(capturedMutation.UpdateDataElements);
         Assert.Empty(capturedMutation.DeleteDataElements);
-        fixture.PolicyAuthorizationService.Verify(
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Once
         );
@@ -1633,7 +1671,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -1806,12 +1844,11 @@ public class InstanceMutationsControllerUnitTests
             "deleteInstance cannot be combined with other aggregate mutation operations.",
             badRequest.Value
         );
-        fixture.PolicyAuthorizationService.Verify(
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.IsAny<object>(),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Never
         );
@@ -2277,12 +2314,11 @@ public class InstanceMutationsControllerUnitTests
                 ),
             Times.Once
         );
-        fixture.PolicyAuthorizationService.Verify(
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<ClaimsPrincipal>(),
-                    It.IsAny<object>(),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Delete
                 ),
             Times.Never
         );
@@ -2438,14 +2474,13 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.HttpContext.User = CreateOrgPrincipal(_org);
         fixture
-            .PolicyAuthorizationService.Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_COMPLETE
+            .AuthorizationService.Setup(service =>
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Complete
                 )
             )
-            .ReturnsAsync(AuthorizationResult.Failed());
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -2453,12 +2488,15 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        ProblemDetails forbiddenProblem = await ProblemAsserts.AssertProblemAsync(
+            result.Result,
+            StatusCodes.Status403Forbidden
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
     [Fact]
-    public async Task CommitMutation_AddCompleteConfirmation_WithoutOrganisation_ReturnsForbidBeforePolicy()
+    public async Task CommitMutation_AddCompleteConfirmation_WithoutOrganisation_ReturnsForbidBeforeAuthorization()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -2478,13 +2516,12 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
-        fixture.PolicyAuthorizationService.Verify(
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
+        fixture.AuthorizationService.Verify(
             service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.IsAny<object>(),
-                    AuthzConstants.POLICY_INSTANCE_COMPLETE
+                service.AuthorizeInstanceRequest(
+                    It.IsAny<InstanceInternal>(),
+                    AuthorizationActions.Complete
                 ),
             Times.Never
         );
@@ -2639,14 +2676,14 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
     [Theory]
     [InlineData("""{"substatus":{"label":""}}""")]
     [InlineData("""{"substatus":{"description":"no label"}}""")]
-    public async Task CommitMutation_SubstatusWithoutLabel_ReturnsBadRequestBeforeReads(
+    public async Task CommitMutation_SubstatusWithoutLabel_ReturnsBadRequestBeforeOtherReads(
         string mutationJson
     )
     {
@@ -2678,7 +2715,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -3133,7 +3170,7 @@ public class InstanceMutationsControllerUnitTests
             .ProcessAuthorizer.Setup(authorizer =>
                 authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
         fixture
             .MutationRepository.Setup(repository =>
                 repository.TryReplayAdmission(
@@ -3448,7 +3485,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -3456,7 +3493,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -3485,7 +3522,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(false);
+            .ReturnsAuthorization(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -3493,7 +3530,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         fixture.ProcessAuthorizer.Verify(
             authorizer =>
                 authorizer.AuthorizeProcessNext(fixture.InstanceInternal, It.IsAny<ProcessState>()),
@@ -3689,7 +3726,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_InstanceEventWithInvalidUser_ReturnsBadRequestBeforeInstanceFetch()
+    public async Task CommitMutation_InstanceEventWithInvalidUser_ReturnsBadRequestBeforeMutationWork()
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
@@ -3723,7 +3760,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
     }
 
@@ -4123,7 +4160,7 @@ public class InstanceMutationsControllerUnitTests
     [InlineData(
         """{"deleteDataElements":[{"dataElementId":"3f5b0a41-4b6e-4bb4-9bd9-2d2c2f7f1c11"}],"processState":{"state":{"currentTask":{"elementId":"Task_2"}}}}"""
     )]
-    public async Task CommitMutation_ProcessStateWithDataElementWrite_ReturnsBadRequestBeforeReads(
+    public async Task CommitMutation_ProcessStateWithDataElementWrite_ReturnsBadRequestBeforeOtherReads(
         string mutationJson
     )
     {
@@ -4156,7 +4193,7 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<bool>(),
                     It.IsAny<CancellationToken>()
                 ),
-            Times.Never
+            Times.Once
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
@@ -5389,7 +5426,7 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<ForbidResult>(result.Result);
+        await ProblemAsserts.AssertProblemAsync(result.Result, StatusCodes.Status403Forbidden);
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
         VerifyNoBlobWritten(fixture);
     }
@@ -5569,7 +5606,6 @@ public class InstanceMutationsControllerUnitTests
         Mock<IDataService> dataServiceMock = new();
         Mock<IInstanceEventService> instanceEventServiceMock = new();
         Mock<IAuthorization> authorizationServiceMock = new();
-        Mock<IAuthorizationService> policyAuthorizationServiceMock = new();
         Mock<IProcessAuthorizer> processAuthorizerMock = new();
 
         dataRepositoryMock
@@ -5662,10 +5698,10 @@ public class InstanceMutationsControllerUnitTests
             .Setup(authorizer =>
                 authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>())
             )
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizerMock
             .Setup(authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()))
-            .ReturnsAsync(true);
+            .ReturnsAuthorization(true);
         processAuthorizerMock
             .Setup(authorizer =>
                 authorizer.AuthorizeProcessNext(
@@ -5673,25 +5709,13 @@ public class InstanceMutationsControllerUnitTests
                     It.IsAny<ProcessState>()
                 )
             )
-            .ReturnsAsync(true);
-        policyAuthorizationServiceMock
+            .ReturnsAuthorization(true);
+        authorizationServiceMock
             .Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_DELETE
-                )
+                service.AuthorizeInstanceRequest(It.IsAny<InstanceInternal>(), It.IsAny<string>())
             )
-            .ReturnsAsync(AuthorizationResult.Success());
-        policyAuthorizationServiceMock
-            .Setup(service =>
-                service.AuthorizeAsync(
-                    It.IsAny<System.Security.Claims.ClaimsPrincipal>(),
-                    It.Is<object>(resource => resource == null),
-                    AuthzConstants.POLICY_INSTANCE_COMPLETE
-                )
-            )
-            .ReturnsAsync(AuthorizationResult.Success());
+            .ReturnsAuthorization(true);
+        authorizationServiceMock.DelegateGetAuthorizedInstance(instanceRepositoryMock.Object);
 
         DefaultHttpContext httpContext = new() { User = PrincipalUtil.GetPrincipal(200001, 1337) };
         if (mutationJson is not null)
@@ -5702,14 +5726,12 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationsController sut = new(
             dataRepositoryMock.Object,
             blobRepositoryMock.Object,
-            instanceRepositoryMock.Object,
             mutationRepositoryMock.Object,
             applicationRepositoryMock.Object,
             dataServiceMock.Object,
             instanceEventServiceMock.Object,
             Options.Create(new GeneralSettings { Hostname = "https://altinn.no/" }),
             authorizationServiceMock.Object,
-            policyAuthorizationServiceMock.Object,
             processAuthorizerMock.Object
         )
         {
@@ -5727,7 +5749,6 @@ public class InstanceMutationsControllerUnitTests
             mutationRepositoryMock,
             instanceEventServiceMock,
             authorizationServiceMock,
-            policyAuthorizationServiceMock,
             processAuthorizerMock
         );
     }
@@ -5834,14 +5855,14 @@ public class InstanceMutationsControllerUnitTests
             fileParts
         );
         fixture
-            .Authorization.Setup(authorization =>
+            .AuthorizationService.Setup(authorization =>
                 authorization.AuthorizeInstanceAction(
                     It.IsAny<InstanceInternal>(),
                     "write",
                     It.IsAny<string>()
                 )
             )
-            .ReturnsAsync(writeAuthorized);
+            .ReturnsAuthorization(writeAuthorized);
 
         return fixture;
     }
@@ -6105,8 +6126,7 @@ public class InstanceMutationsControllerUnitTests
         Mock<IDataService> DataService,
         Mock<IInstanceMutationRepository> MutationRepository,
         Mock<IInstanceEventService> InstanceEventService,
-        Mock<IAuthorization> Authorization,
-        Mock<IAuthorizationService> PolicyAuthorizationService,
+        Mock<IAuthorization> AuthorizationService,
         Mock<IProcessAuthorizer> ProcessAuthorizer
     );
 }

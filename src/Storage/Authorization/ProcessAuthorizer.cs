@@ -5,6 +5,8 @@ using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Models;
 using Altinn.Platform.Storage.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Altinn.Platform.Storage.Authorization;
@@ -34,24 +36,29 @@ public class ProcessAuthorizer : IProcessAuthorizer
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeProcessNext(InstanceInternal instance, ProcessState nextProcessState)
+    public Task<ProblemDetails?> AuthorizeProcessNext(
+        InstanceInternal instance,
+        ProcessState nextProcessState
+    )
     {
         ArgumentNullException.ThrowIfNull(nextProcessState);
         return Authorize(instance, nextProcessState);
     }
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeInstanceLock(InstanceInternal instance) => Authorize(instance);
-
-    /// <inheritdoc/>
-    public Task<bool> AuthorizeDataElementLock(InstanceInternal instance) => Authorize(instance);
-
-    /// <inheritdoc/>
-    public Task<bool> AuthorizePresentationTextsUpdate(InstanceInternal instance) =>
+    public Task<ProblemDetails?> AuthorizeInstanceLock(InstanceInternal instance) =>
         Authorize(instance);
 
     /// <inheritdoc/>
-    public Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
+    public Task<ProblemDetails?> AuthorizeDataElementLock(InstanceInternal instance) =>
+        Authorize(instance);
+
+    /// <inheritdoc/>
+    public Task<ProblemDetails?> AuthorizePresentationTextsUpdate(InstanceInternal instance) =>
+        Authorize(instance);
+
+    /// <inheritdoc/>
+    public Task<ProblemDetails?> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
         AuthorizeWithSyncAdapterBypass(instance);
 
     /// <summary>
@@ -65,63 +72,58 @@ public class ProcessAuthorizer : IProcessAuthorizer
             null => [],
             "data" or "feedback" or "pdf" or "eFormidling" or "fiksArkiv" or "subformPdf" =>
             [
-                "write",
+                AuthorizationActions.Write,
             ],
-            "payment" => ["pay", "write"],
+            "payment" => ["pay", AuthorizationActions.Write],
             "confirmation" => ["confirm"],
-            "signing" => ["sign", "write"],
+            "signing" => [AuthorizationActions.Sign, AuthorizationActions.Write],
             _ => [taskType],
         };
     }
 
-    private Task<bool> AuthorizeWithSyncAdapterBypass(InstanceInternal instance)
+    private Task<ProblemDetails?> AuthorizeWithSyncAdapterBypass(InstanceInternal instance)
     {
         if (_authorizationService.UserHasRequiredScope(_generalSettings.InstanceSyncAdapterScope))
         {
-            return Task.FromResult(true);
+            return Task.FromResult<ProblemDetails?>(null);
         }
 
         return Authorize(instance);
     }
 
-    private async Task<bool> Authorize(InstanceInternal instance)
+    private async Task<ProblemDetails?> Authorize(InstanceInternal instance)
     {
         if (IsCalledByApp(instance))
         {
-            return true;
+            return null;
         }
 
         string? taskId = instance.Process?.CurrentTask?.ElementId;
         string? altinnTaskType = instance.Process?.CurrentTask?.AltinnTaskType;
 
         List<string> actions = instance.Process?.CurrentTask is null
-            ? ["write"]
+            ? [AuthorizationActions.Write]
             : GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
         // we don't know if this is an abandon flow, so we include "reject" as a fallback.
-        actions.Add("reject");
+        actions.Add(AuthorizationActions.Reject);
 
-        foreach (string action in actions)
-        {
-            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return await AuthorizeAnyAction(instance, actions, taskId);
     }
 
-    private async Task<bool> Authorize(InstanceInternal instance, ProcessState nextProcessState)
+    private async Task<ProblemDetails?> Authorize(
+        InstanceInternal instance,
+        ProcessState nextProcessState
+    )
     {
         if (IsCalledByApp(instance))
         {
-            return true;
+            return null;
         }
 
         if (instance.Process?.CurrentTask is null)
         {
-            return false;
+            return AuthorizationProblems.Forbidden();
         }
 
         string? taskId = instance.Process.CurrentTask.ElementId;
@@ -129,7 +131,11 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         if (nextProcessState.CurrentTask?.FlowType == "AbandonCurrentMoveToNext")
         {
-            return await _authorizationService.AuthorizeInstanceAction(instance, "reject", taskId);
+            return await _authorizationService.AuthorizeInstanceAction(
+                instance,
+                AuthorizationActions.Reject,
+                taskId
+            );
         }
 
         if (
@@ -143,21 +149,45 @@ public class ProcessAuthorizer : IProcessAuthorizer
 
         List<string> actions = GetActionsThatAllowProcessNextForTaskType(altinnTaskType);
 
-        foreach (string action in actions)
-        {
-            if (await _authorizationService.AuthorizeInstanceAction(instance, action, taskId))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return await AuthorizeAnyAction(instance, actions, taskId);
     }
 
     /// <summary>
     /// Whether the caller is the app that owns the instance. Storage cannot yet tell an app token
     /// from other service owner tokens, so any token for the org that owns the app qualifies.
     /// </summary>
+    /// <summary>
+    /// Authorizes the first of <paramref name="actions"/> that Altinn Authorization permits. When none is
+    /// permitted, the answer is 503 if it gave no decision on any of them, otherwise 403.
+    /// </summary>
+    private async Task<ProblemDetails?> AuthorizeAnyAction(
+        InstanceInternal instance,
+        List<string> actions,
+        string? taskId
+    )
+    {
+        ProblemDetails problem = AuthorizationProblems.Forbidden();
+        foreach (string action in actions)
+        {
+            ProblemDetails? actionProblem = await _authorizationService.AuthorizeInstanceAction(
+                instance,
+                action,
+                taskId
+            );
+            if (actionProblem is null)
+            {
+                return null;
+            }
+
+            if (actionProblem.Status == StatusCodes.Status503ServiceUnavailable)
+            {
+                problem = actionProblem;
+            }
+        }
+
+        return problem;
+    }
+
     private bool IsCalledByApp(InstanceInternal instance) =>
         _claimsPrincipalProvider.GetUser().GetOrg() is { } org && org == instance.Org;
 }

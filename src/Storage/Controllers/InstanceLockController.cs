@@ -48,10 +48,17 @@ public class InstanceLockController(
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult<InstanceLockResponse>> AcquireInstanceLock(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -91,12 +98,14 @@ public class InstanceLockController(
             );
         }
 
-        if (!await processAuthorizer.AuthorizeInstanceLock(instance))
+        if (await processAuthorizer.AuthorizeInstanceLock(instance) is { } lockProblem)
         {
-            return Problem(
-                detail: "Not authorized to acquire instance lock.",
-                statusCode: StatusCodes.Status403Forbidden
-            );
+            if (lockProblem.Status == StatusCodes.Status403Forbidden)
+            {
+                lockProblem.Detail = "Not authorized to acquire instance lock.";
+            }
+
+            return lockProblem.ToResult();
         }
 
         var (result, lockToken) = await instanceLockRepository.TryAcquireLock(

@@ -76,6 +76,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>List of messagebox instances</returns>
     [Authorize]
     [HttpPost("search")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> SearchMessageBoxInstances(
         [FromBody] MessageBoxQueryModel queryModel,
         CancellationToken cancellationToken
@@ -167,6 +175,14 @@ public class MessageBoxInstancesController : ControllerBase
     /// <returns>list of instances</returns>
     [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> GetMessageBoxInstance(
         int instanceOwnerPartyId,
         Guid instanceGuid,
@@ -204,14 +220,19 @@ public class MessageBoxInstancesController : ControllerBase
             includeInstantiate = application?.CopyInstanceSettings?.Enabled == true;
         }
 
-        List<MessageBoxInstance> authorizedInstanceList =
+        (List<MessageBoxInstance>? authorizedInstanceList, ProblemDetails? authorizationProblem) =
             await _authorizationService.AuthorizeMesseageBoxInstances(
                 [instance],
                 includeInstantiate
             );
+        if (authorizedInstanceList is null)
+        {
+            return authorizationProblem!.ToResult();
+        }
+
         if (authorizedInstanceList.Count <= 0)
         {
-            return Forbid();
+            return AuthorizationProblems.Forbidden().ToResult();
         }
 
         MessageBoxInstance authorizedInstance = authorizedInstanceList[0];
@@ -236,13 +257,33 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceOwnerPartyId">the instance owner id</param>
     /// <param name="instanceGuid">the instance guid</param>
     /// <returns>list of instances</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_READ)]
+    [Authorize]
     [HttpGet("{instanceOwnerPartyId:int}/{instanceGuid:guid}/events")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> GetMessageBoxInstanceEvents(
         [FromRoute] int instanceOwnerPartyId,
         [FromRoute] Guid instanceGuid
     )
     {
+        (_, ProblemDetails? problem) = await _authorizationService.GetAuthorizedInstance(
+            instanceOwnerPartyId,
+            instanceGuid,
+            AuthorizationActions.Read,
+            includeElements: false,
+            CancellationToken.None
+        );
+        if (problem is not null)
+        {
+            return problem.ToResult();
+        }
+
         string[] eventTypes =
         {
             InstanceEventType.Created.ToString(),
@@ -284,26 +325,34 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="instanceGuid">instance id</param>
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>True if the instance was restored.</returns>
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpPut("{instanceOwnerPartyId:int}/{instanceGuid:guid}/undelete")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> Undelete(
         int instanceOwnerPartyId,
         Guid instanceGuid,
         CancellationToken cancellationToken
     )
     {
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be restored with instanceId={instanceOwnerPartyId}/{instanceGuid}"
+        (InstanceInternal? instance, ProblemDetails? problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                includeElements: false,
+                cancellationToken
             );
+        if (instance is null)
+        {
+            return problem!.ToResult();
         }
 
         if (instance.Status.IsHardDeleted)
@@ -368,9 +417,17 @@ public class MessageBoxInstancesController : ControllerBase
     /// <param name="cancellationToken">CancellationToken</param>
     /// <returns>true if instance was successfully deleted</returns>
     /// DELETE /instances/{instanceId}?instanceOwnerPartyId={instanceOwnerPartyId}?hard={bool}
-    [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_DELETE)]
+    [Authorize]
     [HttpDelete("{instanceOwnerPartyId:int}/{instanceGuid:guid}")]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status403Forbidden,
+        "application/problem+json"
+    )]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status503ServiceUnavailable,
+        "application/problem+json"
+    )]
     public async Task<ActionResult> Delete(
         Guid instanceGuid,
         int instanceOwnerPartyId,
@@ -378,18 +435,17 @@ public class MessageBoxInstancesController : ControllerBase
         CancellationToken cancellationToken
     )
     {
-        string instanceId = $"{instanceOwnerPartyId}/{instanceGuid}";
-
-        InstanceInternal? instance = await _instanceRepository.GetOne(
-            instanceGuid,
-            false,
-            cancellationToken
-        );
-        if (instance == null)
-        {
-            return NotFound(
-                $"Didn't find the object that should be deleted with instanceId={instanceId}"
+        (InstanceInternal? instance, ProblemDetails? problem) =
+            await _authorizationService.GetAuthorizedInstance(
+                instanceOwnerPartyId,
+                instanceGuid,
+                AuthorizationActions.Delete,
+                includeElements: false,
+                cancellationToken
             );
+        if (instance is null)
+        {
+            return problem!.ToResult();
         }
 
         instance.Status ??= new InstanceStatus();
@@ -671,8 +727,12 @@ public class MessageBoxInstancesController : ControllerBase
             return StatusCode(499, "Request was cancelled.");
         }
 
-        List<MessageBoxInstance> authorizedInstances =
+        (List<MessageBoxInstance>? authorizedInstances, ProblemDetails? authorizationProblem) =
             await _authorizationService.AuthorizeMesseageBoxInstances(allInstances, false);
+        if (authorizedInstances is null)
+        {
+            return authorizationProblem!.ToResult();
+        }
 
         if (authorizedInstances.Count == 0)
         {
