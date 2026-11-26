@@ -747,18 +747,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
     }
@@ -786,22 +787,23 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = staleBlobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = staleBlobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id)
         );
+        Assert.Equal(FileScanStatusOutcome.Superseded, update.Outcome);
         Assert.Null(updateResult);
         Assert.Equal(FileScanResult.Pending, readElement.FileScanResult);
     }
@@ -814,18 +816,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid missingDataElementId = Guid.NewGuid();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                instanceGuid,
-                missingDataElementId,
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            instanceGuid,
+            missingDataElementId,
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Deleted, update.Outcome);
         Assert.Null(updateResult);
         Assert.False(await dataElementFixture.DataRepo.Exists(missingDataElementId));
     }
@@ -861,22 +864,23 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                instanceGuid,
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            instanceGuid,
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             Guid.Parse(dataElement.Id)
         );
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(expectedVersions, updateResult.Versions);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
@@ -911,18 +915,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
     }
@@ -1689,7 +1694,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
 
         // Act
-        DataElementWriteResult result = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
             instanceGuid,
             Guid.Parse(createdDataElement.Id),
             new FileScanStatus
@@ -1698,8 +1703,10 @@ public class DataTests(DataElementFixture dataElementFixture)
                 BlobVersionId = currentBlobVersion,
             }
         );
+        DataElementWriteResult result = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(result);
         Assert.Equal(FileScanResult.Clean, result.DataElement.FileScanResult);
         Assert.Equal(currentInstanceVersion, result.Versions.InstanceVersion);

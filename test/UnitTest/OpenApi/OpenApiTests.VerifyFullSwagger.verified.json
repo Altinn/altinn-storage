@@ -974,69 +974,6 @@
         }
       }
     },
-    "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
-      "put": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Sets the file scan status for an existing data element.",
-        "parameters": [
-          {
-            "name": "instanceGuid",
-            "in": "path",
-            "description": "The id of the instance that the data element is associated with.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "dataGuid",
-            "in": "path",
-            "description": "The id of the data element to update.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "instanceOwnerPartyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "The file scan results for this data element.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FileScanStatus"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/storage/api/v1/instances/{instanceOwnerPartyId}/{instanceGuid}/data/{dataGuid}/lock": {
       "put": {
         "tags": [
@@ -5301,23 +5238,6 @@
           "Infected"
         ],
         "type": "string"
-      },
-      "FileScanStatus": {
-        "type": "object",
-        "properties": {
-          "contentHash": {
-            "type": "string",
-            "nullable": true
-          },
-          "blobVersionId": {
-            "type": "string",
-            "nullable": true
-          },
-          "fileScanResult": {
-            "$ref": "#/components/schemas/FileScanResult"
-          }
-        },
-        "additionalProperties": false
       },
       "HideSettings": {
         "type": "object",
