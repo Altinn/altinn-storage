@@ -14,6 +14,7 @@ using Altinn.Platform.Storage.Models;
 using Altinn.Platform.Storage.Repository;
 using Altinn.Platform.Storage.Services;
 using Altinn.Platform.Storage.UnitTest.Mocks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -596,7 +597,119 @@ public class CleanupControllerUnitTests
     }
 
     [Fact]
-    public async Task CleanupDataelements_OrphanBlobVersions_DeletesOnlySuccessfulVersionedBlobsFromMetadata()
+    public async Task CleanupDataelements_ApplicationLookupFails_NextElementLoadsTheApplicationAgain()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceInternal instance = new()
+        {
+            Id = instanceGuid,
+            AppId = "ttd/app",
+            Org = "ttd",
+        };
+        DeletedDataElementInternal[] deletedDataElements =
+        [
+            .. Enumerable
+                .Range(0, 2)
+                .Select(_ =>
+                {
+                    Guid dataElementId = Guid.NewGuid();
+                    DataElement dataElement = new()
+                    {
+                        Id = dataElementId.ToString(),
+                        InstanceGuid = instanceGuid.ToString(),
+                        BlobStoragePath = $"ttd/app/{instanceGuid}/data/{dataElementId}",
+                    };
+                    return new DeletedDataElementInternal(dataElement.FromApiModel(null), []);
+                }),
+        ];
+
+        Mock<IInstanceRepository> instanceRepositoryMock = new();
+        Mock<IApplicationRepository> applicationRepositoryMock = new();
+        Mock<IBlobRepository> blobRepositoryMock = new();
+        Mock<IDataRepository> dataRepositoryMock = new();
+        StorageAccount accountOne = new(1, TestStorageAccounts.PatternDefault("ttd").ProviderInfo);
+        StorageAccount accountThree = new(
+            3,
+            TestStorageAccounts.PatternDefault("ttd").ProviderInfo
+        );
+        Mock<IStorageAccountResolver> resolverMock = new(MockBehavior.Strict);
+        resolverMock.Setup(resolver => resolver.PatternDefault("ttd", 1)).Returns(accountOne);
+        resolverMock.Setup(resolver => resolver.PatternDefault("ttd", 3)).Returns(accountThree);
+
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetHardDeletedDataElements(It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([.. deletedDataElements]);
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetOne(instanceGuid, false, It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync(instance);
+        instanceRepositoryMock
+            .Setup(repository =>
+                repository.GetOrphanBlobVersionsForCleanup(It.IsAny<CancellationToken>())
+            )
+            .ReturnsAsync([]);
+        applicationRepositoryMock
+            .SetupSequence(repository =>
+                repository.FindOne("ttd/app", "ttd", It.IsAny<CancellationToken>())
+            )
+            .ThrowsAsync(new InvalidOperationException("Application lookup failed"))
+            .ReturnsAsync(new Application { StorageAccountNumber = 3 });
+        blobRepositoryMock
+            .Setup(repository =>
+                repository.DeleteBlob(It.IsAny<StorageAccount>(), It.IsAny<string>())
+            )
+            .ReturnsAsync(true);
+        dataRepositoryMock
+            .Setup(repository =>
+                repository.DeleteForCleanup(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(true);
+
+        CleanupController controller = CreateController(
+            instanceRepositoryMock: instanceRepositoryMock,
+            applicationRepositoryMock: applicationRepositoryMock,
+            blobRepositoryMock: blobRepositoryMock,
+            dataRepositoryMock: dataRepositoryMock,
+            storageAccountResolver: resolverMock.Object
+        );
+
+        // Act
+        ActionResult result = await controller.CleanupDataelements(CancellationToken.None);
+
+        // Assert
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
+        applicationRepositoryMock.Verify(
+            repository => repository.FindOne("ttd/app", "ttd", It.IsAny<CancellationToken>()),
+            Times.Exactly(2)
+        );
+        blobRepositoryMock.Verify(
+            repository => repository.DeleteBlob(accountThree, It.IsAny<string>()),
+            Times.Once
+        );
+        blobRepositoryMock.Verify(
+            repository => repository.DeleteBlob(accountOne, It.IsAny<string>()),
+            Times.Never
+        );
+        dataRepositoryMock.Verify(
+            repository =>
+                repository.DeleteForCleanup(
+                    It.IsAny<DataElementInternal>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Fact]
+    public async Task CleanupDataelements_OrphanBlobVersions_DeletesOnlySuccessfulVersionedBlobsFromMetadataAndReportsFailure()
     {
         // Arrange
         string firstBlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7());
@@ -666,7 +779,8 @@ public class CleanupControllerUnitTests
         ActionResult result = await controller.CleanupDataelements(CancellationToken.None);
 
         // Assert
-        Assert.IsType<OkResult>(result);
+        ObjectResult objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, objectResult.StatusCode);
         Assert.Equal(2, callOrder);
         blobRepositoryMock.VerifyAll();
         dataRepositoryMock.VerifyAll();

@@ -355,7 +355,10 @@ public class CleanupController(
             catch (Exception e)
             {
                 // The element is left for the next run; one element that cannot be cleaned up, such as
-                // one in a storage account this build cannot read, must not hold up the others.
+                // one in a storage account this build cannot read, must not hold up the others. The
+                // instance is loaded again for the next element, so that it is never paired with the
+                // application of an earlier instance.
+                instance = null;
                 _logger.LogError(
                     e,
                     "CleanupController // CleanupDataelements // Error occured when deleting dataElement Id: {Id} Blobstoragepath: {Blobstoragepath}",
@@ -471,10 +474,15 @@ public class CleanupController(
         {
             try
             {
-                successfullyDeleted += await CleanupOrphanBlobVersionGroup(
+                (int deleted, bool allBlobsDeleted) = await CleanupOrphanBlobVersionGroup(
                     orphanBlobVersion,
                     cancellationToken
                 );
+                successfullyDeleted += deleted;
+                if (!allBlobsDeleted)
+                {
+                    failed++;
+                }
             }
             catch (Exception e)
             {
@@ -490,7 +498,11 @@ public class CleanupController(
         return (successfullyDeleted, failed);
     }
 
-    private async Task<int> CleanupOrphanBlobVersionGroup(
+    /// <summary>
+    /// Deletes the blobs of an orphan blob version group, and the version rows of the blobs that were deleted.
+    /// </summary>
+    /// <returns>The number of version rows deleted, and whether every blob in the group was deleted.</returns>
+    private async Task<(int Deleted, bool AllBlobsDeleted)> CleanupOrphanBlobVersionGroup(
         BlobVersionReferencesInternal orphanBlobVersion,
         CancellationToken cancellationToken
     )
@@ -521,7 +533,8 @@ public class CleanupController(
             .. orphanBlobVersion.BlobVersionIds.Where((_, index) => blobsDeleted[index]),
         ];
 
-        if (deletedVersionIds.Count != orphanBlobVersion.BlobVersionIds.Count)
+        bool allBlobsDeleted = deletedVersionIds.Count == orphanBlobVersion.BlobVersionIds.Count;
+        if (!allBlobsDeleted)
         {
             _logger.LogWarning(
                 "CleanupController // CleanupDataelements // One or more orphan blob deletes failed or had unknown outcome for instance {InstanceGuid}",
@@ -531,10 +544,13 @@ public class CleanupController(
 
         if (deletedVersionIds.Count == 0)
         {
-            return 0;
+            return (0, allBlobsDeleted);
         }
 
-        return await dataRepository.DeleteOrphanBlobVersions(deletedVersionIds, cancellationToken);
+        return (
+            await dataRepository.DeleteOrphanBlobVersions(deletedVersionIds, cancellationToken),
+            allBlobsDeleted
+        );
     }
 
     private async Task<int> CleanupInstancesInternal(
