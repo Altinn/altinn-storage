@@ -48,7 +48,7 @@ public static class TestContainers
     private const string _postgresImage =
         "postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f";
     private const string _azuriteImage =
-        "mcr.microsoft.com/azure-storage/azurite:3.37.0@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5";
+        "mcr.microsoft.com/azure-storage/azurite:3.38.0@sha256:c26024d62bf4a5b88a40968afd217234c00e1fc9a4790dc6105d1ca7979f6eec";
     private const string _postgresAdminUser = "platform_storage_admin";
     private const string _postgresPassword = "Password";
     private const ushort _azuriteBlobPort = 10000;

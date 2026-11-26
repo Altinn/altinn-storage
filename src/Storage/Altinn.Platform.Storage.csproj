@@ -24,7 +24,7 @@
     <PackageReference Include="JWTCookieAuthentication" Version="4.0.4" />
     <PackageReference Include="PDFsharp" Version="6.2.4" />
     <!-- PDFsharp 6.2.x depends on System.Security.Cryptography.Pkcs 8.0.1, which has known vulnerabilities -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="10.3.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -39,9 +39,9 @@
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.21.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
     <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.4" />
-    <PackageReference Include="WolverineFx" Version="6.64.2" />
-    <PackageReference Include="WolverineFx.AzureServiceBus" Version="6.64.2" />
-    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.64.2" />
+    <PackageReference Include="WolverineFx" Version="6.65.0" />
+    <PackageReference Include="WolverineFx.AzureServiceBus" Version="6.65.0" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.65.0" />
     <PackageReference Include="Parquet.Net" Version="6.1.0" />
   </ItemGroup>
 
