@@ -350,12 +350,10 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
             );
 
             // Assert
-            CapturingLoggerProvider.Entry startupLog = Assert.Single(
-                logs.Entries,
-                entry =>
-                    entry.Level == LogLevel.Critical
-                    && entry.Category == typeof(StorageAccountStartupCheck).FullName
-                    && entry.Message.StartsWith($"Storage account {id} ")
+            CapturingLoggerProvider.Entry startupLog = Assert.Single(logs.Entries, entry =>
+                entry.Level == LogLevel.Critical
+                && entry.Category == typeof(StorageAccountStartupCheck).FullName
+                && entry.Message.StartsWith($"Storage account {id} ")
             );
             Assert.Contains("'unknown-provider'", startupLog.Message);
             Assert.Equal(HttpStatusCode.InternalServerError, upload.StatusCode);
@@ -377,12 +375,10 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
             Assert.Equal(readableId, (await host.Resolver.GetById(readableId)).Id);
             Assert.Null((await host.Resolver.ForWrite(_org, 2)).Id);
             Assert.Null((await host.Resolver.ForWrite($"{_org}x", 1)).Id);
-            Assert.Contains(
-                logs.Entries,
-                entry =>
-                    entry.Level == LogLevel.Critical
-                    && entry.Category == typeof(StorageAccountResolver).FullName
-                    && entry.Message.StartsWith($"Storage account {id} ")
+            Assert.Contains(logs.Entries, entry =>
+                entry.Level == LogLevel.Critical
+                && entry.Category == typeof(StorageAccountResolver).FullName
+                && entry.Message.StartsWith($"Storage account {id} ")
             );
         }
         finally
@@ -458,17 +454,15 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
         HttpResponseMessage[] responses = await Task.WhenAll(uploads);
 
         // Assert
-        Assert.All(
-            responses,
-            response => Assert.Equal(HttpStatusCode.Created, response.StatusCode)
+        Assert.All(responses, response =>
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode)
         );
         IReadOnlyList<BlobVersionAudit.Finding> findings = await Audit(host, namedUri);
         Assert.Equal(2 * uploadsPerPhase, findings.Count);
         BlobVersionAudit.AssertConsistent(findings);
         Assert.True(findings.Count(f => f.Row.StorageAccountId == accountId) >= uploadsPerPhase);
-        Assert.All(
-            findings,
-            f => Assert.True(f.Row.StorageAccountId is null || f.Row.StorageAccountId == accountId)
+        Assert.All(findings, f =>
+            Assert.True(f.Row.StorageAccountId is null || f.Row.StorageAccountId == accountId)
         );
 
         foreach (HttpResponseMessage response in responses)

@@ -147,9 +147,8 @@ public class StorageAccountTests(DataElementFixture fixture)
 
             Assert.Single(rows.Readable, row => row.Id == readableId);
             Assert.DoesNotContain(rows.Readable, row => row.Id == id);
-            UnreadableStorageAccountRow unreadable = Assert.Single(
-                rows.Unreadable,
-                row => row.Id == id
+            UnreadableStorageAccountRow unreadable = Assert.Single(rows.Unreadable, row =>
+                row.Id == id
             );
             Assert.Equal(provider, unreadable.Provider);
             Assert.Equal(_org, unreadable.Org);
@@ -181,9 +180,8 @@ public class StorageAccountTests(DataElementFixture fixture)
         {
             await startupCheck.StartAsync(CancellationToken.None);
 
-            string critical = Assert.Single(
-                logs.Messages(LogLevel.Critical),
-                message => message.StartsWith($"Storage account {id} ")
+            string critical = Assert.Single(logs.Messages(LogLevel.Critical), message =>
+                message.StartsWith($"Storage account {id} ")
             );
             Assert.Contains("'unknown-provider'", critical);
         }
@@ -467,9 +465,8 @@ public class StorageAccountTests(DataElementFixture fixture)
         List<DeletedDataElementInternal> deleted =
             await fixture.InstanceRepo.GetHardDeletedDataElements(CancellationToken.None);
 
-        DeletedDataElementInternal ours = Assert.Single(
-            deleted,
-            candidate => candidate.DataElement.Id == element.Id
+        DeletedDataElementInternal ours = Assert.Single(deleted, candidate =>
+            candidate.DataElement.Id == element.Id
         );
         BlobVersionReferencesInternal refs = Assert.Single(ours.BlobVersions);
         Assert.Equal(accountId, refs.StorageAccountId);

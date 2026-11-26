@@ -3152,7 +3152,7 @@ public class DataControllerUnitTests
                     It.IsAny<Stream>(),
                     It.IsAny<DataElementCreateOptions>(),
                     It.IsAny<long>(),
-                    It.IsAny<int?>(),
+                    It.IsAny<Application>(),
                     It.IsAny<int?>(),
                     It.IsAny<int?>(),
                     It.IsAny<CancellationToken>()
@@ -3162,10 +3162,9 @@ public class DataControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );

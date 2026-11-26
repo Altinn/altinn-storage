@@ -5842,10 +5842,9 @@ public class InstanceMutationsControllerUnitTests
         fixture.BlobRepository.Verify(
             repository =>
                 repository.WriteBlob(
-                    It.IsAny<string>(),
+                    It.IsAny<StorageAccount>(),
                     It.IsAny<Stream>(),
-                    It.IsAny<string>(),
-                    It.IsAny<int?>()
+                    It.IsAny<string>()
                 ),
             Times.Never
         );

@@ -486,11 +486,7 @@ public class BlobRepository(
                     CreateSharedKeyCredential(),
                     _clientOptions
                 )
-                : new BlobContainerClient(
-                    location.ContainerUri,
-                    GetCredential(),
-                    _clientOptions
-                );
+                : new BlobContainerClient(location.ContainerUri, GetCredential(), _clientOptions);
             _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
         }
 

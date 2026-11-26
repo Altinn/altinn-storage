@@ -306,9 +306,8 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
         TimeSpan lifetime = TimeSpan.FromSeconds(5);
 
         (Uri url, DateTimeOffset expiresOn) = await repository.GetReadUrl(
-            BlobRepositoryAzuriteFixture.Org,
+            fixture.Account,
             blobStoragePath,
-            null,
             lifetime
         );
         DateTimeOffset returnedAt = DateTimeOffset.UtcNow;

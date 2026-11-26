@@ -113,20 +113,17 @@ public static class BlobVersionAudit
     /// <param name="findings">The audit result.</param>
     public static void AssertConsistent(IReadOnlyList<Finding> findings)
     {
-        Assert.All(
-            findings,
-            finding =>
-            {
-                Assert.True(
-                    finding.Present,
-                    $"Blob version {finding.Row.Id} is missing from {finding.Container}."
-                );
-                Assert.True(
-                    finding.AlsoPresentIn.Count == 0,
-                    $"Blob version {finding.Row.Id} is also in {string.Join(", ", finding.AlsoPresentIn)}."
-                );
-            }
-        );
+        Assert.All(findings, finding =>
+        {
+            Assert.True(
+                finding.Present,
+                $"Blob version {finding.Row.Id} is missing from {finding.Container}."
+            );
+            Assert.True(
+                finding.AlsoPresentIn.Count == 0,
+                $"Blob version {finding.Row.Id} is also in {string.Join(", ", finding.AlsoPresentIn)}."
+            );
+        });
     }
 
     /// <summary>
@@ -135,17 +132,14 @@ public static class BlobVersionAudit
     /// <param name="findings">The audit result.</param>
     public static void AssertNoBlobs(IReadOnlyList<Finding> findings)
     {
-        Assert.All(
-            findings,
-            finding =>
-            {
-                Assert.False(
-                    finding.Present,
-                    $"Blob version {finding.Row.Id} is still in {finding.Container}."
-                );
-                Assert.Empty(finding.AlsoPresentIn);
-            }
-        );
+        Assert.All(findings, finding =>
+        {
+            Assert.False(
+                finding.Present,
+                $"Blob version {finding.Row.Id} is still in {finding.Container}."
+            );
+            Assert.Empty(finding.AlsoPresentIn);
+        });
     }
 
     private static async Task<List<DataElementBlobVersion>> ReadRows(
