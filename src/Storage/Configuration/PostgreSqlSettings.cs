@@ -21,4 +21,10 @@ public class PostgreSqlSettings
     /// Gets or sets a value indicating whether to include parameter values in logging/tracing.
     /// </summary>
     public bool LogParameters { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the application applies the database migrations on startup.
+    /// The tests set it to false, because they apply the migrations one time for each test run.
+    /// </summary>
+    public bool MigrateOnStartup { get; set; } = true;
 }

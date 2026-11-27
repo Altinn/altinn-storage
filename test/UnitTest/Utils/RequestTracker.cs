@@ -1,33 +1,38 @@
-#nullable disable
-
 using System.Collections.Generic;
 
 namespace Altinn.Platform.Storage.UnitTest.Utils;
 
-public static class RequestTracker
+/// <summary>
+/// Counts the requests that the mocks of one test host receive.
+/// Tests that run in parallel do not count the requests of other tests.
+/// </summary>
+public sealed class RequestTracker
 {
-    private static Dictionary<string, List<object>> _tracker =
-        new Dictionary<string, List<object>>();
+    private readonly Dictionary<string, List<object>> _tracker = [];
 
-    private static readonly object DataLock = new object();
+    private readonly object _dataLock = new();
 
-    public static int GetRequestCount(string requestKey)
+    /// <summary>
+    /// Gets the number of requests for the key.
+    /// </summary>
+    public int GetRequestCount(string requestKey)
     {
-        if (_tracker.TryGetValue(requestKey, out List<object> value))
+        lock (_dataLock)
         {
-            return value.Count;
+            return _tracker.TryGetValue(requestKey, out List<object>? value) ? value.Count : 0;
         }
-
-        return 0;
     }
 
-    public static void AddRequest(string requestKey, object request)
+    /// <summary>
+    /// Records a request for the key.
+    /// </summary>
+    public void AddRequest(string requestKey, object request)
     {
-        lock (DataLock)
+        lock (_dataLock)
         {
-            if (!_tracker.TryGetValue(requestKey, out List<object> value))
+            if (!_tracker.TryGetValue(requestKey, out List<object>? value))
             {
-                value = new List<object>();
+                value = [];
                 _tracker.Add(requestKey, value);
             }
 
@@ -35,11 +40,14 @@ public static class RequestTracker
         }
     }
 
-    public static void Clear()
+    /// <summary>
+    /// Removes all requests.
+    /// </summary>
+    public void Clear()
     {
-        lock (DataLock)
+        lock (_dataLock)
         {
-            _tracker = new Dictionary<string, List<object>>();
+            _tracker.Clear();
         }
     }
 }

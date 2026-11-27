@@ -435,26 +435,29 @@ void Configure(IConfiguration config)
         app.UseExceptionHandler("/storage/api/v1/error");
     }
 
-    ConsoleTraceService traceService = new() { IsDebugEnabled = true };
-    string connectionString = string.Format(
-        config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
-        config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd")
-    );
-    app.UseYuniql(
-        new PostgreSqlDataService(traceService),
-        new PostgreSqlBulkImportService(traceService),
-        traceService,
-        new Yuniql.AspNetCore.Configuration
-        {
-            Workspace = Path.Combine(
-                Environment.CurrentDirectory,
-                config.GetValue<string>("PostgreSqlSettings:WorkspacePath")
-            ),
-            ConnectionString = connectionString,
-            IsAutoCreateDatabase = false,
-            IsDebug = true,
-        }
-    );
+    if (config.GetValue("PostgreSqlSettings:MigrateOnStartup", true))
+    {
+        ConsoleTraceService traceService = new() { IsDebugEnabled = true };
+        string connectionString = string.Format(
+            config.GetValue<string>("PostgreSqlSettings:AdminConnectionString"),
+            config.GetValue<string>("PostgreSqlSettings:StorageDbAdminPwd")
+        );
+        app.UseYuniql(
+            new PostgreSqlDataService(traceService),
+            new PostgreSqlBulkImportService(traceService),
+            traceService,
+            new Yuniql.AspNetCore.Configuration
+            {
+                Workspace = Path.Combine(
+                    Environment.CurrentDirectory,
+                    config.GetValue<string>("PostgreSqlSettings:WorkspacePath")
+                ),
+                ConnectionString = connectionString,
+                IsAutoCreateDatabase = false,
+                IsDebug = true,
+            }
+        );
+    }
 
     if (app.Environment.IsDevelopment())
     {

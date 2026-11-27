@@ -39,6 +39,16 @@ public static class ServiceUtil
         return _serviceProvider.Value.GetRequiredService<NpgsqlDataSource>();
     }
 
+    /// <summary>
+    /// Applies the migrations to the test database one time for each test run.
+    /// Test hosts do not apply the migrations, because Yuniql keeps its settings in one static instance.
+    /// Hosts that start at the same time would write over the settings of other hosts.
+    /// </summary>
+    public static void EnsureDatabaseMigrated()
+    {
+        _ = _serviceProvider.Value;
+    }
+
     public static string GetAppsettingsPath()
     {
         return "appsettings.unittest.json";

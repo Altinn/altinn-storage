@@ -192,14 +192,14 @@ public class InstancesControllerTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        RequestTracker.Clear();
+        _requestTracker.Clear();
         HttpResponseMessage response = await client.GetAsync(requestUri);
         HttpResponseMessage response2 = await client.GetAsync(requestUri);
 
         // Assert
         Assert.Equal(
             1,
-            RequestTracker.GetRequestCount(
+            _requestTracker.GetRequestCount(
                 "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
             )
         );
@@ -222,14 +222,14 @@ public class InstancesControllerTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        RequestTracker.Clear();
+        _requestTracker.Clear();
         HttpResponseMessage response = await client.GetAsync(requestUri);
         HttpResponseMessage response2 = await client.GetAsync(requestUri);
 
         // Assert
         Assert.Equal(
             1,
-            RequestTracker.GetRequestCount(
+            _requestTracker.GetRequestCount(
                 "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
             )
         );
@@ -256,13 +256,13 @@ public class InstancesControllerTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        RequestTracker.Clear();
+        _requestTracker.Clear();
         HttpResponseMessage response = await client.GetAsync(requestUri);
 
         // Assert
         Assert.Equal(
             0,
-            RequestTracker.GetRequestCount(
+            _requestTracker.GetRequestCount(
                 "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
             )
         ); // We should not be hitting the PDP as sync adapter
@@ -287,13 +287,13 @@ public class InstancesControllerTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        RequestTracker.Clear();
+        _requestTracker.Clear();
         HttpResponseMessage response = await client.GetAsync(requestUri);
 
         // Assert
         Assert.Equal(
             0,
-            RequestTracker.GetRequestCount(
+            _requestTracker.GetRequestCount(
                 "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
             )
         ); // We should not be hitting the PDP as sync adapter
@@ -850,7 +850,7 @@ public class InstancesControllerTests : IAsyncLifetime
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
         // Act
-        RequestTracker.Clear();
+        _requestTracker.Clear();
         HttpResponseMessage response = await client.DeleteAsync(requestUri);
 
         string json = await response.Content.ReadAsStringAsync();
@@ -859,7 +859,7 @@ public class InstancesControllerTests : IAsyncLifetime
         // Assert
         Assert.Equal(
             0,
-            RequestTracker.GetRequestCount(
+            _requestTracker.GetRequestCount(
                 "GetDecisionForRequest1337/377efa97-80ee-4cc6-8d48-09de12cc273d"
             )
         ); // We should not be hitting the PDP as sync adapter
@@ -3618,6 +3618,8 @@ public class InstancesControllerTests : IAsyncLifetime
 
     private TestTelemetry _testTelemetry;
 
+    private RequestTracker _requestTracker;
+
     private HttpClient GetTestClient(
         Mock<IInstanceRepository> repositoryMock = null,
         Mock<IRegisterService> registerService = null,
@@ -3693,6 +3695,7 @@ public class InstancesControllerTests : IAsyncLifetime
         var client = factory.CreateClient();
 
         _testTelemetry = factory.Services.GetRequiredService<TestTelemetry>();
+        _requestTracker = factory.Services.GetRequiredService<RequestTracker>();
 
         return client;
     }
