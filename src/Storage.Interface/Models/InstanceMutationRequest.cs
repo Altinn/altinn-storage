@@ -75,6 +75,15 @@ public class InstanceMutationRequest
     /// </summary>
     [JsonProperty(PropertyName = "processState")]
     public ProcessStateUpdate ProcessState { get; set; }
+
+    /// <summary>
+    /// Optional value the caller wants back when this mutation is replayed, of 1 to 4096 characters.
+    /// Storage keeps it with the idempotency record of the mutation and never reads it, so it needs an
+    /// idempotency key. Only the instance's own organisation can store one. It counts as an operation:
+    /// a mutation may carry nothing else.
+    /// </summary>
+    [JsonProperty(PropertyName = "callerResult")]
+    public string CallerResult { get; set; }
 }
 
 /// <summary>

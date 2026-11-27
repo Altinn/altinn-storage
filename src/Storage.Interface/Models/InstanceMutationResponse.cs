@@ -27,4 +27,11 @@ public class InstanceMutationResponse
     /// </summary>
     [JsonProperty(PropertyName = "replayed")]
     public bool Replayed { get; set; }
+
+    /// <summary>
+    /// The caller result kept with the idempotency record of the mutation: the request's own value when
+    /// the mutation was committed, and the value of the committed mutation when it was replayed.
+    /// </summary>
+    [JsonProperty(PropertyName = "callerResult")]
+    public string CallerResult { get; set; }
 }
