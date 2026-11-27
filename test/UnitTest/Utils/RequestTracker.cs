@@ -3,9 +3,8 @@ using System.Collections.Generic;
 namespace Altinn.Platform.Storage.UnitTest.Utils;
 
 /// <summary>
-/// Counts the requests that mocks receive, per test host. Every host built by
-/// <see cref="Fixture.TestApplicationFactory{TEntryPoint}"/> has its own tracker, so tests running
-/// in parallel don't count each other's requests.
+/// Counts the requests that the mocks of one test host receive.
+/// Tests that run in parallel do not count the requests of other tests.
 /// </summary>
 public sealed class RequestTracker
 {
@@ -14,7 +13,7 @@ public sealed class RequestTracker
     private readonly object _dataLock = new();
 
     /// <summary>
-    /// Gets the number of requests recorded for the key.
+    /// Gets the number of requests for the key.
     /// </summary>
     public int GetRequestCount(string requestKey)
     {
@@ -42,7 +41,7 @@ public sealed class RequestTracker
     }
 
     /// <summary>
-    /// Removes all recorded requests.
+    /// Removes all requests.
     /// </summary>
     public void Clear()
     {

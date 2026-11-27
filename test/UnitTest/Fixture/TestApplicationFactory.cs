@@ -48,9 +48,8 @@ public sealed class TestApplicationFactory<TEntryPoint> : WebApplicationFactory<
                     {
                         metrics.AddInMemoryExporter(metricsList);
 
-                        // A meter listener sees every meter in the process, so without this the
-                        // exporter would also record the requests of hosts in tests running in
-                        // parallel. Meters made by another host's IMeterFactory are dropped.
+                        // A meter listener gets the meters of all test hosts in the process.
+                        // This view drops the meters that the IMeterFactory of a different host makes.
                         ((IDeferredMeterProviderBuilder)metrics).Configure(
                             (sp, meterProviderBuilder) =>
                             {

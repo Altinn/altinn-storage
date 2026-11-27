@@ -40,10 +40,9 @@ public static class ServiceUtil
     }
 
     /// <summary>
-    /// Applies the migrations to the test database, once per test run. The test hosts don't
-    /// migrate the database on startup (<c>MigrateOnStartup</c> is off in appsettings.unittest.json),
-    /// because Yuniql keeps its settings in a process-wide singleton, and hosts that start at the
-    /// same time in tests running in parallel would overwrite each other's settings.
+    /// Applies the migrations to the test database one time for each test run.
+    /// Test hosts do not apply the migrations, because Yuniql keeps its settings in one static instance.
+    /// Hosts that start at the same time would write over the settings of other hosts.
     /// </summary>
     public static void EnsureDatabaseMigrated()
     {
