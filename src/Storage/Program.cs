@@ -349,6 +349,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddTransient<IProcessAuthorizer, ProcessAuthorizer>();
     services.AddSingleton<IAccessTokenGenerator, AccessTokenGenerator>();
     services.AddSingleton<ISigningCredentialsResolver, SigningCredentialsResolver>();
+    services.AddSingleton<IStorageAccountResolver, StorageAccountResolver>();
     services.AddTransient<IDataService, DataService>();
     services.AddTransient<ISigningService, SigningService>();
     services.AddTransient<IInstanceEventService, InstanceEventService>();
@@ -370,6 +371,7 @@ void ConfigureServices(IServiceCollection services, IConfiguration config)
     services.AddSwaggerGen(SwaggerExtensions.StorageSwaggerGen);
     services.AddSwaggerGenNewtonsoftSupport();
 
+    builder.Services.AddHostedService<StorageAccountStartupCheck>();
     builder.Services.AddHostedService<OutboxService>();
 }
 

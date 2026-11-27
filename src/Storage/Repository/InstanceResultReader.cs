@@ -24,7 +24,8 @@ internal static class InstanceResultReader
         NpgsqlDataReader reader,
         bool includeElements,
         CancellationToken cancellationToken,
-        Action<NpgsqlDataReader> firstRowCallback = null
+        Action<NpgsqlDataReader> firstRowCallback = null,
+        bool includeBlobStorageLocation = false
     )
     {
         InstanceInternal instance = null;
@@ -58,6 +59,11 @@ internal static class InstanceResultReader
                     ? null
                     : BlobVersionId.Encode(reader.GetGuid(versionOrdinal));
                 element.BlobVersionId = blobVersionId;
+                if (includeBlobStorageLocation)
+                {
+                    await BlobStorageLocationReader.ReadAsync(reader, element, cancellationToken);
+                }
+
                 instanceData.Add(element);
             }
         }

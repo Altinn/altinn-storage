@@ -22,6 +22,7 @@ internal static class BlobVersionReferenceReader
         string appIdColumn = "appid",
         string blobStorageOrgColumn = "blobstorageorg",
         string storageAccountNumberColumn = "storageaccountnumber",
+        string storageAccountIdColumn = "storageaccountid",
         string blobVersionsColumn = "blobversions",
         CancellationToken cancellationToken = default
     )
@@ -33,6 +34,13 @@ internal static class BlobVersionReferenceReader
         )
             ? null
             : await reader.GetFieldValueAsync<int>(storageAccountOrdinal, cancellationToken);
+        int storageAccountIdOrdinal = reader.GetOrdinal(storageAccountIdColumn);
+        short? storageAccountId = await reader.IsDBNullAsync(
+            storageAccountIdOrdinal,
+            cancellationToken
+        )
+            ? null
+            : await reader.GetFieldValueAsync<short>(storageAccountIdOrdinal, cancellationToken);
         Guid[] blobVersions = await reader.GetFieldValueAsync<Guid[]>(
             blobVersionsColumn,
             cancellationToken
@@ -43,6 +51,7 @@ internal static class BlobVersionReferenceReader
             await reader.GetFieldValueAsync<string>(appIdColumn, cancellationToken),
             await reader.GetFieldValueAsync<string>(blobStorageOrgColumn, cancellationToken),
             storageAccountNumber,
+            storageAccountId,
             blobVersions.Select(BlobVersionId.Encode)
         );
     }

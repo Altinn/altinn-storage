@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Models;
 using Azure;
 using Azure.Core;
 using Azure.Identity;
@@ -70,20 +71,15 @@ public class BlobRepository(
 
     /// <inheritdoc/>
     public async Task<Stream> ReadBlob(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
+        AzureBlobLocation location = GetLocation(account);
         try
         {
-            return await DownloadBlobAsync(
-                org,
-                blobStoragePath,
-                storageAccountNumber,
-                cancellationToken
-            );
+            return await DownloadBlobAsync(location, blobStoragePath, cancellationToken);
         }
         catch (RequestFailedException requestFailedException)
         {
@@ -94,19 +90,13 @@ public class BlobRepository(
                         "Authentication failed. Invalidating credentials and retrying download operation."
                     );
 
-                    _memoryCache.Remove(_credsCacheKey);
-                    _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
+                    InvalidateCachedClients(location);
 
-                    return await DownloadBlobAsync(
-                        org,
-                        blobStoragePath,
-                        storageAccountNumber,
-                        cancellationToken
-                    );
+                    return await DownloadBlobAsync(location, blobStoragePath, cancellationToken);
                 case "BlobNotFound":
                     _logger.LogWarning(
-                        "Unable to find a blob based on the given information - {Org}: {BlobStoragePath}",
-                        org,
+                        "Unable to find a blob based on the given information - {Container}: {BlobStoragePath}",
+                        location.ContainerUri,
                         blobStoragePath
                     );
 
@@ -114,8 +104,8 @@ public class BlobRepository(
                     return null;
                 case "InvalidRange":
                     _logger.LogWarning(
-                        "Found possibly empty blob in storage for {Org}: {BlobStoragePath}",
-                        org,
+                        "Found possibly empty blob in storage for {Container}: {BlobStoragePath}",
+                        location.ContainerUri,
                         blobStoragePath
                     );
 
@@ -129,20 +119,15 @@ public class BlobRepository(
 
     /// <inheritdoc/>
     public async Task<(long ContentLength, DateTimeOffset LastModified)> WriteBlob(
-        string org,
+        StorageAccount account,
         Stream stream,
-        string blobStoragePath,
-        int? storageAccountNumber
+        string blobStoragePath
     )
     {
+        AzureBlobLocation location = GetLocation(account);
         try
         {
-            var blobProps = await UploadFromStreamAsync(
-                org,
-                stream,
-                blobStoragePath,
-                storageAccountNumber
-            );
+            var blobProps = await UploadFromStreamAsync(location, stream, blobStoragePath);
             return (blobProps.ContentLength, blobProps.LastModified);
         }
         catch (RequestFailedException requestFailedException)
@@ -152,8 +137,7 @@ public class BlobRepository(
                 case _authenticationFailedErrorCode:
                     _logger.LogWarning("Authentication failed. Invalidating credentials.");
 
-                    _memoryCache.Remove(_credsCacheKey);
-                    _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
+                    InvalidateCachedClients(location);
 
                     // No use retrying upload as the original stream can't be reset back to start.
                     throw;
@@ -164,15 +148,12 @@ public class BlobRepository(
     }
 
     /// <inheritdoc/>
-    public async Task<bool> DeleteBlob(
-        string org,
-        string blobStoragePath,
-        int? storageAccountNumber
-    )
+    public async Task<bool> DeleteBlob(StorageAccount account, string blobStoragePath)
     {
+        AzureBlobLocation location = GetLocation(account);
         try
         {
-            return await DeleteIfExistsAsync(org, blobStoragePath, storageAccountNumber);
+            return await DeleteIfExistsAsync(location, blobStoragePath);
         }
         catch (RequestFailedException requestFailedException)
         {
@@ -183,10 +164,9 @@ public class BlobRepository(
                         "Authentication failed. Invalidating credentials and retrying delete operation."
                     );
 
-                    _memoryCache.Remove(_credsCacheKey);
-                    _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
+                    InvalidateCachedClients(location);
 
-                    return await DeleteIfExistsAsync(org, blobStoragePath, storageAccountNumber);
+                    return await DeleteIfExistsAsync(location, blobStoragePath);
                 default:
                     throw;
             }
@@ -195,12 +175,12 @@ public class BlobRepository(
 
     /// <inheritdoc/>
     public async Task<bool[]> DeleteBlobsIfExists(
-        string org,
+        StorageAccount account,
         IReadOnlyList<string> blobStoragePaths,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
+        AzureBlobLocation location = GetLocation(account);
         blobStoragePaths ??= [];
         if (blobStoragePaths.Count == 0)
         {
@@ -209,12 +189,7 @@ public class BlobRepository(
 
         try
         {
-            return await DeleteBlobsIfExistsAsync(
-                org,
-                blobStoragePaths,
-                storageAccountNumber,
-                cancellationToken
-            );
+            return await DeleteBlobsIfExistsAsync(location, blobStoragePaths, cancellationToken);
         }
         catch (RequestFailedException requestFailedException)
             when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
@@ -224,15 +199,13 @@ public class BlobRepository(
                 "Authentication failed. Invalidating credentials and retrying per-path batch delete operation."
             );
 
-            _memoryCache.Remove(_credsCacheKey);
-            _memoryCache.Remove(GetClientCacheKey(org, storageAccountNumber));
+            InvalidateCachedClients(location);
 
             try
             {
                 return await DeleteBlobsIfExistsAsync(
-                    org,
+                    location,
                     blobStoragePaths,
-                    storageAccountNumber,
                     cancellationToken
                 );
             }
@@ -240,8 +213,8 @@ public class BlobRepository(
             {
                 _logger.LogWarning(
                     exception,
-                    "Failed to delete blobs after authentication retry for {Org}; marking delete outcomes as unknown.",
-                    org
+                    "Failed to delete blobs after authentication retry for {Container}; marking delete outcomes as unknown.",
+                    location.ContainerUri
                 );
                 return new bool[blobStoragePaths.Count];
             }
@@ -250,14 +223,14 @@ public class BlobRepository(
 
     /// <inheritdoc/>
     public async Task<bool> DeleteDataBlobs(
-        string org,
+        StorageAccount account,
         string appId,
         Guid instanceGuid,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
-        BlobContainerClient container = CreateContainerClient(org, storageAccountNumber);
+        AzureBlobLocation location = GetLocation(account);
+        BlobContainerClient container = CreateContainerClient(location);
 
         if (container == null)
         {
@@ -288,7 +261,11 @@ public class BlobRepository(
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "BlobService // DeleteDataBlobs // Org: {Org}", org);
+            _logger.LogError(
+                e,
+                "BlobService // DeleteDataBlobs // Container: {Container}",
+                location.ContainerUri
+            );
             return false;
         }
 
@@ -297,9 +274,8 @@ public class BlobRepository(
 
     /// <inheritdoc/>
     public async Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
-        string org,
+        StorageAccount account,
         string blobStoragePath,
-        int? storageAccountNumber,
         TimeSpan lifetime,
         CancellationToken cancellationToken = default
     )
@@ -307,11 +283,12 @@ public class BlobRepository(
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(lifetime, _maxReadUrlLifetime);
 
+        AzureBlobLocation location = GetLocation(account);
+
         // The times are set after the key is available, so that a slow key request does not shorten the URL's
         // lifetime. The key is valid for longer than the URL needs, and a SAS cannot outlive its key.
         UserDelegationKey key = await GetUserDelegationKey(
-            org,
-            storageAccountNumber,
+            location.ServiceUri,
             DateTimeOffset.UtcNow.Add(lifetime).Add(_userDelegationKeyMargin),
             cancellationToken
         );
@@ -322,7 +299,7 @@ public class BlobRepository(
             expiresOn = key.SignedExpiresOn;
         }
 
-        BlobClient blob = CreateBlobClient(org, blobStoragePath, storageAccountNumber);
+        BlobClient blob = CreateBlobClient(location, blobStoragePath);
         BlobSasBuilder sasBuilder = new(BlobSasPermissions.Read, expiresOn)
         {
             BlobContainerName = blob.BlobContainerName,
@@ -340,14 +317,24 @@ public class BlobRepository(
         return (uriBuilder.ToUri(), expiresOn);
     }
 
+    private AzureBlobLocation GetLocation(StorageAccount account)
+    {
+        return account.ProviderInfo switch
+        {
+            AzureBlobProviderInfo info => AzureBlobLocation.Of(info, _storageConfiguration),
+            _ => throw new NotSupportedException(
+                $"Storage account provider is not supported: {account.ProviderInfo?.GetType().Name}"
+            ),
+        };
+    }
+
     private async Task<BlobProperties> UploadFromStreamAsync(
-        string org,
+        AzureBlobLocation location,
         Stream stream,
-        string fileName,
-        int? storageAccountNumber
+        string fileName
     )
     {
-        BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
+        BlobClient blockBlob = CreateBlobClient(location, fileName);
         BlobUploadOptions options = new()
         {
             TransferValidation = new UploadTransferValidationOptions
@@ -362,13 +349,12 @@ public class BlobRepository(
     }
 
     private async Task<Stream> DownloadBlobAsync(
-        string org,
+        AzureBlobLocation location,
         string fileName,
-        int? storageAccountNumber,
         CancellationToken cancellationToken = default
     )
     {
-        BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
+        BlobClient blockBlob = CreateBlobClient(location, fileName);
 
         Azure.Response<BlobDownloadInfo> response = await blockBlob.DownloadAsync(
             cancellationToken
@@ -380,13 +366,9 @@ public class BlobRepository(
     /// <summary>
     /// Deletes the blob at the supplied concrete path.
     /// </summary>
-    private async Task<bool> DeleteIfExistsAsync(
-        string org,
-        string fileName,
-        int? storageAccountNumber
-    )
+    private async Task<bool> DeleteIfExistsAsync(AzureBlobLocation location, string fileName)
     {
-        BlobClient blockBlob = CreateBlobClient(org, fileName, storageAccountNumber);
+        BlobClient blockBlob = CreateBlobClient(location, fileName);
 
         bool result = await blockBlob.DeleteIfExistsAsync();
 
@@ -394,15 +376,14 @@ public class BlobRepository(
     }
 
     private async Task<bool[]> DeleteBlobsIfExistsAsync(
-        string org,
+        AzureBlobLocation location,
         IReadOnlyList<string> blobStoragePaths,
-        int? storageAccountNumber,
         CancellationToken cancellationToken
     )
     {
         bool[] deletedBlobStoragePaths = new bool[blobStoragePaths.Count];
-        BlobContainerClient container = CreateContainerClient(org, storageAccountNumber);
-        BlobBatchClient batchClient = CreateBlobBatchClient(org, storageAccountNumber);
+        BlobContainerClient container = CreateContainerClient(location);
+        BlobBatchClient batchClient = CreateBlobBatchClient(location);
 
         for (
             int batchStartIndex = 0;
@@ -455,9 +436,9 @@ public class BlobRepository(
             {
                 _logger.LogWarning(
                     exception,
-                    "Failed to submit blob batch delete operation for {BlobCount} blobs in {Org}; leaving blob-version rows for retry.",
+                    "Failed to submit blob batch delete operation for {BlobCount} blobs in {Container}; leaving blob-version rows for retry.",
                     deleteResponses.Count,
-                    org
+                    location.ContainerUri
                 );
                 continue;
             }
@@ -489,90 +470,47 @@ public class BlobRepository(
         return statusCode is 202 or 404;
     }
 
-    private BlobClient CreateBlobClient(string org, string blobName, int? storageAccountNumber)
+    private BlobClient CreateBlobClient(AzureBlobLocation location, string blobName)
     {
-        return CreateContainerClient(org, storageAccountNumber).GetBlobClient(blobName);
+        return CreateContainerClient(location).GetBlobClient(blobName);
     }
 
-    private BlobContainerClient CreateContainerClient(string org, int? storageAccountNumber)
+    private BlobContainerClient CreateContainerClient(AzureBlobLocation location)
     {
-        if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
+        string cacheKey = GetClientCacheKey(location);
+        if (!_memoryCache.TryGetValue(cacheKey, out BlobContainerClient client))
         {
-            string cacheKey = GetClientCacheKey(org, storageAccountNumber);
-            if (!_memoryCache.TryGetValue(cacheKey, out BlobContainerClient client))
-            {
-                string containerName = string.Format(
-                    _storageConfiguration.OrgStorageContainer,
-                    org
-                );
-                string accountName = GetStorageAccountName(org, storageAccountNumber);
-
-                UriBuilder fullUri = new()
-                {
-                    Scheme = "https",
-                    Host = $"{accountName}.blob.core.windows.net",
-                    Path = $"{containerName}",
-                };
-
-                client = new BlobContainerClient(fullUri.Uri, GetCredential(), _clientOptions);
-                _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
-            }
-
-            return client;
+            client = location.UsesSharedKey
+                ? new BlobContainerClient(
+                    location.ContainerUri,
+                    CreateSharedKeyCredential(),
+                    _clientOptions
+                )
+                : new BlobContainerClient(location.ContainerUri, GetCredential(), _clientOptions);
+            _memoryCache.Set(cacheKey, client, _cacheEntryOptionsBlobClient);
         }
 
-        StorageSharedKeyCredential storageCredentials = new(
-            _storageConfiguration.OrgStorageAccount,
-            _storageConfiguration.AccountKey
-        );
-        Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        BlobServiceClient commonBlobClient = new(storageUrl, storageCredentials, _clientOptions);
-        BlobContainerClient blobContainerClient = commonBlobClient.GetBlobContainerClient(
-            string.Format(_storageConfiguration.OrgStorageContainer, org)
-        );
-        return blobContainerClient;
+        return client;
     }
 
-    private BlobBatchClient CreateBlobBatchClient(string org, int? storageAccountNumber)
+    private BlobBatchClient CreateBlobBatchClient(AzureBlobLocation location)
     {
-        if (!_storageConfiguration.AccountName.Equals("devstoreaccount1"))
-        {
-            string accountName = GetStorageAccountName(org, storageAccountNumber);
-            UriBuilder fullUri = new()
-            {
-                Scheme = "https",
-                Host = $"{accountName}.blob.core.windows.net",
-            };
-
-            return new BlobServiceClient(
-                fullUri.Uri,
-                GetCredential(),
+        BlobServiceClient serviceClient = location.UsesSharedKey
+            ? new BlobServiceClient(
+                location.ServiceUri,
+                CreateSharedKeyCredential(),
                 _clientOptions
-            ).GetBlobBatchClient();
-        }
-
-        StorageSharedKeyCredential storageCredentials = new(
-            _storageConfiguration.OrgStorageAccount,
-            _storageConfiguration.AccountKey
-        );
-        Uri storageUrl = new(_storageConfiguration.BlobEndPoint);
-        return new BlobServiceClient(
-            storageUrl,
-            storageCredentials,
-            _clientOptions
-        ).GetBlobBatchClient();
+            )
+            : new BlobServiceClient(location.ServiceUri, GetCredential(), _clientOptions);
+        return serviceClient.GetBlobBatchClient();
     }
 
-    private string GetStorageAccountName(string org, int? storageAccountNumber)
+    private StorageSharedKeyCredential CreateSharedKeyCredential()
     {
-        string accountName = string.Format(_storageConfiguration.OrgStorageAccount, org);
-        if (storageAccountNumber != null)
-        {
-            accountName =
-                $"{accountName.AsSpan(0, accountName.Length - 2)}{(int)storageAccountNumber:D2}";
-        }
-
-        return accountName;
+        return new StorageSharedKeyCredential(
+            _storageConfiguration.AccountName,
+            _storageConfiguration.AccountKey
+        );
     }
 
     /// <summary>
@@ -580,13 +518,11 @@ public class BlobRepository(
     /// A key is requested for a day and reused for half of it, so every URL signed with it expires first.
     /// </summary>
     private async Task<UserDelegationKey> GetUserDelegationKey(
-        string org,
-        int? storageAccountNumber,
+        Uri serviceUri,
         DateTimeOffset validUntil,
         CancellationToken cancellationToken
     )
     {
-        Uri serviceUri = GetServiceUri(org, storageAccountNumber);
         string cacheKey = $"user-delegation-key-{serviceUri}";
         if (
             _memoryCache.TryGetValue(cacheKey, out UserDelegationKey key)
@@ -629,19 +565,6 @@ public class BlobRepository(
         return key;
     }
 
-    /// <summary>
-    /// Gets the URI of the blob service of the account, which is Azurite's endpoint for the development
-    /// account.
-    /// </summary>
-    private Uri GetServiceUri(string org, int? storageAccountNumber)
-    {
-        return _storageConfiguration.AccountName.Equals("devstoreaccount1")
-            ? new Uri(_storageConfiguration.BlobEndPoint)
-            : new Uri(
-                $"https://{GetStorageAccountName(org, storageAccountNumber)}.blob.core.windows.net"
-            );
-    }
-
     private TokenCredential GetCredential()
     {
         if (_credential is not null)
@@ -658,8 +581,14 @@ public class BlobRepository(
         return creds;
     }
 
-    private static string GetClientCacheKey(string org, int? storageAccountNumber)
+    private void InvalidateCachedClients(AzureBlobLocation location)
     {
-        return $"blob-{org}-{storageAccountNumber}";
+        _memoryCache.Remove(_credsCacheKey);
+        _memoryCache.Remove(GetClientCacheKey(location));
+    }
+
+    private static string GetClientCacheKey(AzureBlobLocation location)
+    {
+        return $"blob-{location.ContainerUri}";
     }
 }

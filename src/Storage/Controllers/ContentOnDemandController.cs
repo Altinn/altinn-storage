@@ -53,6 +53,7 @@ public class ContentOnDemandController : Controller
     private readonly GeneralSettings _generalSettings;
     private readonly IA2OndemandFormattingService _a2OndemandFormattingService;
     private readonly IPdfGeneratorClient _pdfGeneratorClient;
+    private readonly IStorageAccountResolver _storageAccountResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ContentOnDemandController"/> class
@@ -64,6 +65,7 @@ public class ContentOnDemandController : Controller
     /// <param name="settings">the general settings.</param>
     /// <param name="a2OndemandFormattingService">a2OndemandFormattingService</param>
     /// <param name="pdfGeneratorClient">pdfGeneratorClient</param>
+    /// <param name="storageAccountResolver">Resolves the storage accounts blobs are read from.</param>
     public ContentOnDemandController(
         IInstanceRepository instanceRepository,
         IBlobRepository blobRepository,
@@ -71,7 +73,8 @@ public class ContentOnDemandController : Controller
         IApplicationRepository applicationRepository,
         IOptions<GeneralSettings> settings,
         IA2OndemandFormattingService a2OndemandFormattingService,
-        IPdfGeneratorClient pdfGeneratorClient
+        IPdfGeneratorClient pdfGeneratorClient,
+        IStorageAccountResolver storageAccountResolver
     )
     {
         _instanceRepository = instanceRepository;
@@ -81,6 +84,7 @@ public class ContentOnDemandController : Controller
         _generalSettings = settings.Value;
         _a2OndemandFormattingService = a2OndemandFormattingService;
         _pdfGeneratorClient = pdfGeneratorClient;
+        _storageAccountResolver = storageAccountResolver;
     }
 
     static ContentOnDemandController()
@@ -136,9 +140,8 @@ public class ContentOnDemandController : Controller
 
         List<SignatureView> view = await JsonSerializer.DeserializeAsync<List<SignatureView>>(
             await _blobRepository.ReadBlob(
-                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                await GetStorageAccount(signatureElement, instance, application, cancellationToken),
                 signatureElement.BlobStoragePath,
-                application.StorageAccountNumber,
                 cancellationToken
             ),
             (JsonSerializerOptions)null,
@@ -192,9 +195,8 @@ public class ContentOnDemandController : Controller
 
         PaymentView view = await JsonSerializer.DeserializeAsync<PaymentView>(
             await _blobRepository.ReadBlob(
-                $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+                await GetStorageAccount(paymentElement, instance, application, cancellationToken),
                 paymentElement.BlobStoragePath,
-                application.StorageAccountNumber,
                 cancellationToken
             ),
             (JsonSerializerOptions)null,
@@ -516,13 +518,27 @@ public class ContentOnDemandController : Controller
         views[^1].LastPage = true;
 
         Stream blob = await _blobRepository.ReadBlob(
-            $"{(_generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org)}",
+            await GetStorageAccount(xmlElement, instance, application, cancellationToken),
             xmlElement.BlobStoragePath,
-            application.StorageAccountNumber,
             cancellationToken
         );
 
         return (_a2OndemandFormattingService.GetFormdataHtml(views, blob), views);
+    }
+
+    private Task<StorageAccount> GetStorageAccount(
+        DataElementInternal element,
+        InstanceInternal instance,
+        Application application,
+        CancellationToken cancellationToken
+    )
+    {
+        return _storageAccountResolver.ForElement(
+            element,
+            _generalSettings.A2UseTtdAsServiceOwner ? "ttd" : instance.Org,
+            StorageAccountNaming.NumberOf(application),
+            cancellationToken
+        );
     }
 
     private static float GetScale(PrintViewXslBE infoPathViewXslBE)
