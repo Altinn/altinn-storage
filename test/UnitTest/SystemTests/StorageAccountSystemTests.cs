@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -389,36 +388,29 @@ public sealed class StorageAccountSystemTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task TwoHosts_RowInsertedThroughOne_OtherRoutesToItAfterCacheExpires()
+    public async Task TwoHosts_RowInsertedThroughOne_OtherRoutesToItAfterItsCacheExpires()
     {
         // Arrange
-        const int cacheSeconds = 2;
-        StorageHost hostA = await StartHost(cacheSeconds, seedApplication: true);
-        StorageHost hostB = await StartHost(cacheSeconds);
+        // Host B's cache outlives the test, so its snapshot is stale until the test empties the cache, as
+        // the cache expiring does. StorageAccountResolverTests covers the expiry itself.
+        StorageHost hostA = await StartHost(seedApplication: true);
+        StorageHost hostB = await StartHost(cacheSeconds: 3600);
         BlobContainerClient named = await CreateContainer($"named-{Guid.NewGuid():N}");
         Guid instance = await CreateInstance(hostA);
 
         // Fills host B's cache before the row exists.
         Assert.Null((await hostB.Resolver.ForWrite(_org, 1)).Id);
-        Stopwatch sinceHostBCached = Stopwatch.StartNew();
 
         // Act
         short accountId = await InsertWritableAccount(hostA, named.Name);
         StorageAccount staleOnB = await hostB.Resolver.ForWrite(_org, 1);
-        TimeSpan staleCheckedAfter = sinceHostBCached.Elapsed;
         Guid throughA = await Upload(hostA, instance, "through A");
 
-        await Task.Delay(TimeSpan.FromSeconds(cacheSeconds) + TimeSpan.FromMilliseconds(500));
+        hostB.ClearCache();
         Guid throughB = await Upload(hostB, instance, "through B");
 
         // Assert
-        // Host B may only still route to the pattern default while its snapshot is younger than the TTL;
-        // on a machine slow enough to pass the TTL before the check, the check proves nothing.
-        if (staleCheckedAfter < TimeSpan.FromSeconds(cacheSeconds))
-        {
-            Assert.Null(staleOnB.Id);
-        }
-
+        Assert.Null(staleOnB.Id);
         Assert.Equal(accountId, Assert.Single(await ReadVersionRows(throughA)).StorageAccountId);
         Assert.Equal(accountId, Assert.Single(await ReadVersionRows(throughB)).StorageAccountId);
         Assert.Empty(await BlobNames(_patternContainer));

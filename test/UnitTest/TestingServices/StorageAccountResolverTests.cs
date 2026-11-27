@@ -96,6 +96,29 @@ public class StorageAccountResolverTests
     }
 
     [Fact]
+    public async Task ForWrite_AfterCacheExpires_RereadsRows()
+    {
+        StorageAccountResolver resolver = new(
+            _repository.Object,
+            new MemoryCache(new MemoryCacheOptions()),
+            Options.Create(_azureConfiguration),
+            Options.Create(new GeneralSettings { StorageAccountCacheSeconds = 1 }),
+            _logs.CreateLogger<StorageAccountResolver>()
+        );
+        _repository
+            .SetupSequence(r => r.ReadAll(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Rows([]))
+            .ReturnsAsync(Rows([Row(5, _namedAccount, "ttd", 1, writable: true)]));
+        Assert.Null((await resolver.ForWrite("ttd", 1)).Id);
+
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        StorageAccount account = await resolver.ForWrite("ttd", 1);
+
+        Assert.Equal(new StorageAccount(5, _namedAccount), account);
+        _repository.Verify(r => r.ReadAll(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task GetById_MissingFromCache_RereadsRows()
     {
         _repository
