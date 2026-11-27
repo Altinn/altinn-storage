@@ -1,15 +1,15 @@
-CREATE OR REPLACE FUNCTION storage.tryreplayinstancemutation(
+CREATE OR REPLACE FUNCTION storage.tryreplayinstancemutation_v2(
     IN _idempotencykey UUID,
     IN _instanceguid UUID,
     IN _previousinstanceversion INT,
     IN _currentinstanceversion INT,
-    IN _currentprocessstateversion INT)
-    RETURNS TEXT[]
+    IN _currentprocessstateversion INT,
+    OUT createddataelementids TEXT[],
+    OUT callerresult TEXT)
     LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     _producedinstanceversion INT;
-    _createddataelementids TEXT[];
     _storedinstanceguid UUID;
     _storedpreviousinstanceversion INT;
 BEGIN
@@ -17,12 +17,14 @@ BEGIN
         i.instance,
         i.previous_instance_version,
         i.produced_instance_version,
-        i.created_data_element_ids
+        i.created_data_element_ids,
+        i.caller_result
         INTO
             _storedinstanceguid,
             _storedpreviousinstanceversion,
             _producedinstanceversion,
-            _createddataelementids
+            createddataelementids,
+            callerresult
         FROM storage.instance_mutation_idempotency i
         WHERE i.idempotency_key = _idempotencykey;
 
@@ -57,7 +59,5 @@ BEGIN
             _currentinstanceversion,
             _currentprocessstateversion);
     END IF;
-
-    RETURN _createddataelementids;
 END;
 $BODY$;

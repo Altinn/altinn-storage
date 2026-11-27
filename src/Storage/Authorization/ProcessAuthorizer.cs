@@ -54,6 +54,10 @@ public class ProcessAuthorizer : IProcessAuthorizer
     public Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance) =>
         AuthorizeWithSyncAdapterBypass(instance);
 
+    /// <inheritdoc/>
+    public Task<bool> AuthorizeInstanceOwnOrganisation(InstanceInternal instance) =>
+        Task.FromResult(IsCalledByApp(instance));
+
     /// <summary>
     /// Get all actions that allow process next for the given task type.
     /// </summary>

@@ -439,4 +439,36 @@ public class ProcessAuthorizerTests
     }
 
     #endregion
+
+    #region AuthorizeInstanceOwnOrganisation
+
+    [Fact]
+    public async Task AuthorizeInstanceOwnOrganisation_InstanceOwnOrganisation_ReturnsTrue()
+    {
+        var instance = CreateInstance();
+        SetupCallerOrg(AppOrg);
+
+        Assert.True(await CreateSut().AuthorizeInstanceOwnOrganisation(instance));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("other-org")]
+    public async Task AuthorizeInstanceOwnOrganisation_UserOrAnotherOrganisationWithWrite_ReturnsFalseWithoutAskingThePdp(
+        string? callerOrg
+    )
+    {
+        var instance = CreateInstance();
+        if (callerOrg is not null)
+        {
+            SetupCallerOrg(callerOrg);
+        }
+
+        SetupAuthorizeAction("write", "Task_1", true);
+
+        Assert.False(await CreateSut().AuthorizeInstanceOwnOrganisation(instance));
+        VerifyPdpNeverAsked();
+    }
+
+    #endregion
 }

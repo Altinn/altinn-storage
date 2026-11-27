@@ -67,6 +67,8 @@ public class InstanceMutationsController(
     /// </summary>
     private const int _maxMutationJsonSize = 1024 * 1024 * 4;
 
+    private const int _maxCallerResultLength = 4096;
+
     private static readonly FormOptions _defaultFormOptions = new();
 
     /// <summary>
@@ -77,12 +79,17 @@ public class InstanceMutationsController(
     /// </summary>
     /// <remarks>
     /// After the endpoint's outer <c>InstanceWrite</c> policy admits the request, idempotent replay
-    /// is checked before process-state, presentation-text, data-value, substatus, per-data-type write,
-    /// complete-confirmation, and delete-instance authorization. A complete confirmation is
-    /// additionally subject to the <c>InstanceComplete</c> policy and is recorded for the calling
-    /// organisation only; an organisation that already has a confirmation keeps the one it has, and
-    /// the remaining operations commit either way. Only the instance's own organisation can set the
-    /// substatus. An admitted replay is a no-op and uses the snapshot
+    /// of a mutation that raised the instance version is checked before process-state,
+    /// presentation-text, data-value, substatus, caller-result, per-data-type write,
+    /// complete-confirmation, and delete-instance authorization. A mutation that raised no version,
+    /// such as one that carries only a caller result, is found to be a replay when it is applied,
+    /// after authorization. A complete confirmation is additionally subject to the
+    /// <c>InstanceComplete</c> policy and is recorded for the calling organisation only; an
+    /// organisation that already has a confirmation keeps the one it has, and the remaining
+    /// operations commit either way. Only the instance's own organisation can set the substatus or
+    /// store a caller result. A mutation that carries only a caller result writes its idempotency
+    /// record and nothing else: it raises no version and writes no event. An admitted replay is a
+    /// no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
     /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
@@ -101,7 +108,7 @@ public class InstanceMutationsController(
     /// <param name="cancellationToken">CancellationToken</param>
     /// <param name="ifInstanceVersionMatch">Optional expected aggregate instance version.</param>
     /// <param name="ifProcessStateVersionMatch">Optional expected process-state version.</param>
-    /// <param name="idempotencyKeyHeader">Optional idempotency key. Requires an expected instance version.</param>
+    /// <param name="idempotencyKeyHeader">Optional idempotency key. Requires an expected instance version, and is required with a caller result.</param>
     /// <returns>The updated instance, including current blob version ids on its data elements.</returns>
     [Authorize(Policy = AuthzConstants.POLICY_INSTANCE_WRITE)]
     [HttpPost]
@@ -183,6 +190,12 @@ public class InstanceMutationsController(
         if (substatusError is not null)
         {
             return substatusError;
+        }
+
+        ObjectResult callerResultError = ValidateCallerResult(mutationRequest, idempotencyKey);
+        if (callerResultError is not null)
+        {
+            return callerResultError;
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -318,6 +331,7 @@ public class InstanceMutationsController(
         return BuildMutationResponse(
             updatedInstanceInternal,
             applyResult.CreatedDataElementIds,
+            applyResult.CallerResult,
             applyResult.Replayed
         );
     }
@@ -354,6 +368,7 @@ public class InstanceMutationsController(
             return BuildMutationResponse(
                 replayAdmission.Instance,
                 replayAdmission.CreatedDataElementIds,
+                replayAdmission.CallerResult,
                 replayed: true
             );
         }
@@ -424,8 +439,10 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
-        // Only the instance's own org may set the substatus
-        if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
+        if (
+            (mutationRequest.Substatus is not null || mutationRequest.CallerResult is not null)
+            && !await processAuthorizer.AuthorizeInstanceOwnOrganisation(instance)
+        )
         {
             return Forbid();
         }
@@ -635,6 +652,7 @@ public class InstanceMutationsController(
                 preconditions,
                 snapshotProcessStateVersion,
                 idempotencyKey,
+                mutationRequest.CallerResult,
                 stagedByPartName
             );
 
@@ -1314,6 +1332,7 @@ public class InstanceMutationsController(
         VersionPreconditions preconditions,
         int snapshotProcessStateVersion,
         Guid? idempotencyKey,
+        string callerResult,
         IReadOnlyDictionary<string, StagedFileContent> stagedByPartName
     )
     {
@@ -1342,6 +1361,7 @@ public class InstanceMutationsController(
             preconditions,
             snapshotProcessStateVersion,
             idempotencyKey,
+            callerResult,
             (eventType, dataElement) =>
                 instanceEventService.BuildInstanceEvent(
                     eventType,
@@ -1354,6 +1374,7 @@ public class InstanceMutationsController(
     private ActionResult<InstanceMutationResponse> BuildMutationResponse(
         InstanceInternal updatedInstanceInternal,
         IReadOnlyList<string> createdDataElementIds,
+        string callerResult,
         bool replayed
     )
     {
@@ -1367,6 +1388,7 @@ public class InstanceMutationsController(
                 Instance = updatedInstance,
                 CreatedDataElementIds = [.. createdDataElementIds],
                 Replayed = replayed,
+                CallerResult = callerResult,
             }
         );
     }
@@ -1634,7 +1656,8 @@ public class InstanceMutationsController(
         || request.AddCompleteConfirmation
         || request.Substatus is not null
         || request.ProcessState?.State is not null
-        || request.ProcessState?.Events?.Count > 0;
+        || request.ProcessState?.Events?.Count > 0
+        || request.CallerResult is not null;
 
     private BadRequestObjectResult ValidateDeleteInstanceRequest(
         InstanceMutationRequest request,
@@ -1684,6 +1707,41 @@ public class InstanceMutationsController(
         {
             return Problem(
                 detail: "substatus.label is required.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        return null;
+    }
+
+    private ObjectResult ValidateCallerResult(InstanceMutationRequest request, Guid? idempotencyKey)
+    {
+        if (request.CallerResult is null)
+        {
+            return null;
+        }
+
+        if (idempotencyKey is null)
+        {
+            return Problem(
+                detail: $"callerResult requires {StorageHeaders.IdempotencyKey}.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        if (request.CallerResult.Length is 0 or > _maxCallerResultLength)
+        {
+            return Problem(
+                detail: $"callerResult must be 1 to {_maxCallerResultLength} characters long.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        // PostgreSQL text cannot hold a NUL character.
+        if (request.CallerResult.Contains('\0'))
+        {
+            return Problem(
+                detail: "callerResult must not contain a NUL character.",
                 statusCode: StatusCodes.Status400BadRequest
             );
         }
@@ -2243,6 +2301,7 @@ public class InstanceMutationsController(
             VersionPreconditions preconditions,
             int snapshotProcessStateVersion,
             Guid? idempotencyKey,
+            string callerResult,
             Func<InstanceEventType, DataElementInternal, InstanceEvent> buildInstanceEvent
         )
         {
@@ -2268,7 +2327,8 @@ public class InstanceMutationsController(
                 instanceEvents,
                 idempotencyKey,
                 mutationUpdates.LastChanged,
-                mutationUpdates.LastChangedBy
+                mutationUpdates.LastChangedBy,
+                callerResult
             );
 
             return new PreparedMutationWork(

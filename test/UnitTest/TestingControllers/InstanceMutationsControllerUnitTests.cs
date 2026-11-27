@@ -2611,35 +2611,38 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("other-org")]
-    public async Task CommitMutation_SubstatusFromAUserOrAnotherOrg_ReturnsForbid(string callerOrg)
+    [InlineData("""{"substatus":{"label":"substatus.received"}}""")]
+    [InlineData("""{"callerResult":"result"}""")]
+    public async Task CommitMutation_SubstatusOrCallerResultFromAnotherThanTheInstanceOwnOrganisation_ReturnsForbid(
+        string mutationJson
+    )
     {
         Guid instanceGuid = Guid.NewGuid();
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
-            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
             CreateAggregateApplication(),
-            """
-            {
-              "substatus": {
-                "label": "substatus.received"
-              }
-            }
-            """
+            mutationJson
         );
-        if (callerOrg is not null)
-        {
-            fixture.HttpContext.User = CreateOrgPrincipal(callerOrg);
-        }
+        fixture
+            .ProcessAuthorizer.Setup(authorizer =>
+                authorizer.AuthorizeInstanceOwnOrganisation(It.IsAny<InstanceInternal>())
+            )
+            .ReturnsAsync(false);
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
             instanceGuid,
-            CancellationToken.None
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: Guid.NewGuid().ToString()
         );
 
         Assert.IsType<ForbidResult>(result.Result);
+        fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.AuthorizeInstanceOwnOrganisation(fixture.InstanceInternal),
+            Times.Once
+        );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
@@ -2671,6 +2674,187 @@ public class InstanceMutationsControllerUnitTests
             "substatus.label is required.",
             Assert.IsType<ProblemDetails>(badRequest.Value).Detail
         );
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Never
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
+    public async Task CommitMutation_CallerResultOnly_CommitsTheResultWithoutInstanceChanges()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid idempotencyKey = Guid.NewGuid();
+        const string callerResult = "result";
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            """
+            {
+              "callerResult": "result"
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: idempotencyKey.ToString()
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.False(response.Replayed);
+        Assert.Equal(callerResult, response.CallerResult);
+        Assert.Equal(callerResult, capturedMutation.CallerResult);
+        Assert.Equal(idempotencyKey, capturedMutation.IdempotencyKey);
+        Assert.Empty(capturedMutation.InstanceUpdateProperties);
+        Assert.Empty(capturedMutation.InstanceEvents);
+        Assert.Empty(capturedMutation.CreateDataElements);
+        Assert.Empty(capturedMutation.UpdateDataElements);
+        Assert.Empty(capturedMutation.DeleteDataElements);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CommitMutation_CallerResultReplay_ReturnsTheCommittedResult(
+        bool replayedAtAdmission
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid idempotencyKey = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(13, 9)),
+            CreateAggregateApplication(),
+            """
+            {
+              "callerResult": "retry"
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        InstanceMutationApplyResult replay = new(true, [], fixture.InstanceInternal, "committed");
+        fixture
+            .MutationRepository.Setup(repository =>
+                repository.TryReplayAdmission(
+                    instanceGuid,
+                    12,
+                    13,
+                    9,
+                    idempotencyKey,
+                    It.IsAny<CancellationToken>()
+                )
+            )
+            .ReturnsAsync(replay);
+        SetupCapturingMutationRepository(fixture, instanceGuid, _ => { }, _ => replay);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None,
+            ifInstanceVersionMatch: replayedAtAdmission ? "12" : "13",
+            idempotencyKeyHeader: idempotencyKey.ToString()
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.True(response.Replayed);
+        Assert.Equal("committed", response.CallerResult);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4096)]
+    public async Task CommitMutation_CallerResultOfOneTo4096Characters_IsAccepted(
+        int callerResultLength
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        string callerResult = new('r', callerResultLength);
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, [], new StorageVersions(7, 3)),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "callerResult": "{{callerResult}}"
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: Guid.NewGuid().ToString()
+        );
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(result.Result);
+        InstanceMutationResponse response = Assert.IsType<InstanceMutationResponse>(ok.Value);
+        Assert.Equal(callerResult, response.CallerResult);
+    }
+
+    public static TheoryData<bool, string, string> InvalidCallerResults()
+    {
+        return new()
+        {
+            { false, "r", "callerResult requires Idempotency-Key." },
+            { true, "", "callerResult must be 1 to 4096 characters long." },
+            { true, new string('r', 4097), "callerResult must be 1 to 4096 characters long." },
+            { true, "nul\0inside", "callerResult must not contain a NUL character." },
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(InvalidCallerResults))]
+    public async Task CommitMutation_InvalidCallerResult_ReturnsBadRequestBeforeReads(
+        bool withIdempotencyKey,
+        string callerResult,
+        string expectedDetail
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "callerResult": {{JsonSerializer.Serialize(callerResult)}}
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None,
+            ifInstanceVersionMatch: "7",
+            idempotencyKeyHeader: withIdempotencyKey ? Guid.NewGuid().ToString() : null
+        );
+
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal(expectedDetail, Assert.IsType<ProblemDetails>(badRequest.Value).Detail);
         fixture.InstanceRepository.Verify(
             repository =>
                 repository.GetOne(
@@ -3125,13 +3309,19 @@ public class InstanceMutationsControllerUnitTests
               ],
               "dataValues": {
                 "status": "retry"
-              }
+              },
+              "callerResult": "retry"
             }
             """
         );
         fixture
             .ProcessAuthorizer.Setup(authorizer =>
                 authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>())
+            )
+            .ReturnsAsync(false);
+        fixture
+            .ProcessAuthorizer.Setup(authorizer =>
+                authorizer.AuthorizeInstanceOwnOrganisation(It.IsAny<InstanceInternal>())
             )
             .ReturnsAsync(false);
         fixture
@@ -3173,6 +3363,10 @@ public class InstanceMutationsControllerUnitTests
         );
         fixture.ProcessAuthorizer.Verify(
             authorizer => authorizer.AuthorizeDataValuesUpdate(It.IsAny<InstanceInternal>()),
+            Times.Never
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer => authorizer.AuthorizeInstanceOwnOrganisation(It.IsAny<InstanceInternal>()),
             Times.Never
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
@@ -5668,6 +5862,11 @@ public class InstanceMutationsControllerUnitTests
             .ReturnsAsync(true);
         processAuthorizerMock
             .Setup(authorizer =>
+                authorizer.AuthorizeInstanceOwnOrganisation(It.IsAny<InstanceInternal>())
+            )
+            .ReturnsAsync(true);
+        processAuthorizerMock
+            .Setup(authorizer =>
                 authorizer.AuthorizeProcessNext(
                     It.IsAny<InstanceInternal>(),
                     It.IsAny<ProcessState>()
@@ -5989,7 +6188,8 @@ public class InstanceMutationsControllerUnitTests
                     dataElement.Id.ToString()
                 ),
             ],
-            instance
+            instance,
+            mutation.CallerResult
         );
     }
 

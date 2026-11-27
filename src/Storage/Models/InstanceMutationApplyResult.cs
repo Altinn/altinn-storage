@@ -8,5 +8,6 @@ namespace Altinn.Platform.Storage.Models;
 public sealed record InstanceMutationApplyResult(
     bool Replayed,
     IReadOnlyList<string> CreatedDataElementIds,
-    InstanceInternal Instance
+    InstanceInternal Instance,
+    string? CallerResult = null
 );
