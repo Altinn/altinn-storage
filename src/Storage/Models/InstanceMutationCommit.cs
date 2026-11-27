@@ -18,5 +18,6 @@ public sealed record InstanceMutationCommit(
     IReadOnlyList<InstanceEvent> InstanceEvents,
     Guid? IdempotencyKey = null,
     DateTime? LastChanged = null,
-    string? LastChangedBy = null
+    string? LastChangedBy = null,
+    string? CallerResult = null
 );

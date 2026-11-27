@@ -3357,6 +3357,245 @@ public class DataTests(DataElementFixture dataElementFixture)
     }
 
     [Fact]
+    public async Task AggregateMutation_CallerResult_IsReturnedOnCommitAndByBothReplayPaths()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        int previousInstanceVersion = await ReadInstanceVersion(instanceGuid);
+        int previousProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        InstanceMutationCommit mutation = DataValuesMutation(
+            previousInstanceVersion,
+            idempotencyKey,
+            "first"
+        );
+
+        // Act
+        InstanceMutationApplyResult committed = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+        InstanceMutationApplyResult appliedReplay =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                mutation with
+                {
+                    CallerResult = "second",
+                }
+            );
+        InstanceMutationApplyResult admittedReplay =
+            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                instanceGuid,
+                previousInstanceVersion,
+                previousInstanceVersion + 1,
+                previousProcessStateVersion,
+                idempotencyKey
+            );
+
+        // Assert
+        Assert.False(committed.Replayed);
+        Assert.Equal("first", committed.CallerResult);
+        Assert.True(appliedReplay.Replayed);
+        Assert.Equal("first", appliedReplay.CallerResult);
+        Assert.True(admittedReplay.Replayed);
+        Assert.Equal("first", admittedReplay.CallerResult);
+    }
+
+    [Fact]
+    public async Task AggregateMutation_ReplayOfMutationCommittedByPreviousFunction_ReturnsNoCallerResult()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        int instanceVersion = await ReadInstanceVersion(instanceGuid);
+        int processStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        await ApplyInstanceMutationWithPreviousFunction(
+            instanceGuid,
+            _instanceInternalId,
+            instanceVersion,
+            idempotencyKey
+        );
+
+        // Act
+        InstanceMutationApplyResult appliedReplay =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                CallerResultOnlyMutation(instanceVersion, idempotencyKey, "retry")
+            );
+        InstanceMutationApplyResult admittedReplay =
+            await dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                instanceGuid,
+                instanceVersion,
+                instanceVersion,
+                processStateVersion,
+                idempotencyKey
+            );
+
+        // Assert
+        Assert.True(appliedReplay.Replayed);
+        Assert.Null(appliedReplay.CallerResult);
+        Assert.True(admittedReplay.Replayed);
+        Assert.Null(admittedReplay.CallerResult);
+    }
+
+    [Fact]
+    public async Task AggregateMutation_CallerResultOnly_CommitsAndReplaysWithoutChangingTheInstance()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        int instanceVersion = await ReadInstanceVersion(instanceGuid);
+        int processStateVersion = await ReadProcessStateVersion(instanceGuid);
+        string storedInstance = await ReadStoredInstanceJson(instanceGuid);
+        DateTime lastChanged = await ReadInstanceLastChangedColumn(instanceGuid);
+        int instanceEvents = await CountAllInstanceEvents(instanceGuid);
+        string outboxRow = await ReadOutboxRow(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        InstanceMutationCommit mutation = CallerResultOnlyMutation(
+            instanceVersion,
+            idempotencyKey,
+            "result"
+        ) with
+        {
+            LastChanged = lastChanged.AddHours(1),
+            LastChangedBy = "caller-result-actor",
+        };
+
+        // Act
+        InstanceMutationApplyResult committed = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation
+        );
+        InstanceMutationApplyResult replayed = await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation with
+            {
+                CallerResult = "retry",
+            }
+        );
+
+        // Assert
+        Assert.False(committed.Replayed);
+        Assert.Equal("result", committed.CallerResult);
+        Assert.Equal(
+            new StorageVersions(instanceVersion, processStateVersion),
+            committed.Instance.Versions
+        );
+        Assert.True(replayed.Replayed);
+        Assert.Equal("result", replayed.CallerResult);
+        Assert.Equal(storedInstance, await ReadStoredInstanceJson(instanceGuid));
+        Assert.Equal(lastChanged, await ReadInstanceLastChangedColumn(instanceGuid));
+        Assert.Equal(instanceVersion, await ReadInstanceVersion(instanceGuid));
+        Assert.Equal(processStateVersion, await ReadProcessStateVersion(instanceGuid));
+        Assert.Equal(instanceEvents, await CountAllInstanceEvents(instanceGuid));
+        Assert.Equal(outboxRow, await ReadOutboxRow(instanceGuid));
+        Assert.Equal(instanceVersion, await ReadIdempotencyProducedInstanceVersion(idempotencyKey));
+    }
+
+    [Fact]
+    public async Task AggregateMutation_CallerResultOnlyUnderTwoKeysOnOneVersion_CommitsBoth()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        int instanceVersion = await ReadInstanceVersion(instanceGuid);
+        Guid firstKey = Guid.NewGuid();
+        Guid secondKey = Guid.NewGuid();
+        InstanceMutationCommit firstMutation = CallerResultOnlyMutation(
+            instanceVersion,
+            firstKey,
+            "first"
+        );
+        InstanceMutationCommit secondMutation = CallerResultOnlyMutation(
+            instanceVersion,
+            secondKey,
+            "second"
+        );
+
+        // Act
+        InstanceMutationApplyResult firstCommitted =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                firstMutation
+            );
+        InstanceMutationApplyResult secondCommitted =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                secondMutation
+            );
+        InstanceMutationApplyResult firstReplayed =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                firstMutation
+            );
+        InstanceMutationApplyResult secondReplayed =
+            await dataElementFixture.InstanceMutationRepo.Apply(
+                instanceGuid,
+                _instanceInternalId,
+                secondMutation
+            );
+
+        // Assert
+        Assert.False(firstCommitted.Replayed);
+        Assert.False(secondCommitted.Replayed);
+        Assert.Equal("second", secondCommitted.CallerResult);
+        Assert.True(firstReplayed.Replayed);
+        Assert.Equal("first", firstReplayed.CallerResult);
+        Assert.True(secondReplayed.Replayed);
+        Assert.Equal("second", secondReplayed.CallerResult);
+    }
+
+    [Fact]
+    public async Task AggregateMutation_CallerResultOnlyRecord_IsNotReplayedOnceTheInstanceHasAdvanced()
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        int instanceVersion = await ReadInstanceVersion(instanceGuid);
+        int processStateVersion = await ReadProcessStateVersion(instanceGuid);
+        Guid idempotencyKey = Guid.NewGuid();
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            CallerResultOnlyMutation(instanceVersion, idempotencyKey, "first")
+        );
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            DataValuesMutation(instanceVersion, Guid.NewGuid(), callerResult: null)
+        );
+
+        // Act
+        InstanceVersionMismatchException admissionException =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                dataElementFixture.InstanceMutationRepo.TryReplayAdmission(
+                    instanceGuid,
+                    instanceVersion,
+                    instanceVersion + 1,
+                    processStateVersion,
+                    idempotencyKey
+                )
+            );
+        InstanceVersionMismatchException applyException =
+            await Assert.ThrowsAsync<InstanceVersionMismatchException>(() =>
+                dataElementFixture.InstanceMutationRepo.Apply(
+                    instanceGuid,
+                    _instanceInternalId,
+                    CallerResultOnlyMutation(instanceVersion, idempotencyKey, "second")
+                )
+            );
+
+        // Assert
+        Assert.Equal(instanceVersion + 1, admissionException.CurrentInstanceVersion);
+        Assert.Equal(instanceVersion + 1, applyException.CurrentInstanceVersion);
+    }
+
+    [Fact]
     public async Task AggregateMutation_DeleteIdempotencyRecordsCreatedBefore_DeletesOnlyExpiredRecords()
     {
         // Arrange
@@ -7111,6 +7350,7 @@ public class DataTests(DataElementFixture dataElementFixture)
             NpgsqlDbType.Uuid,
             idempotencyKey
         );
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Text, DBNull.Value);
         cmd.Parameters.AddWithValue(
             NpgsqlDbType.TimestampTz,
             lastChanged ?? new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -7170,6 +7410,68 @@ public class DataTests(DataElementFixture dataElementFixture)
         return rows;
     }
 
+    private InstanceMutationCommit CallerResultOnlyMutation(
+        int expectedInstanceVersion,
+        Guid idempotencyKey,
+        string callerResult
+    ) =>
+        new(
+            [],
+            [],
+            [],
+            new InstanceInternal { Id = _instance.Id },
+            [],
+            expectedInstanceVersion,
+            null,
+            [],
+            idempotencyKey,
+            CallerResult: callerResult
+        );
+
+    private InstanceMutationCommit DataValuesMutation(
+        int expectedInstanceVersion,
+        Guid idempotencyKey,
+        string callerResult
+    ) =>
+        new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                DataValues = new Dictionary<string, string> { ["caller-result"] = "written" },
+            },
+            [nameof(InstanceInternal.DataValues)],
+            expectedInstanceVersion,
+            null,
+            [],
+            idempotencyKey,
+            CallerResult: callerResult
+        );
+
+    /// <summary>
+    /// Commits an empty idempotent mutation through the function version that pods of the previous
+    /// release call during a rollout.
+    /// </summary>
+    private async Task ApplyInstanceMutationWithPreviousFunction(
+        Guid instanceGuid,
+        long instanceInternalId,
+        int expectedInstanceVersion,
+        Guid idempotencyKey
+    )
+    {
+        await using NpgsqlCommand cmd = dataElementFixture.DataSource.CreateCommand(
+            "select * from storage.applyinstancemutation($1, $2, $3, null, $4, $5, 'previous-function', null, null, null, null, null, null)"
+        );
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Bigint, instanceInternalId);
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Integer, expectedInstanceVersion);
+        cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, idempotencyKey);
+        cmd.Parameters.AddWithValue(NpgsqlDbType.TimestampTz, _frozenTime);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     private async Task<IReadOnlyList<string>> TryReplayInstanceMutationV2Sql(
         Guid idempotencyKey,
         Guid instanceGuid,
@@ -7179,7 +7481,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     )
     {
         await using NpgsqlCommand cmd = dataElementFixture.DataSource.CreateCommand(
-            "select storage.tryreplayinstancemutation($1, $2, $3, $4, $5) as createddataelementids"
+            "select * from storage.tryreplayinstancemutation_v2($1, $2, $3, $4, $5)"
         );
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, idempotencyKey);
         cmd.Parameters.AddWithValue(NpgsqlDbType.Uuid, instanceGuid);
@@ -8188,6 +8490,20 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         return PostgresUtil.RunCountQuery(
             $"select count(*) from storage.instanceevents where instance = '{instanceGuid}' and event ->> 'EventType' = '{eventType}'"
+        );
+    }
+
+    private static Task<int> CountAllInstanceEvents(Guid instanceGuid)
+    {
+        return PostgresUtil.RunCountQuery(
+            $"select count(*) from storage.instanceevents where instance = '{instanceGuid}'"
+        );
+    }
+
+    private static Task<string> ReadOutboxRow(Guid instanceGuid)
+    {
+        return PostgresUtil.RunQuery<string>(
+            $"select coalesce((select outbox::text from storage.outbox where instanceid = '{instanceGuid}'), '')"
         );
     }
 

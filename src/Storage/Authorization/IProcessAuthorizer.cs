@@ -44,4 +44,9 @@ public interface IProcessAuthorizer
     /// Checks the task-type actions plus "reject", since the flow type is not known at update time.
     /// </summary>
     Task<bool> AuthorizeDataValuesUpdate(InstanceInternal instance);
+
+    /// <summary>
+    /// Determines if the user has the token of the instance's own organisation. No policy is evaluated.
+    /// </summary>
+    Task<bool> AuthorizeInstanceOwnOrganisation(InstanceInternal instance);
 }

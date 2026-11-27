@@ -31,7 +31,7 @@ public sealed class PgInstanceMutationRepository(
 ) : IInstanceMutationRepository
 {
     internal const string _applyMutationSql =
-        "select * from storage.applyinstancemutation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
+        "select * from storage.applyinstancemutation_v2($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)";
     private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new(
         PersistedJson.Options
     )
@@ -40,7 +40,7 @@ public sealed class PgInstanceMutationRepository(
     };
 
     private const string _tryReplayAdmissionSql =
-        "select storage.tryreplayinstancemutation($1, $2, $3, $4, $5) as createddataelementids";
+        "select * from storage.tryreplayinstancemutation_v2($1, $2, $3, $4, $5)";
     private const string _readInstanceSql = "select * from storage.readinstance_v2($1)";
     private const string _deleteIdempotencyRecordsCreatedBeforeSql =
         "select storage.deleteinstancemutationidempotency($1, $2)";
@@ -61,6 +61,7 @@ public sealed class PgInstanceMutationRepository(
     )
     {
         IReadOnlyList<string> createdDataElementIds;
+        string callerResult;
 
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(
             cancellationToken
@@ -88,6 +89,7 @@ public sealed class PgInstanceMutationRepository(
                 }
 
                 createdDataElementIds = ReadTextArray(reader, "createddataelementids");
+                callerResult = ReadNullableText(reader, "callerresult");
             }
             catch (PostgresException exception)
                 when (exception.SqlState == _applyMutationErrorSqlState)
@@ -116,7 +118,7 @@ public sealed class PgInstanceMutationRepository(
 
         await transaction.CommitAsync(cancellationToken);
 
-        return new InstanceMutationApplyResult(true, createdDataElementIds, instance);
+        return new InstanceMutationApplyResult(true, createdDataElementIds, instance, callerResult);
     }
 
     /// <inheritdoc/>
@@ -167,6 +169,7 @@ public sealed class PgInstanceMutationRepository(
             mutation.ExpectedProcessStateVersion
         );
         AddNullableParameter(cmd.Parameters, NpgsqlDbType.Uuid, mutation.IdempotencyKey);
+        AddNullableParameter(cmd.Parameters, NpgsqlDbType.Text, mutation.CallerResult);
         cmd.Parameters.AddWithValue(
             NpgsqlDbType.TimestampTz,
             NormalizePayloadTimestamp(mutation.LastChanged ?? DateTime.UtcNow)
@@ -212,6 +215,7 @@ public sealed class PgInstanceMutationRepository(
             await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
             bool replayed = false;
             IReadOnlyList<string> createdDataElementIds = [];
+            string callerResult = null;
             InstanceInternal instance = await InstanceResultReader.ReadAsync(
                 reader,
                 includeElements: true,
@@ -220,13 +224,19 @@ public sealed class PgInstanceMutationRepository(
                 {
                     replayed = row.GetBoolean(row.GetOrdinal("replayed"));
                     createdDataElementIds = ReadTextArray(row, "createddataelementids");
+                    callerResult = ReadNullableText(row, "callerresult");
                 }
             )
                 ?? throw new UnreachableException(
                     "Apply mutation function returned no instance rows."
                 );
 
-            return new InstanceMutationApplyResult(replayed, createdDataElementIds, instance);
+            return new InstanceMutationApplyResult(
+                replayed,
+                createdDataElementIds,
+                instance,
+                callerResult
+            );
         }
         catch (PostgresException exception) when (exception.SqlState == _applyMutationErrorSqlState)
         {
@@ -688,6 +698,12 @@ public sealed class PgInstanceMutationRepository(
     {
         int ordinal = reader.GetOrdinal(columnName);
         return reader.IsDBNull(ordinal) ? [] : reader.GetFieldValue<string[]>(ordinal);
+    }
+
+    private static string ReadNullableText(NpgsqlDataReader reader, string columnName)
+    {
+        int ordinal = reader.GetOrdinal(columnName);
+        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
     }
 
     internal static void EnsureReplaySnapshotMatchesAdmission(

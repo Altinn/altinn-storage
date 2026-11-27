@@ -1,9 +1,10 @@
-CREATE OR REPLACE FUNCTION storage.applyinstancemutation(
+CREATE OR REPLACE FUNCTION storage.applyinstancemutation_v2(
     _instanceguid UUID,
     _instanceinternalid BIGINT,
     _expectedinstanceversion INT,
     _expectedprocessstateversion INT,
     _idempotencykey UUID,
+    _callerresult TEXT,
     _lastchanged TIMESTAMPTZ,
     _lastchangedby TEXT,
     _createelements JSONB,
@@ -16,6 +17,7 @@ CREATE OR REPLACE FUNCTION storage.applyinstancemutation(
     RETURNS TABLE (
         replayed BOOLEAN,
         createddataelementids TEXT[],
+        callerresult TEXT,
         id BIGINT,
         instance JSONB,
         instanceversion INT,
@@ -30,6 +32,7 @@ DECLARE
     _currentprocessstateversion INT;
     _currentprocessstatus TEXT;
     _replaycreateddataelementids TEXT[];
+    _replaycallerresult TEXT;
     _committedcreateddataelementids TEXT[];
     _updatedids UUID[];
     _deletedids UUID[];
@@ -97,22 +100,24 @@ BEGIN
     IF _idempotencykey IS NOT NULL AND _expectedinstanceversion IS NOT NULL
     THEN
         INSERT INTO storage.instance_mutation_idempotency
-            (instance, previous_instance_version, idempotency_key, produced_instance_version, created_data_element_ids)
+            (instance, previous_instance_version, idempotency_key, produced_instance_version, created_data_element_ids, caller_result)
         VALUES
-            (_instanceguid, _expectedinstanceversion, _idempotencykey, _newinstanceversion, _committedcreateddataelementids)
+            (_instanceguid, _expectedinstanceversion, _idempotencykey, _newinstanceversion, _committedcreateddataelementids, _callerresult)
         ON CONFLICT (idempotency_key) DO NOTHING;
 
         IF NOT FOUND
         THEN
-            _replaycreateddataelementids := storage.tryreplayinstancemutation(
+            SELECT replay.createddataelementids, replay.callerresult
+            INTO _replaycreateddataelementids, _replaycallerresult
+            FROM storage.tryreplayinstancemutation_v2(
                 _idempotencykey,
                 _instanceguid,
                 _expectedinstanceversion,
                 _currentinstanceversion,
-                _currentprocessstateversion);
+                _currentprocessstateversion) replay;
 
             RETURN QUERY
-                SELECT true, _replaycreateddataelementids, r.id, r.instance, r.instanceversion, r.processstateversion, r.element, r.currentblobversion
+                SELECT true, _replaycreateddataelementids, _replaycallerresult, r.id, r.instance, r.instanceversion, r.processstateversion, r.element, r.currentblobversion
                 FROM storage.readinstance_v2(_instanceguid) r;
             RETURN;
         END IF;
@@ -322,7 +327,7 @@ BEGIN
             AND dataelementblobversion.detachedat IS NULL;
     END IF;
 
-    -- The upfront instance-version prediction is the any-operations signal.
+    -- Only data element and instance changes rewrite the instance row; the predicted version is the signal.
     IF _newinstanceversion <> _currentinstanceversion
     THEN
         IF _composedinstance -> 'Status' ->> 'ReadStatus' = '1'
@@ -400,7 +405,7 @@ BEGIN
     END IF;
 
     RETURN QUERY
-        SELECT false, _committedcreateddataelementids, r.id, r.instance, r.instanceversion, r.processstateversion, r.element, r.currentblobversion
+        SELECT false, _committedcreateddataelementids, _callerresult, r.id, r.instance, r.instanceversion, r.processstateversion, r.element, r.currentblobversion
         FROM storage.readinstance_v2(_instanceguid) r;
 END;
 $BODY$;
