@@ -285,9 +285,8 @@ public class AuthorizationServiceTest
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.Contains(
-                resource.Attribute,
-                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            Assert.Contains(resource.Attribute, attr =>
+                attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
             );
         });
     }
@@ -318,9 +317,8 @@ public class AuthorizationServiceTest
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.Contains(
-                resource.Attribute,
-                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            Assert.Contains(resource.Attribute, attr =>
+                attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
             );
         });
     }
@@ -351,9 +349,8 @@ public class AuthorizationServiceTest
         // Assert
         requestRoot.Request.Resource.ForEach(resource =>
         {
-            Assert.DoesNotContain(
-                resource.Attribute,
-                attr => attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
+            Assert.DoesNotContain(resource.Attribute, attr =>
+                attr.AttributeId == "urn:altinn:end-event" && attr.Value == "MigratedA1A2"
             );
         });
     }

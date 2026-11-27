@@ -106,6 +106,7 @@ public class DataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [Produces("application/json")]
     public async Task<ActionResult<DataElement>> Delete(
         int instanceOwnerPartyId,
@@ -171,11 +172,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -185,6 +184,11 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: true) is { } conflict)
+        {
+            return conflict;
         }
 
         DateTime deletedTime = DateTime.UtcNow;
@@ -316,11 +320,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -519,10 +521,19 @@ public class DataController : ControllerBase
             dataTypeId = dataElement.DataType;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataTypeId,
-            cancellationToken: cancellationToken
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application is null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
+            application,
+            dataTypeId
         );
         if (dataTypeDefinition is null)
         {
@@ -672,11 +683,9 @@ public class DataController : ControllerBase
             return applicationError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataType
         );
         if (dataTypeDefinition == null)
         {
@@ -686,6 +695,11 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
         }
 
         DateTime creationTime = DateTime.UtcNow;
@@ -846,11 +860,9 @@ public class DataController : ControllerBase
             return dataElementError;
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
             application,
-            cancellationToken
+            dataElement.DataType
         );
         if (dataTypeDefinition == null)
         {
@@ -862,9 +874,29 @@ public class DataController : ControllerBase
             return Forbid();
         }
 
-        if (dataElement.Locked)
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
+        }
+
+        bool taskBound = dataTypeDefinition.IsTaskBound();
+        if (dataElement.Locked && !taskBound)
         {
             return Conflict($"Data element {dataGuid} is locked and cannot be updated");
+        }
+
+        if (
+            preconditions.ProcessStateVersion is not null
+            && preconditions.ProcessStateVersion != instance.Versions.ProcessStateVersion
+        )
+        {
+            return VersionPreconditionHelper.VersionMismatch(
+                Response,
+                new ProcessStateVersionMismatchException(
+                    instance.Versions.InstanceVersion,
+                    instance.Versions.ProcessStateVersion
+                )
+            );
         }
 
         EnsureExpectedBlobStoragePath(dataElement, instance.AppId, instanceGuid, dataGuid);
@@ -988,10 +1020,12 @@ public class DataController : ControllerBase
                 updatedProperties,
                 new DataElementUpdateContext
                 {
-                    IgnoreLock = false,
+                    IgnoreLock = taskBound,
                     ExpectedCurrentBlobVersion = expectedCurrentBlobVersion,
                     ExpectedInstanceVersion = preconditions.InstanceVersion,
-                    ExpectedProcessStateVersion = preconditions.ProcessStateVersion,
+                    ExpectedProcessStateVersion = taskBound
+                        ? instance.Versions.ProcessStateVersion
+                        : preconditions.ProcessStateVersion,
                 },
                 cancellationToken
             );
@@ -1137,10 +1171,34 @@ public class DataController : ControllerBase
             return BadRequest("Mismatch between path and dataElement content");
         }
 
-        (DataType dataTypeDefinition, ActionResult dataTypeError) = await GetDataTypeAsync(
-            instance,
-            dataElement.DataType,
-            cancellationToken: cancellationToken
+        (DataElementInternal storedDataElement, ActionResult dataElementError) =
+            await GetDataElementAsync(instanceGuid, dataGuid, cancellationToken);
+        if (storedDataElement == null)
+        {
+            return dataElementError;
+        }
+
+        if (dataElement.DataType != storedDataElement.DataType)
+        {
+            return Problem(
+                detail: "You can't change dataElement.DataType in an update request",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        (Application application, ActionResult applicationError) = await GetApplicationAsync(
+            instance.AppId,
+            instance.Org,
+            cancellationToken
+        );
+        if (application == null)
+        {
+            return applicationError;
+        }
+
+        (DataType dataTypeDefinition, ActionResult dataTypeError) = GetDataType(
+            application,
+            storedDataElement.DataType
         );
         if (dataTypeDefinition is null)
         {
@@ -1150,6 +1208,11 @@ public class DataController : ControllerBase
         if (await dataTypeDefinition.CanWrite(_authorizationService, instance) is not true)
         {
             return Forbid();
+        }
+
+        if (dataTypeDefinition.GetTaskBindingConflict(instance, isDelete: false) is { } conflict)
+        {
+            return conflict;
         }
 
         Dictionary<string, object> propertyList = new()
@@ -1198,35 +1261,36 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Sets the file scan status for an existing data element.
+    /// Sets the file scan result of a data element. Only the file scanner can call this endpoint.
     /// </summary>
     /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
     /// <param name="dataGuid">The id of the data element to update.</param>
-    /// <param name="fileScanStatus">The file scan results for this data element.</param>
-    /// <returns>The updated data element.</returns>
-    [Authorize(Policy = "PlatformAccess")]
+    /// <param name="fileScanStatus">The file scan result for the data element.</param>
+    /// <returns>
+    /// The outcome. Storage does not set the result when the data element does not exist, or when
+    /// <see cref="FileScanStatus.BlobVersionId"/> is not the current blob version of the data element.
+    /// </returns>
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
     [HttpPut("dataelements/{dataGuid}/filescanstatus")]
     [Consumes("application/json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces("application/json")]
-    public async Task<ActionResult> SetFileScanStatus(
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<FileScanStatusResponse>> SetFileScanStatus(
         Guid instanceGuid,
         Guid dataGuid,
         [FromBody] FileScanStatus fileScanStatus
     )
     {
+        FileScanStatusUpdateResult result;
         try
         {
-            DataElementWriteResult result = await _dataRepository.UpdateFileScanStatus(
+            result = await _dataRepository.UpdateFileScanStatus(
                 instanceGuid,
                 dataGuid,
                 fileScanStatus
             );
-            if (result is not null)
-            {
-                VersionPreconditionHelper.WriteVersionResponseHeaders(Response, result.Versions);
-            }
         }
         catch (RepositoryException exception)
             when (exception.StatusCodeSuggestion == HttpStatusCode.BadRequest)
@@ -1234,7 +1298,15 @@ public class DataController : ControllerBase
             return StatusCode((int)exception.StatusCodeSuggestion.Value, exception.Message);
         }
 
-        return Ok();
+        if (result.WriteResult is not null)
+        {
+            VersionPreconditionHelper.WriteVersionResponseHeaders(
+                Response,
+                result.WriteResult.Versions
+            );
+        }
+
+        return Ok(new FileScanStatusResponse(result.Outcome));
     }
 
     /// <summary>
@@ -1243,7 +1315,12 @@ public class DataController : ControllerBase
     /// <param name="dataGuid">The id of the data element.</param>
     /// <param name="cancellationToken">CancellationToken.</param>
     /// <returns>True if the data element exists, false otherwise</returns>
-    [Authorize(Policy = "PlatformAccess")]
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 call this; newer ones learn that a data
+    /// element is gone from <see cref="GetFileScanTarget"/>. Keep it until #466 runs in every environment, so that
+    /// Storage can be released before the scanner.
+    /// </remarks>
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
     [HttpGet("dataelementexists/{dataGuid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
@@ -1255,6 +1332,95 @@ public class DataController : ControllerBase
     {
         bool result = await _dataRepository.Exists(dataGuid, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Gets the scan state of a blob version, with a URL to read the blob when the scan is pending. Only the file
+    /// scanner can call this endpoint.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The scan is pending only for the current blob version of the data element, when its file scan result is
+    /// <see cref="FileScanResult.Pending"/>. The scanner can set a result only for that version.
+    /// </para>
+    /// <para>
+    /// The URL gives read access to that one blob. It stops working after
+    /// <see cref="GeneralSettings.FileScanReadUrlLifetimeSeconds"/>.
+    /// </para>
+    /// <para>
+    /// Each scan state has status code <c>200</c>. The scanner retries when it gets a different status code.
+    /// </para>
+    /// <para>
+    /// A data element with a pending delete (<see cref="DeleteStatus.IsHardDeleted"/>) is still scanned. The
+    /// service owner can download it until the delete is done.
+    /// </para>
+    /// </remarks>
+    /// <param name="instanceGuid">The id of the instance that the data element is associated with.</param>
+    /// <param name="dataGuid">The id of the data element.</param>
+    /// <param name="blobVersionId">The blob version the scan request is for.</param>
+    /// <param name="cancellationToken">CancellationToken</param>
+    /// <returns>The scan state of the blob version, with the read URL when the scan is pending.</returns>
+    [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]
+    [HttpGet("dataelements/{dataGuid:guid}/blobversions/{blobVersionId}/filescan")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces("application/json")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<ActionResult<FileScanTarget>> GetFileScanTarget(
+        Guid instanceGuid,
+        Guid dataGuid,
+        string blobVersionId,
+        CancellationToken cancellationToken
+    )
+    {
+        DataElementInternal dataElement = await _dataRepository.Read(
+            instanceGuid,
+            dataGuid,
+            cancellationToken
+        );
+        if (dataElement is null)
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.Deleted));
+        }
+
+        if (dataElement.InstanceGuid != instanceGuid)
+        {
+            return NotFound($"Data element {dataGuid} does not belong to instance {instanceGuid}.");
+        }
+
+        if (!string.Equals(dataElement.BlobVersionId, blobVersionId, StringComparison.Ordinal))
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.Superseded));
+        }
+
+        if (dataElement.FileScanResult != FileScanResult.Pending)
+        {
+            return Ok(new FileScanTarget(FileScanTargetStatus.NotPending));
+        }
+
+        DataElementBlobVersion blobVersion = await _dataRepository.ReadBlobVersion(
+            instanceGuid,
+            dataGuid,
+            blobVersionId,
+            cancellationToken
+        );
+        if (blobVersion is null)
+        {
+            return Problem(
+                $"Blob version {blobVersionId} is the current version of data element {dataGuid}, but has no version row.",
+                statusCode: StatusCodes.Status500InternalServerError
+            );
+        }
+
+        (Uri url, DateTimeOffset expiresAt) = await _blobRepository.GetReadUrl(
+            blobVersion.BlobStorageOrg,
+            DataElementHelper.GetVersionedBlobPath(blobVersion.AppId, instanceGuid, blobVersionId),
+            blobVersion.StorageAccountNumber,
+            TimeSpan.FromSeconds(_generalSettings.FileScanReadUrlLifetimeSeconds),
+            cancellationToken
+        );
+
+        return Ok(new FileScanTarget(FileScanTargetStatus.Pending, url, expiresAt));
     }
 
     private async Task<(Application Application, ActionResult ErrorMessage)> GetApplicationAsync(
@@ -1374,8 +1540,9 @@ public class DataController : ControllerBase
         }
 
         InstanceInternal updatedInstance = applyResult.Instance;
-        DataElementInternal updatedDataElement =
-            updatedInstance.Data?.FirstOrDefault(element => element.Id == dataElement.Id)
+        DataElementInternal updatedDataElement = updatedInstance.Data?.FirstOrDefault(element =>
+            element.Id == dataElement.Id
+        )
             ?? throw new InvalidOperationException(
                 "Delayed-delete apply result did not include the updated data element."
             );
@@ -1383,26 +1550,11 @@ public class DataController : ControllerBase
         return Ok(updatedDataElement.ToApiModel());
     }
 
-    private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
-        InstanceInternal instance,
-        string dataTypeId,
-        Application application = null,
-        CancellationToken cancellationToken = default
+    private (DataType DataType, ActionResult ErrorMessage) GetDataType(
+        Application application,
+        string dataTypeId
     )
     {
-        if (application is null)
-        {
-            (application, ActionResult applicationError) = await GetApplicationAsync(
-                instance.AppId,
-                instance.Org,
-                cancellationToken
-            );
-            if (application is null)
-            {
-                return (null, applicationError);
-            }
-        }
-
         DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
 
         return dataTypeDefinition is null

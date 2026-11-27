@@ -314,9 +314,10 @@ public class DataService : IDataService
         IReadOnlyList<BlobVersionReferencesInternal> detachedBlobVersions;
         try
         {
-            detachedBlobVersions =
-                await _dataRepository.ReadDetachedBlobVersions(dataElementId, cancellationToken)
-                ?? [];
+            detachedBlobVersions = await _dataRepository.ReadDetachedBlobVersions(
+                dataElementId,
+                cancellationToken
+            ) ?? [];
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

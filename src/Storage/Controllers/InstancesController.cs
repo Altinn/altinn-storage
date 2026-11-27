@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -11,6 +12,7 @@ using Altinn.Common.PEP.Helpers;
 using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
+using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Extensions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
@@ -1101,8 +1103,7 @@ public class InstancesController : ControllerBase
             LastChanged = creationTime,
             AppId = appInfo.Id,
             Org = appInfo.Org,
-            VisibleAfter =
-                DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter)
+            VisibleAfter = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.VisibleAfter)
                 ?? creationTime,
             Status = instanceTemplate.Status ?? new InstanceStatus(),
             DueBefore = DateTimeHelper.ConvertToUniversalTime(instanceTemplate.DueBefore),
@@ -1332,10 +1333,26 @@ public class InstancesController : ControllerBase
             return BadRequest(parseResult.ErrorMessage);
         }
 
-        queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
-            parseResult.Person,
-            parseResult.OrgNo
-        );
+        try
+        {
+            queryParameters.InstanceOwnerPartyId = await _registerService.PartyLookup(
+                parseResult.Person,
+                parseResult.OrgNo
+            );
+        }
+        catch (PlatformHttpException e) when (e.Response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // Register applies stricter rules than the format check above, such as check digits.
+            _logger.LogWarning(
+                "Register rejected the instance owner identifier in party lookup: {RegisterResponse}",
+                e.Message
+            );
+            return BadRequest(
+                parseResult.OrgNo is not null
+                    ? "Organization number is not valid."
+                    : "Person number is not valid."
+            );
+        }
 
         if (queryParameters.InstanceOwnerPartyId < 0)
         {

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Interface.Models;
@@ -23,23 +24,15 @@ public class ApplicationServiceTests
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Success()
+    public void ValidateDataTypeForApp_Success()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "sign-datatype",
             "currentTask"
         );
@@ -47,46 +40,18 @@ public class ApplicationServiceTests
         // Assert
         Assert.True(isValid);
         Assert.Null(serviceError);
-        _applicationRepositoryMock.VerifyAll();
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Failed_AppNotExists()
-    {
-        // Arrange
-        ApplicationService applicationService = new(_applicationRepositoryMock.Object);
-
-        // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
-            "sign-datatype",
-            "currentTask"
-        );
-
-        // Assert
-        Assert.False(isValid);
-        Assert.Equal(404, serviceError.ErrorCode);
-    }
-
-    [Fact]
-    public async Task ValidateDataTypeForApp_Failed_InvalidDataType()
+    public void ValidateDataTypeForApp_Failed_InvalidDataType()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "invalid-datatype",
             "currentTask"
         );
@@ -94,27 +59,18 @@ public class ApplicationServiceTests
         // Assert
         Assert.False(isValid);
         Assert.Equal(405, serviceError.ErrorCode);
-        _applicationRepositoryMock.VerifyAll();
     }
 
     [Fact]
-    public async Task ValidateDataTypeForApp_Failed_InvalidTask()
+    public void ValidateDataTypeForApp_Failed_InvalidTask()
     {
         // Arrange
         Application application = CreateApplication("ttd", "test-app");
-
-        _applicationRepositoryMock
-            .Setup(arm =>
-                arm.FindOne(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())
-            )
-            .ReturnsAsync(application);
-
         ApplicationService applicationService = new(_applicationRepositoryMock.Object);
 
         // Act
-        (bool isValid, ServiceError serviceError) = await applicationService.ValidateDataTypeForApp(
-            "ttd",
-            "test-app",
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
             "sign-datatype",
             "invalidTask"
         );
@@ -122,9 +78,59 @@ public class ApplicationServiceTests
         // Assert
         Assert.False(isValid);
         Assert.Equal(405, serviceError.ErrorCode);
-        _applicationRepositoryMock.VerifyAll();
     }
 
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(null, new[] { "Task_2", "Task_1" })]
+    [InlineData("Task_2", new string[0])]
+    [InlineData("Task_2", new[] { "Task_1" })]
+    public void ValidateDataTypeForApp_Success_CurrentTaskInBoundTasksOrDataTypeUnbound(
+        string taskId,
+        string[] taskIds
+    )
+    {
+        // Arrange
+        Application application = CreateApplicationWithSignDataType(taskId, taskIds);
+        ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+
+        // Act
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
+            "sign-datatype",
+            "Task_1"
+        );
+
+        // Assert
+        Assert.True(isValid);
+        Assert.Null(serviceError);
+    }
+
+    [Theory]
+    [InlineData(null, new[] { "Task_2", "Task_3" })]
+    [InlineData("Task_1", new[] { "Task_2" })]
+    public void ValidateDataTypeForApp_Failed_CurrentTaskNotInBoundTasks(
+        string taskId,
+        string[] taskIds
+    )
+    {
+        // Arrange
+        Application application = CreateApplicationWithSignDataType(taskId, taskIds);
+        ApplicationService applicationService = new(_applicationRepositoryMock.Object);
+
+        // Act
+        (bool isValid, ServiceError serviceError) = applicationService.ValidateDataTypeForApp(
+            application,
+            "sign-datatype",
+            "Task_1"
+        );
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Equal(405, serviceError.ErrorCode);
+    }
+
+#pragma warning disable CS0618 // Type or member is obsolete
     private static Application CreateApplication(string org, string appName)
     {
         Application appInfo = new Application
@@ -143,6 +149,23 @@ public class ApplicationServiceTests
 
         return appInfo;
     }
+
+    private static Application CreateApplicationWithSignDataType(string taskId, string[] taskIds)
+    {
+        Application application = CreateApplication("ttd", "test-app");
+        application.DataTypes =
+        [
+            new DataType
+            {
+                Id = "sign-datatype",
+                TaskId = taskId,
+                TaskIds = taskIds?.ToList(),
+            },
+        ];
+
+        return application;
+    }
+#pragma warning restore CS0618 // Type or member is obsolete
 
     [Fact]
     public async Task GetApplicationOrErrorAsync_WhenFound_ReturnsApplication()

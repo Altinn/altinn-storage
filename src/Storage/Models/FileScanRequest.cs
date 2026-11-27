@@ -31,11 +31,21 @@ public class FileScanRequest
     /// <summary>
     /// Gets or sets the time when blob was saved.
     /// </summary>
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// released before the scanner.
+    /// </remarks>
     public DateTimeOffset Timestamp { get; set; }
 
     /// <summary>
     /// Gets or sets the path to blob storage. Might be nullified in export.
     /// </summary>
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// released before the scanner.
+    /// </remarks>
     public string BlobStoragePath { get; set; }
 
     /// <summary>
@@ -46,10 +56,20 @@ public class FileScanRequest
     /// <summary>
     /// Gets or sets the application owner identifier
     /// </summary>
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// released before the scanner.
+    /// </remarks>
     public string Org { get; set; }
 
     /// <summary>
     /// Gets or sets an optional account number for when the application owner have more than one storage account
     /// </summary>
+    /// <remarks>
+    /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// released before the scanner.
+    /// </remarks>
     public int? StorageAccountNumber { get; set; }
 }

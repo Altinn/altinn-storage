@@ -103,11 +103,17 @@ public class SigningService : ISigningService
             instance.Org,
             cancellationToken
         );
+        if (app is null)
+        {
+            return SignDocumentCreateResult.Failure(
+                new ServiceError(404, $"Cannot find application {instance.AppId} in storage"),
+                currentVersions
+            );
+        }
 
         (bool validDataType, ServiceError serviceError) =
-            await _applicationService.ValidateDataTypeForApp(
-                instance.Org,
-                instance.AppId,
+            _applicationService.ValidateDataTypeForApp(
+                app,
                 signRequest.SignatureDocumentDataType,
                 instance.Process.CurrentTask?.ElementId
             );
@@ -278,8 +284,10 @@ public class SigningService : ISigningService
         CancellationToken cancellationToken
     )
     {
-        List<DataElementInternal> signingDocDataElements =
-            instance.Data?.Where(x => x.DataType == signDocDataType).ToList() ?? [];
+        List<DataElementInternal> signingDocDataElements = instance
+            .Data?.Where(x => x.DataType == signDocDataType)
+            .ToList()
+            ?? [];
 
         List<Task<SignDocDownloadResult>> downloadAndDeserializeSignDocumentTasks =
             signingDocDataElements

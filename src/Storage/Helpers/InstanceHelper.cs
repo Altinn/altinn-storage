@@ -200,12 +200,11 @@ public static class InstanceHelper
         foreach (MessageBoxInstance instance in instances)
         {
             string id = $"{instance.Org}-{instance.AppName}-{language}";
-            string appTitle =
-                textResources
-                    .Find(t => t.Id.Equals(id))
-                    ?.Resources.Where(r => r.Id != null && r.Id.Equals("appName"))
-                    .Select(r => r.Value)
-                    .FirstOrDefault()
+            string appTitle = textResources
+                .Find(t => t.Id.Equals(id))
+                ?.Resources.Where(r => r.Id != null && r.Id.Equals("appName"))
+                .Select(r => r.Value)
+                .FirstOrDefault()
                 ?? textResources
                     .Find(t => t.Id.Equals(id))
                     ?.Resources.Where(r => r.Id != null && r.Id.Equals("ServiceName"))
@@ -221,27 +220,23 @@ public static class InstanceHelper
 
             if (instance.Substatus?.Label != null)
             {
-                instance.Substatus.Label =
-                    textResources
-                        .Find(t => t.Id.Equals(id))
-                        ?.Resources.Where(r =>
-                            r.Id != null && r.Id.Equals(instance.Substatus.Label)
-                        )
-                        .Select(r => r.Value)
-                        .FirstOrDefault()
+                instance.Substatus.Label = textResources
+                    .Find(t => t.Id.Equals(id))
+                    ?.Resources.Where(r => r.Id != null && r.Id.Equals(instance.Substatus.Label))
+                    .Select(r => r.Value)
+                    .FirstOrDefault()
                     ?? instance.Substatus.Label;
             }
 
             if (instance.Substatus?.Description != null)
             {
-                instance.Substatus.Description =
-                    textResources
-                        .Find(t => t.Id.Equals(id))
-                        ?.Resources.Where(r =>
-                            r.Id != null && r.Id.Equals(instance.Substatus.Description)
-                        )
-                        .Select(r => r.Value)
-                        .FirstOrDefault()
+                instance.Substatus.Description = textResources
+                    .Find(t => t.Id.Equals(id))
+                    ?.Resources.Where(r =>
+                        r.Id != null && r.Id.Equals(instance.Substatus.Description)
+                    )
+                    .Select(r => r.Value)
+                    .FirstOrDefault()
                     ?? instance.Substatus.Description;
             }
         }
@@ -357,9 +352,9 @@ public static class InstanceHelper
 /// </summary>
 public static partial class InstanceOwnerIdRegExHelper
 {
-    [GeneratedRegex(@"^\d{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    [GeneratedRegex(@"^[0-9]{11}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     public static partial Regex ElevenDigitRegex();
 
-    [GeneratedRegex(@"^\d{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
+    [GeneratedRegex(@"^[0-9]{9}$", RegexOptions.None, matchTimeoutMilliseconds: 500)]
     public static partial Regex NineDigitRegex();
 }

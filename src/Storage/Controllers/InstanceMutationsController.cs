@@ -74,11 +74,12 @@ public class InstanceMutationsController(
     /// <remarks>
     /// The caller is authorized to <c>write</c> to the instance before the request is validated.
     /// After that, idempotent replay
-    /// is checked before process-state, presentation-text, data-value, per-data-type write,
+    /// is checked before process-state, presentation-text, data-value, substatus, per-data-type write,
     /// complete-confirmation, and delete-instance authorization. A complete confirmation
     /// additionally requires the <c>complete</c> action and is recorded for the calling
     /// organisation only; an organisation that already has a confirmation keeps the one it has, and
-    /// the remaining operations commit either way. An admitted replay is a no-op and uses the snapshot
+    /// the remaining operations commit either way. Only the instance's own organisation can set the
+    /// substatus. An admitted replay is a no-op and uses the snapshot
     /// returned by replay admission. For non-replays, operation-specific authorization is evaluated
     /// against the controller's instance snapshot; data-element update and delete references missing
     /// from that snapshot are rejected by later plan validation. Process-state authorization admits a
@@ -87,6 +88,10 @@ public class InstanceMutationsController(
     /// <c>PreventInstanceDeletionForDays</c> period, counted from when the instance was archived, has
     /// not passed. A delete-instance mutation checks instance existence before delete authorization,
     /// so a missing instance returns 404 before a possible delete 403.
+    /// <c>processState.state</c> cannot be combined with data-element creates, updates, or deletes
+    /// (400). A data-element create, update, or delete of a data type with <c>taskIds</c> returns 409
+    /// unless the instance's current task is in <c>taskIds</c>; once the process has ended, elements
+    /// of a data type with <c>autoDeleteOnProcessEnd</c> may still be deleted.
     /// </remarks>
     /// <param name="instanceOwnerPartyId">The party id of the instance owner.</param>
     /// <param name="instanceGuid">The id of the instance that should be mutated.</param>
@@ -177,6 +182,18 @@ public class InstanceMutationsController(
         if (deleteInstanceRequestError is not null)
         {
             return deleteInstanceRequestError;
+        }
+
+        ObjectResult processStateRequestError = ValidateProcessStateRequest(mutationRequest);
+        if (processStateRequestError is not null)
+        {
+            return processStateRequestError;
+        }
+
+        ObjectResult substatusError = ValidateSubstatus(mutationRequest);
+        if (substatusError is not null)
+        {
+            return substatusError;
         }
 
         BadRequestObjectResult instanceEventError = ValidateMutationInstanceEvents(
@@ -408,6 +425,12 @@ public class InstanceMutationsController(
             return completeConfirmationAuthorizationError;
         }
 
+        // Only the instance's own org may set the substatus
+        if (mutationRequest.Substatus is not null && User.GetOrg() != instance.Org)
+        {
+            return Forbid();
+        }
+
         if (
             mutationRequest.ProcessState?.State is { } nextProcessState
             && !await processAuthorizer.AuthorizeProcessNext(instance, nextProcessState)
@@ -434,7 +457,7 @@ public class InstanceMutationsController(
 
         HashSet<string> checkedDataTypeIds = new(StringComparer.Ordinal);
         foreach (
-            string dataTypeId in EnumerateRequestedDataTypeIds(
+            (string dataTypeId, _) in EnumerateRequestedDataTypeWrites(
                 mutationRequest,
                 existingDataElementsById
             )
@@ -462,7 +485,32 @@ public class InstanceMutationsController(
         return null;
     }
 
-    private static IEnumerable<string> EnumerateRequestedDataTypeIds(
+    private ActionResult ValidateTaskBindings(
+        InstanceMutationRequest mutationRequest,
+        Dictionary<Guid, DataElementInternal> existingDataElementsById,
+        InstanceInternal instance,
+        Application application
+    )
+    {
+        foreach (
+            (string dataTypeId, bool isDelete) in EnumerateRequestedDataTypeWrites(
+                mutationRequest,
+                existingDataElementsById
+            )
+        )
+        {
+            // Plan validation rejects undeclared data types with 400.
+            DataType dataType = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
+            if (dataType?.GetTaskBindingConflict(instance, isDelete) is { } conflict)
+            {
+                return conflict;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<(string DataTypeId, bool IsDelete)> EnumerateRequestedDataTypeWrites(
         InstanceMutationRequest mutationRequest,
         Dictionary<Guid, DataElementInternal> existingDataElementsById
     )
@@ -473,7 +521,7 @@ public class InstanceMutationsController(
             ).Where(create => !string.IsNullOrWhiteSpace(create.DataType))
         )
         {
-            yield return create.DataType;
+            yield return (create.DataType, false);
         }
 
         // Updates and deletes resolve the data type from the existing element; elements that no
@@ -489,7 +537,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, false);
             }
         }
 
@@ -504,7 +552,7 @@ public class InstanceMutationsController(
                 ) && !string.IsNullOrWhiteSpace(existingDataElement.DataType)
             )
             {
-                yield return existingDataElement.DataType;
+                yield return (existingDataElement.DataType, true);
             }
         }
     }
@@ -531,6 +579,17 @@ public class InstanceMutationsController(
                 instance,
                 mutationRequest.ExpectedProcessStatus
             );
+
+            ActionResult taskBindingError = ValidateTaskBindings(
+                mutationRequest,
+                existingDataElementsById,
+                instance,
+                application
+            );
+            if (taskBindingError is not null)
+            {
+                return (null, taskBindingError);
+            }
 
             ActionResult validationError = await ValidateMutationPlan(
                 mutationRequest,
@@ -825,6 +884,13 @@ public class InstanceMutationsController(
             instanceUpdateProperties.Add(nameof(InstanceInternal.CompleteConfirmations));
         }
 
+        if (mutationRequest.Substatus is not null)
+        {
+            instanceStatus ??= new InstanceStatus();
+            instanceStatus.Substatus = mutationRequest.Substatus;
+            instanceUpdateProperties.Add(nameof(InstanceStatus.Substatus));
+        }
+
         InstanceInternal instanceUpdates = new()
         {
             Id = instance.Id,
@@ -853,6 +919,16 @@ public class InstanceMutationsController(
             instanceEvents.Add(
                 instanceEventService.BuildInstanceEvent(
                     InstanceEventType.ConfirmedComplete,
+                    instanceUpdates
+                )
+            );
+        }
+
+        if (mutationRequest.Substatus is not null)
+        {
+            instanceEvents.Add(
+                instanceEventService.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
                     instanceUpdates
                 )
             );
@@ -939,11 +1015,9 @@ public class InstanceMutationsController(
                 );
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                create.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                create.DataType
             );
             if (dataType is null)
             {
@@ -1047,11 +1121,9 @@ public class InstanceMutationsController(
                 return blobVersionError;
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                dataElement.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                dataElement.DataType
             );
             if (dataType is null)
             {
@@ -1062,7 +1134,11 @@ public class InstanceMutationsController(
             bool hasContentUpdate = !string.IsNullOrWhiteSpace(update.ContentPartName);
             if (hasContentUpdate)
             {
-                ConflictObjectResult contentError = PlanUpdateContent(update, dataElement);
+                ConflictObjectResult contentError = PlanUpdateContent(
+                    update,
+                    dataElement,
+                    dataType
+                );
                 if (contentError is not null)
                 {
                     return contentError;
@@ -1105,10 +1181,11 @@ public class InstanceMutationsController(
 
     private static ConflictObjectResult PlanUpdateContent(
         InstanceMutationUpdateDataElement update,
-        DataElementInternal dataElement
+        DataElementInternal dataElement,
+        DataType dataType
     )
     {
-        if (dataElement.Locked)
+        if (dataElement.Locked && !dataType.IsTaskBound())
         {
             return new ConflictObjectResult(
                 $"Data element {update.DataElementId} is locked and cannot be updated"
@@ -1137,8 +1214,8 @@ public class InstanceMutationsController(
                     plannedUpdate.Update.DataElementId,
                     plannedUpdate.PropertyList,
                     plannedUpdate.ExpectedCurrentBlobVersion,
-                    IgnoreLock: !plannedUpdate.HasContentUpdate
-                        && plannedUpdate.Update.Locked == false
+                    IgnoreLock: plannedUpdate.DataType.IsTaskBound()
+                        || (!plannedUpdate.HasContentUpdate && plannedUpdate.Update.Locked == false)
                 )
             );
         }
@@ -1216,20 +1293,16 @@ public class InstanceMutationsController(
                 );
             }
 
-            (DataType dataType, ActionResult dataTypeError) = await GetDataTypeAsync(
-                instance,
-                dataElement.DataType,
+            (DataType dataType, ActionResult dataTypeError) = GetDataType(
                 application,
-                cancellationToken
+                dataElement.DataType
             );
             if (dataType is null)
             {
                 return dataTypeError;
             }
 
-            plan.DeleteDataElements.Add(
-                new PlannedDeleteDataElement(dataElement, delete.IgnoreLock)
-            );
+            plan.DeleteDataElements.Add(new PlannedDeleteDataElement(dataElement));
         }
 
         return null;
@@ -1262,7 +1335,7 @@ public class InstanceMutationsController(
             DataElementInternal dataElement = plannedDelete.ExistingDataElement;
             dataElement.LastChanged = mutationUpdates.LastChanged;
             dataElement.LastChangedBy = mutationUpdates.LastChangedBy;
-            work.AddDeletedDataElement(plannedDelete.ExistingDataElement, plannedDelete.IgnoreLock);
+            work.AddDeletedDataElement(plannedDelete.ExistingDataElement);
         }
 
         return work.Build(
@@ -1560,6 +1633,7 @@ public class InstanceMutationsController(
         || request.DataValues?.Count > 0
         || request.PresentationTexts?.Count > 0
         || request.AddCompleteConfirmation
+        || request.Substatus is not null
         || request.ProcessState?.State is not null
         || request.ProcessState?.Events?.Count > 0;
 
@@ -1584,7 +1658,8 @@ public class InstanceMutationsController(
             || request.UpdateDataElements?.Count > 0
             || request.DataValues?.Count > 0
             || request.PresentationTexts?.Count > 0
-            || request.AddCompleteConfirmation;
+            || request.AddCompleteConfirmation
+            || request.Substatus is not null;
         bool isStandaloneDelete =
             !hasUnrelatedMutationOperations
             && request.DeleteDataElements?.Count is not > 0
@@ -1598,6 +1673,19 @@ public class InstanceMutationsController(
         {
             return BadRequest(
                 "deleteInstance cannot be combined with other aggregate mutation operations."
+            );
+        }
+
+        return null;
+    }
+
+    private ObjectResult ValidateSubstatus(InstanceMutationRequest request)
+    {
+        if (request.Substatus is not null && string.IsNullOrEmpty(request.Substatus.Label))
+        {
+            return Problem(
+                detail: "substatus.label is required.",
+                statusCode: StatusCodes.Status400BadRequest
             );
         }
 
@@ -1622,6 +1710,26 @@ public class InstanceMutationsController(
             && preconditions.InstanceVersion is not null
             && preconditions.ProcessStateVersion is not null
             && idempotencyKey is not null;
+    }
+
+    private ObjectResult ValidateProcessStateRequest(InstanceMutationRequest request)
+    {
+        if (
+            request.ProcessState?.State is not null
+            && (
+                request.CreateDataElements?.Count > 0
+                || request.UpdateDataElements?.Count > 0
+                || request.DeleteDataElements?.Count > 0
+            )
+        )
+        {
+            return Problem(
+                detail: "processState.state cannot be combined with data element creates, updates or deletes.",
+                statusCode: StatusCodes.Status400BadRequest
+            );
+        }
+
+        return null;
     }
 
     private async Task<ActionResult> AuthorizeDeleteInstanceMutation(
@@ -1964,26 +2072,11 @@ public class InstanceMutationsController(
             : (application, null);
     }
 
-    private async Task<(DataType DataType, ActionResult ErrorMessage)> GetDataTypeAsync(
-        InstanceInternal instance,
-        string dataTypeId,
-        Application application = null,
-        CancellationToken cancellationToken = default
+    private (DataType DataType, ActionResult ErrorMessage) GetDataType(
+        Application application,
+        string dataTypeId
     )
     {
-        if (application is null)
-        {
-            (application, ActionResult applicationError) = await GetApplicationAsync(
-                instance.AppId,
-                instance.Org,
-                cancellationToken
-            );
-            if (application is null)
-            {
-                return (null, applicationError);
-            }
-        }
-
         DataType dataTypeDefinition = application.DataTypes.FirstOrDefault(e => e.Id == dataTypeId);
 
         return dataTypeDefinition is null
@@ -2052,10 +2145,7 @@ public class InstanceMutationsController(
         string FileName
     );
 
-    private sealed record PlannedDeleteDataElement(
-        DataElementInternal ExistingDataElement,
-        bool IgnoreLock
-    );
+    private sealed record PlannedDeleteDataElement(DataElementInternal ExistingDataElement);
 
     private sealed record PreparedMutationWork(
         InstanceMutationCommit Commit,
@@ -2117,10 +2207,10 @@ public class InstanceMutationsController(
             _transactionalEvents.Add((InstanceEventType.Saved, dataElement));
         }
 
-        public void AddDeletedDataElement(DataElementInternal dataElement, bool ignoreLock)
+        public void AddDeletedDataElement(DataElementInternal dataElement)
         {
             _deleteDataElements.Add(
-                new InstanceMutationDataElementDelete(dataElement, IgnoreLock: ignoreLock)
+                new InstanceMutationDataElementDelete(dataElement, IgnoreLock: true)
             );
             _transactionalEvents.Add((InstanceEventType.Deleted, dataElement));
             _postCommitBlobCleanupDataElements.Add(dataElement);

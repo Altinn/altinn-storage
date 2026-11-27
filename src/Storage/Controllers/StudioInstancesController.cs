@@ -226,8 +226,7 @@ public class StudioInstancesController : ControllerBase
 
         try
         {
-            instance.LastChangedBy =
-                await _organisationService.GetOrgNumber(instance.Org, ct)
+            instance.LastChangedBy = await _organisationService.GetOrgNumber(instance.Org, ct)
                 ?? throw new InvalidOperationException(
                     $"Could not resolve organisation number for service owner '{instance.Org}'."
                 );

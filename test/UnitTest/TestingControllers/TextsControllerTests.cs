@@ -28,19 +28,22 @@ using Xunit;
 
 namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
-public class TextsControllerTests : IClassFixture<TestApplicationFactory<TextsController>>
+public class TextsControllerTests : IAsyncLifetime
 {
-    private readonly TestApplicationFactory<TextsController> _factory;
+    private readonly TestApplicationFactory<TextsController> _factory = new();
     private readonly HttpClient _httpClient;
 
     private const string BasePath = "/storage/api/v1/applications";
 
-    public TextsControllerTests(TestApplicationFactory<TextsController> factory)
+    public TextsControllerTests()
     {
-        _factory = factory;
         Mock<ITextRepository> mockTextRepository = CreateMockTextRepo();
         _httpClient = CreateTestHttpClient(mockTextRepository.Object);
     }
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:

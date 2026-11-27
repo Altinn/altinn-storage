@@ -18,6 +18,7 @@ using Altinn.Platform.Storage.Authorization;
 using Altinn.Platform.Storage.Clients;
 using Altinn.Platform.Storage.Configuration;
 using Altinn.Platform.Storage.Controllers;
+using Altinn.Platform.Storage.Exceptions;
 using Altinn.Platform.Storage.Helpers;
 using Altinn.Platform.Storage.Interface.Enums;
 using Altinn.Platform.Storage.Interface.Models;
@@ -53,9 +54,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Constructor.
 /// </summary>
-/// <param name="factory">The web application factory.</param>
-public class InstancesControllerTests(TestApplicationFactory<InstancesController> factory)
-    : IClassFixture<TestApplicationFactory<InstancesController>>
+public class InstancesControllerTests : IAsyncLifetime
 {
     public enum GuardedInstanceUpdateRoute
     {
@@ -74,7 +73,11 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
     /// </summary>
     private const string SystemUserId = "49913a53-0bf9-47fc-9cad-6aa3dc825008";
 
-    private readonly TestApplicationFactory<InstancesController> _factory = factory;
+    private readonly TestApplicationFactory<InstancesController> _factory = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Test case: User has to low authentication level.
@@ -1902,6 +1905,121 @@ public class InstancesControllerTests(TestApplicationFactory<InstancesController
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        registerService.VerifyAll();
+    }
+
+    /// <summary>
+    /// Test case: Get Multiple instances with an identifier that passes the format check but is rejected by Register.
+    /// Expected: Controller returns 400 bad request.
+    /// </summary>
+    [Theory]
+    [InlineData("Organisation:333123213", null, "333123213", "Organization number is not valid.")]
+    [InlineData("Person:33312321321", "33312321321", null, "Person number is not valid.")]
+    public async Task GetMany_UserRequestsInstancesWithIdentifierRejectedByRegister_ReturnsBadRequest(
+        string identifier,
+        string expectedPerson,
+        string expectedOrgNo,
+        string expectedResponseMessage
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}";
+        int partyId = 1337;
+
+        Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+        registerService
+            .Setup(x => x.PartyLookup(expectedPerson, expectedOrgNo))
+            .ThrowsAsync(
+                new PlatformHttpException(
+                    new HttpResponseMessage(HttpStatusCode.BadRequest),
+                    "400 - Bad Request"
+                )
+            );
+
+        HttpClient client = GetTestClient(null, registerService);
+        string token = PrincipalUtil.GetToken(3, partyId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", identifier);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        string responseMessage = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedResponseMessage, responseMessage);
+        registerService.VerifyAll();
+    }
+
+    /// <summary>
+    /// Test case: Get Multiple instances with a party type that is neither person nor organisation.
+    /// Expected: Controller returns 400 bad request without calling Register.
+    /// </summary>
+    [Theory]
+    [InlineData("SubUnit:123456789")]
+    [InlineData("2:123456789")]
+    [InlineData("7:123456789")]
+    [InlineData("-1:123456789")]
+    public async Task GetMany_UserRequestsInstancesWithUnsupportedPartyType_ReturnsBadRequest(
+        string identifier
+    )
+    {
+        // Arrange
+        string requestUri = $"{BasePath}";
+        int partyId = 1337;
+        string expectedResponseMessage = "Invalid InstanceOwnerIdentifier.";
+
+        Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+
+        HttpClient client = GetTestClient(null, registerService);
+        string token = PrincipalUtil.GetToken(3, partyId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", identifier);
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+        string responseMessage = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expectedResponseMessage, responseMessage);
+        registerService.Verify(
+            x => x.PartyLookup(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never
+        );
+    }
+
+    /// <summary>
+    /// Test case: Get Multiple instances when Register fails with a server error during party lookup.
+    /// Expected: Returns internal server error.
+    /// </summary>
+    [Fact]
+    public async Task GetMany_UserRequestsInstancesAndRegisterLookupFails_ReturnsInternalServerError()
+    {
+        // Arrange
+        string requestUri = $"{BasePath}";
+        int partyId = 1337;
+
+        Mock<IRegisterService> registerService = new Mock<IRegisterService>();
+        registerService
+            .Setup(x => x.PartyLookup(null, "333123213"))
+            .ThrowsAsync(
+                new PlatformHttpException(
+                    new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    "500 - Internal Server Error"
+                )
+            );
+
+        HttpClient client = GetTestClient(null, registerService);
+        string token = PrincipalUtil.GetToken(3, partyId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        client.DefaultRequestHeaders.Add("X-Ai-InstanceOwnerIdentifier", "Organisation:333123213");
+
+        // Act
+        HttpResponseMessage response = await client.GetAsync(requestUri);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         registerService.VerifyAll();
     }
 

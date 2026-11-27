@@ -171,8 +171,8 @@ public class DataRepositoryMock : IDataRepository
             stagedElement = DeserializeStoredDataElement(storedDataElement);
             string requestedBlobVersionId = ApplyUpdates(stagedElement, propertylist);
             string normalizedBlobVersionId = ValidateBlobVersionId(requestedBlobVersionId);
-            string currentBlobVersion =
-                normalizedBlobVersionId ?? storedDataElement.CurrentBlobVersion;
+            string currentBlobVersion = normalizedBlobVersionId
+                ?? storedDataElement.CurrentBlobVersion;
             stagedElement.BlobVersionId = currentBlobVersion;
 
             DataElementBlobVersion blobVersion = FindBlobVersionToAttachLocked(
@@ -227,7 +227,7 @@ public class DataRepositoryMock : IDataRepository
             UpdateStoredDataElement(instanceGuid, dataElementId, element => element.Locked = locked)
         );
 
-    public Task<DataElementWriteResult?> UpdateFileScanStatus(
+    public Task<FileScanStatusUpdateResult> UpdateFileScanStatus(
         Guid instanceGuid,
         Guid dataElementId,
         FileScanStatus fileScanStatus,
@@ -248,17 +248,25 @@ public class DataRepositoryMock : IDataRepository
                     out StoredDataElement storedDataElement
                 )
                 || storedDataElement.InstanceGuid != instanceGuid
-                || (
-                    expectedBlobVersionId is not null
-                    && !string.Equals(
-                        expectedBlobVersionId,
-                        storedDataElement.CurrentBlobVersion,
-                        StringComparison.Ordinal
-                    )
+            )
+            {
+                return Task.FromResult(
+                    new FileScanStatusUpdateResult(FileScanStatusOutcome.Deleted)
+                );
+            }
+
+            if (
+                expectedBlobVersionId is not null
+                && !string.Equals(
+                    expectedBlobVersionId,
+                    storedDataElement.CurrentBlobVersion,
+                    StringComparison.Ordinal
                 )
             )
             {
-                return Task.FromResult<DataElementWriteResult?>(null);
+                return Task.FromResult(
+                    new FileScanStatusUpdateResult(FileScanStatusOutcome.Superseded)
+                );
             }
 
             stagedElement = DeserializeStoredDataElement(storedDataElement);
@@ -272,8 +280,11 @@ public class DataRepositoryMock : IDataRepository
             versions = CurrentStorageVersionsLocked();
         }
 
-        return Task.FromResult<DataElementWriteResult?>(
-            new DataElementWriteResult(stagedElement, versions)
+        return Task.FromResult(
+            new FileScanStatusUpdateResult(
+                FileScanStatusOutcome.Updated,
+                new DataElementWriteResult(stagedElement, versions)
+            )
         );
     }
 
@@ -395,9 +406,8 @@ public class DataRepositoryMock : IDataRepository
         Guid dataElementId,
         CancellationToken cancellationToken = default
     ) =>
-        ReadBlobVersions(
-            dataElementId,
-            version => version.DetachedAt is null && version.InstanceGuid == instanceGuid
+        ReadBlobVersions(dataElementId, version =>
+            version.DetachedAt is null && version.InstanceGuid == instanceGuid
         );
 
     private Task<IReadOnlyList<BlobVersionReferencesInternal>> ReadBlobVersions(

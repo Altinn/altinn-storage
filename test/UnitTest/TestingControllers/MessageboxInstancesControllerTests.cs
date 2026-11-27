@@ -45,10 +45,7 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 /// <summary>
 /// Initializes a new instance of the <see cref="MessageBoxInstancesControllerTests"/> class with the given <see cref="WebApplicationFactory{TStartup}"/>.
 /// </summary>
-/// <param name="factory">The <see cref="TestApplicationFactory{TStartup}"/> to use when setting up the test server.</param>
-public class MessageBoxInstancesControllerTests(
-    TestApplicationFactory<MessageBoxInstancesController> factory
-) : IClassFixture<TestApplicationFactory<MessageBoxInstancesController>>
+public class MessageBoxInstancesControllerTests : IAsyncLifetime
 {
     public enum GuardedMessageBoxUpdateRoute
     {
@@ -56,9 +53,13 @@ public class MessageBoxInstancesControllerTests(
         Delete,
     }
 
-    private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = factory;
+    private readonly TestApplicationFactory<MessageBoxInstancesController> _factory = new();
 
     private const string BasePath = "/storage/api/v1";
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public Task DisposeAsync() => _factory.DisposeAsync().AsTask();
 
     /// <summary>
     /// Scenario:
@@ -1812,9 +1813,8 @@ public class MessageBoxInstancesControllerTests(
         // Assert
         Assert.Equal(2, actual.Count);
         Assert.Single(actual, e => e.User.UserId == 1337);
-        Assert.Contains(
-            actual,
-            e => e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")
+        Assert.Contains(actual, e =>
+            e.CreatedDateTime == DateTime.Parse("1994-06-16T11:07:59.0851832Z")
         );
         repoMock.VerifyAll();
     }

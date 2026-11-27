@@ -401,6 +401,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         }
       },
@@ -944,69 +954,6 @@
           },
           "409": {
             "description": "Conflict",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/instances/{instanceOwnerPartyId}/{instanceGuid}/dataelements/{dataGuid}/filescanstatus": {
-      "put": {
-        "tags": [
-          "Data"
-        ],
-        "summary": "Sets the file scan status for an existing data element.",
-        "parameters": [
-          {
-            "name": "instanceGuid",
-            "in": "path",
-            "description": "The id of the instance that the data element is associated with.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "dataGuid",
-            "in": "path",
-            "description": "The id of the data element to update.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "instanceOwnerPartyId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "description": "The file scan results for this data element.",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FileScanStatus"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -1600,7 +1547,7 @@
           "InstanceMutations"
         ],
         "summary": "Commits a batch of mutations for a single instance.\nFor multipart requests, the first part must be the `mutation` JSON field;\neach subsequent part must match exactly one `contentPartName` in the request.\nUnknown, duplicate, or missing file parts are rejected with 400 Bad Request.",
-        "description": "The caller is authorized to `write` to the instance before the request is validated.\nAfter that, idempotent replay\nis checked before process-state, presentation-text, data-value, per-data-type write,\ncomplete-confirmation, and delete-instance authorization. A complete confirmation\nadditionally requires the `complete` action and is recorded for the calling\norganisation only; an organisation that already has a confirmation keeps the one it has, and\nthe remaining operations commit either way. An admitted replay is a no-op and uses the snapshot\nreturned by replay admission. For non-replays, operation-specific authorization is evaluated\nagainst the controller's instance snapshot; data-element update and delete references missing\nfrom that snapshot are rejected by later plan validation. Process-state authorization admits a\nmutation on an instance without a current task only from the app that owns the instance. A\ndelete-instance mutation returns 403 while the application's\n`PreventInstanceDeletionForDays` period, counted from when the instance was archived, has\nnot passed. A delete-instance mutation checks instance existence before delete authorization,\nso a missing instance returns 404 before a possible delete 403.",
+        "description": "The caller is authorized to `write` to the instance before the request is validated.\nAfter that, idempotent replay\nis checked before process-state, presentation-text, data-value, substatus, per-data-type write,\ncomplete-confirmation, and delete-instance authorization. A complete confirmation\nadditionally requires the `complete` action and is recorded for the calling\norganisation only; an organisation that already has a confirmation keeps the one it has, and\nthe remaining operations commit either way. Only the instance's own organisation can set the\nsubstatus. An admitted replay is a no-op and uses the snapshot\nreturned by replay admission. For non-replays, operation-specific authorization is evaluated\nagainst the controller's instance snapshot; data-element update and delete references missing\nfrom that snapshot are rejected by later plan validation. Process-state authorization admits a\nmutation on an instance without a current task only from the app that owns the instance. A\ndelete-instance mutation returns 403 while the application's\n`PreventInstanceDeletionForDays` period, counted from when the instance was archived, has\nnot passed. A delete-instance mutation checks instance existence before delete authorization,\nso a missing instance returns 404 before a possible delete 403.\n`processState.state` cannot be combined with data-element creates, updates, or deletes\n(400). A data-element create, update, or delete of a data type with `taskIds` returns 409\nunless the instance's current task is in `taskIds`; once the process has ended, elements\nof a data type with `autoDeleteOnProcessEnd` may still be deleted.",
         "parameters": [
           {
             "name": "instanceOwnerPartyId",
@@ -5133,6 +5080,14 @@
           },
           "taskId": {
             "type": "string",
+            "nullable": true,
+            "deprecated": true
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           },
           "maxSize": {
@@ -5274,23 +5229,6 @@
           "Infected"
         ],
         "type": "string"
-      },
-      "FileScanStatus": {
-        "type": "object",
-        "properties": {
-          "contentHash": {
-            "type": "string",
-            "nullable": true
-          },
-          "blobVersionId": {
-            "type": "string",
-            "nullable": true
-          },
-          "fileScanResult": {
-            "$ref": "#/components/schemas/FileScanResult"
-          }
-        },
-        "additionalProperties": false
       },
       "HideSettings": {
         "type": "object",

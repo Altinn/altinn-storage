@@ -11,8 +11,9 @@ namespace Altinn.Platform.Storage.Interface.Models;
 public class ApplicationLogic
 {
     /// <summary>
-    /// Gets or sets a value indicating whether the app-backend will attempt to automatically create (or prefill)
-    /// this data type when the task referred by taskId starts.
+    /// When this is set to true, the process engine will ensure that at least one
+    /// element of this type exists when entering any of the tasks in
+    /// <see cref="DataType.TaskIds"/>.
     /// </summary>
     [JsonProperty(PropertyName = "autoCreate")]
     public bool? AutoCreate { get; set; }

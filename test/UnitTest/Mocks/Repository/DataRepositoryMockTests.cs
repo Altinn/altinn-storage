@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading.Tasks;
@@ -147,17 +147,17 @@ public class DataRepositoryMockTests
         DataElementInternal createdElement = (
             await repository.Create(CreateDataElement(instanceGuid, dataElementId, blobVersionId))
         ).DataElement;
-        DataElementInternal updatedElement = (
-            await repository.UpdateFileScanStatus(
-                instanceGuid,
-                dataElementId,
-                new FileScanStatus
-                {
-                    BlobVersionId = blobVersionId,
-                    FileScanResult = FileScanResult.Clean,
-                }
-            )
-        )!.DataElement;
+        FileScanStatusUpdateResult updateResult = await repository.UpdateFileScanStatus(
+            instanceGuid,
+            dataElementId,
+            new FileScanStatus
+            {
+                BlobVersionId = blobVersionId,
+                FileScanResult = FileScanResult.Clean,
+            }
+        );
+        Assert.Equal(FileScanStatusOutcome.Updated, updateResult.Outcome);
+        DataElementInternal updatedElement = updateResult.WriteResult!.DataElement;
 
         Assert.Equal(blobVersionId, createdElement.BlobVersionId);
         Assert.Equal(
@@ -259,7 +259,8 @@ public class DataRepositoryMockTests
 
         Assert.Equal(HttpStatusCode.NotFound, updateException.StatusCodeSuggestion);
         Assert.Equal($"Data element {dataElementId} was not found.", updateException.Message);
-        Assert.Null(scanResult);
+        Assert.Equal(FileScanStatusOutcome.Deleted, scanResult.Outcome);
+        Assert.Null(scanResult.WriteResult);
         DataElementInternal storedElement = await repository.Read(ownerInstanceGuid, dataElementId);
         Assert.Equal(currentVersion, storedElement.BlobVersionId);
         Assert.NotEqual(FileScanResult.Infected, storedElement.FileScanResult);
@@ -558,9 +559,8 @@ public class DataRepositoryMockTests
         Guid otherInstance = Guid.NewGuid();
         string otherVersion = await AllocateBlobVersion(repo, otherInstance, id);
         DataElementInternal beforeOwnerFailures = await repo.Read(instance, id);
-        await AssertDataElementNotFound(
-            id,
-            () => repo.Update(otherInstance, id, BlobVersionUpdate(otherVersion), atVersionTwo)
+        await AssertDataElementNotFound(id, () =>
+            repo.Update(otherInstance, id, BlobVersionUpdate(otherVersion), atVersionTwo)
         );
         await AssertDataElementNotFound(id, () => repo.UpdateReadStatus(otherInstance, id, true));
         await AssertDataElementNotFound(id, () => repo.UpdateLockStatus(otherInstance, id, true));

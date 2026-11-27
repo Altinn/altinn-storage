@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Altinn.Platform.Storage.Authorization;
@@ -34,9 +35,64 @@ namespace Altinn.Platform.Storage.UnitTest.TestingControllers;
 
 public class InstanceMutationsControllerUnitTests
 {
+    public enum DataElementOperation
+    {
+        Create,
+        Update,
+        UpdateMetadata,
+        Delete,
+    }
+
     private readonly string _org = "ttd";
     private readonly string _appId = "ttd/apps-test";
     private readonly string _dataType = "attachment";
+
+    [Fact]
+    public async Task CommitMutation_ApplicationNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        Guid instanceGuid = Guid.NewGuid();
+        Instance instance = new()
+        {
+            Id = $"555/{instanceGuid}",
+            InstanceOwner = new InstanceOwner { PartyId = "555" },
+            Org = _org,
+            AppId = _appId,
+            Data = [],
+        };
+        InstanceInternal instanceInternal = InstanceInternalTestFactory.Create(
+            instance,
+            [],
+            InternalId: 123L
+        );
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            application: null,
+            mutationJson: null
+        );
+        SetJsonMutationRequest(
+            fixture.HttpContext,
+            """
+            {
+              "dataValues": {
+                "setData": "new-data"
+              }
+            }
+            """
+        );
+
+        // Act
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        // Assert
+        NotFoundObjectResult notFound = Assert.IsType<NotFoundObjectResult>(result.Result);
+        Assert.Equal($"Cannot find application {_appId} in storage", notFound.Value);
+    }
 
     [Fact]
     public async Task CommitMutation_EmptyDataValuesAndPresentationTexts_NormalizesToNullRemovals()
@@ -313,10 +369,8 @@ public class InstanceMutationsControllerUnitTests
                 }
                 """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -364,10 +418,8 @@ public class InstanceMutationsControllerUnitTests
             Status = currentProcessStatus,
             CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
         };
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -411,6 +463,14 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(
             "3",
             fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
+        );
+        fixture.ProcessAuthorizer.Verify(
+            authorizer =>
+                authorizer.AuthorizeProcessNext(
+                    It.IsAny<InstanceInternal>(),
+                    It.IsAny<ProcessState>()
+                ),
+            Times.Never
         );
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
@@ -1610,28 +1670,17 @@ public class InstanceMutationsControllerUnitTests
         InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_AppliesAtomicTerminalMutation(
-        bool deleteDataElement
-    )
+    [Fact]
+    public async Task CommitMutation_DeleteInstanceTerminalWorkflowCommit_AppliesAtomicTerminalMutation()
     {
         const int instanceVersion = 12;
         const int processStateVersion = 8;
         Guid instanceGuid = Guid.NewGuid();
         Guid idempotencyKey = Guid.NewGuid();
-        Guid dataElementId = Guid.NewGuid();
         DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
-        DataElementInternal dataElement = new DataElement
-        {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            DataType = _dataType,
-        }.FromApiModel(null);
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
             instanceGuid,
-            deleteDataElement ? [dataElement] : [],
+            [],
             new StorageVersions(instanceVersion, processStateVersion)
         );
         instanceInternal.Process = new ProcessState
@@ -1639,60 +1688,30 @@ public class InstanceMutationsControllerUnitTests
             Status = ProcessStatus.Processing,
             CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
         };
-        string mutationJson = deleteDataElement
-            ? $$"""
-                {
-                  "expectedProcessStatus": "processing",
-                  "processState": {
-                    "state": {
-                      "status": "idle",
-                      "ended": "{{processEnded:O}}",
-                      "endEvent": "EndEvent_1"
-                    },
-                    "events": [
-                      {
-                        "eventType": "process_EndEvent",
-                        "instanceId": "555/{{instanceGuid}}",
-                        "user": {
-                          "userId": 200001
-                        }
-                      }
-                    ]
-                  },
-                  "deleteDataElements": [
-                    {
-                      "dataElementId": "{{dataElementId}}"
+        string mutationJson = $$"""
+            {
+              "expectedProcessStatus": "processing",
+              "processState": {
+                "state": {
+                  "status": "idle",
+                  "ended": "{{processEnded:O}}",
+                  "endEvent": "EndEvent_1"
+                },
+                "events": [
+                  {
+                    "eventType": "process_EndEvent",
+                    "instanceId": "555/{{instanceGuid}}",
+                    "user": {
+                      "userId": 200001
                     }
-                  ],
-                  "deleteInstance": {
-                    "hard": true
                   }
-                }
-                """
-            : $$"""
-                {
-                  "expectedProcessStatus": "processing",
-                  "processState": {
-                    "state": {
-                      "status": "idle",
-                      "ended": "{{processEnded:O}}",
-                      "endEvent": "EndEvent_1"
-                    },
-                    "events": [
-                      {
-                        "eventType": "process_EndEvent",
-                        "instanceId": "555/{{instanceGuid}}",
-                        "user": {
-                          "userId": 200001
-                        }
-                      }
-                    ]
-                  },
-                  "deleteInstance": {
-                    "hard": true
-                  }
-                }
-                """;
+                ]
+              },
+              "deleteInstance": {
+                "hard": true
+              }
+            }
+            """;
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
             instanceInternal,
@@ -1711,21 +1730,6 @@ public class InstanceMutationsControllerUnitTests
                         InstanceId = instance.Id.ToString(),
                         InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     }
-            );
-        fixture
-            .InstanceEventService.Setup(service =>
-                service.BuildInstanceEvent(
-                    InstanceEventType.Deleted,
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                )
-            )
-            .Returns(
-                (
-                    InstanceEventType eventType,
-                    InstanceInternal instance,
-                    DataElementInternal element
-                ) => BuildDataElementEvent(eventType, instance, element)
             );
         InstanceMutationCommit capturedMutation = null;
         SetupCapturingMutationRepository(
@@ -1788,29 +1792,12 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.InstanceUpdateProperties
         );
         Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
-        Assert.Contains(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.process_EndEvent.ToString()
+        Assert.Contains(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.process_EndEvent.ToString()
         );
-        Assert.Contains(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
-                && instanceEvent.DataId is null
-        );
-        Assert.Equal(deleteDataElement ? 1 : 0, capturedMutation.DeleteDataElements.Count);
-        Assert.Equal(
-            deleteDataElement ? 1 : 0,
-            capturedMutation.InstanceEvents.Count(instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.Deleted.ToString()
-                && instanceEvent.DataId == dataElementId.ToString()
-            )
-        );
-        fixture.DataService.Verify(
-            service =>
-                service.DeleteLegacyDataElementBlob(It.IsAny<InstanceInternal>(), dataElement, 7),
-            deleteDataElement ? Times.Once() : Times.Never()
+        Assert.Contains(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.Deleted.ToString()
+            && instanceEvent.DataId is null
         );
         fixture.DataService.Verify(
             service =>
@@ -1957,119 +1944,132 @@ public class InstanceMutationsControllerUnitTests
             {
                 "dataValues",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "dataValues": {
-                        "status": "deleted"
-                      }
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "dataValues": {
+                    "status": "deleted"
+                  }
+                }
+                """
             },
             {
                 "presentationTexts",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "presentationTexts": {
-                        "status": "deleted"
-                      }
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "presentationTexts": {
+                    "status": "deleted"
+                  }
+                }
+                """
             },
             {
                 "addCompleteConfirmation",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "addCompleteConfirmation": true
-                    }
-                    """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "addCompleteConfirmation": true
+                }
+                """
+            },
+            {
+                "substatus",
+                """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "substatus": {
+                    "label": "deleted"
+                  }
+                }
+                """
             },
             {
                 "processState.state",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "processState": {
-                        "state": {
-                          "started": "2024-01-01T00:00:00Z"
-                        }
-                      }
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "state": {
+                      "started": "2024-01-01T00:00:00Z"
                     }
-                    """
+                  }
+                }
+                """
             },
             {
                 "processState.events",
                 """
-                    {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "processState": {
-                        "events": [
-                          {
-                            "eventType": "process_StartEvent",
-                            "instanceId": "555/11111111-1111-1111-1111-111111111111"
-                          }
-                        ]
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "processState": {
+                    "events": [
+                      {
+                        "eventType": "process_StartEvent",
+                        "instanceId": "555/11111111-1111-1111-1111-111111111111"
                       }
-                    }
-                    """
+                    ]
+                  }
+                }
+                """
             },
             {
                 "createDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "createDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "createDataElements": [
-                        {
-                          "dataType": "attachment",
-                          "contentPartName": "attachment"
-                        }
-                      ]
+                      "dataType": "attachment",
+                      "contentPartName": "attachment"
                     }
-                    """
+                  ]
+                }
+                """
             },
             {
                 "updateDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "updateDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "updateDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111",
-                          "locked": true
-                        }
-                      ]
+                      "dataElementId": "11111111-1111-1111-1111-111111111111",
+                      "locked": true
                     }
-                    """
+                  ]
+                }
+                """
             },
             {
                 "deleteDataElements",
                 """
+                {
+                  "deleteInstance": {
+                    "hard": true
+                  },
+                  "deleteDataElements": [
                     {
-                      "deleteInstance": {
-                        "hard": true
-                      },
-                      "deleteDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111"
-                        }
-                      ]
+                      "dataElementId": "11111111-1111-1111-1111-111111111111"
                     }
-                    """
+                  ]
+                }
+                """
             },
         };
     }
@@ -2089,137 +2089,137 @@ public class InstanceMutationsControllerUnitTests
         {
             {
                 $$"""
-                    {
-                      {{endedState}},
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  {{endedState}},
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "idle",
-                      {{endedState}},
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  "expectedProcessStatus": "idle",
+                  {{endedState}},
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "processing",
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "processing",
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "endEvent": "EndEvent_1"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "endEvent": "EndEvent_1"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "ended": "2026-06-07T08:09:10Z",
-                          "endEvent": "EndEvent_1",
-                          "currentTask": {
-                            "elementId": "Task_1"
-                          }
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "2026-06-07T08:09:10Z",
+                      "endEvent": "EndEvent_1",
+                      "currentTask": {
+                        "elementId": "Task_1"
+                      }
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 """
-                    {
-                      "expectedProcessStatus": "processing",
-                      "processState": {
-                        "state": {
-                          "status": "idle",
-                          "ended": "2026-06-07T08:09:10Z"
-                        }
-                      },
-                      "deleteInstance": { "hard": true }
+                {
+                  "expectedProcessStatus": "processing",
+                  "processState": {
+                    "state": {
+                      "status": "idle",
+                      "ended": "2026-06-07T08:09:10Z"
                     }
-                    """
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
-                    {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "dataValues": {
-                        "unrelated": "update"
-                      },
-                      "deleteInstance": { "hard": true }
-                    }
-                    """
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "dataValues": {
+                    "unrelated": "update"
+                  },
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "createDataElements": [
                     {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "createDataElements": [
-                        {
-                          "dataType": "attachment",
-                          "contentPartName": "attachment"
-                        }
-                      ],
-                      "deleteInstance": { "hard": true }
+                      "dataType": "attachment",
+                      "contentPartName": "attachment"
                     }
-                    """
+                  ],
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
             {
                 $$"""
+                {
+                  "expectedProcessStatus": "processing",
+                  {{endedState}},
+                  "updateDataElements": [
                     {
-                      "expectedProcessStatus": "processing",
-                      {{endedState}},
-                      "updateDataElements": [
-                        {
-                          "dataElementId": "11111111-1111-1111-1111-111111111111",
-                          "locked": true
-                        }
-                      ],
-                      "deleteInstance": { "hard": true }
+                      "dataElementId": "11111111-1111-1111-1111-111111111111",
+                      "locked": true
                     }
-                    """
+                  ],
+                  "deleteInstance": { "hard": true }
+                }
+                """
             },
         };
     }
@@ -2368,10 +2368,8 @@ public class InstanceMutationsControllerUnitTests
                         InstanceOwnerPartyId = instance.InstanceOwner.PartyId,
                     }
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2391,10 +2389,8 @@ public class InstanceMutationsControllerUnitTests
         );
         Assert.Equal(_org, addedConfirmation.StakeholderId);
         Assert.Equal(capturedMutation.LastChanged, addedConfirmation.ConfirmedOn);
-        Assert.Single(
-            capturedMutation.InstanceEvents,
-            instanceEvent =>
-                instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.ConfirmedComplete.ToString()
         );
     }
 
@@ -2426,10 +2422,8 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         fixture.HttpContext.User = CreateOrgPrincipal(_org);
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2526,6 +2520,198 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
+    public async Task CommitMutation_Substatus_SetsItAndAddsSubstatusUpdatedEvent()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "substatus": {
+                "label": "substatus.received",
+                "description": "substatus.received.description"
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent { EventType = eventType.ToString() }
+            );
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Contains(
+            nameof(InstanceStatus.Substatus),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Equal("substatus.received", capturedMutation.InstanceUpdates.Status.Substatus.Label);
+        Assert.Equal(
+            "substatus.received.description",
+            capturedMutation.InstanceUpdates.Status.Substatus.Description
+        );
+        Assert.Single(capturedMutation.InstanceEvents, instanceEvent =>
+            instanceEvent.EventType == InstanceEventType.SubstatusUpdated.ToString()
+        );
+    }
+
+    [Fact]
+    public async Task CommitMutation_SubstatusWithProcessEnd_KeepsTheArchiveStatus()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
+        InstanceMutationCommit capturedMutation = null;
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            $$"""
+            {
+              "processState": {
+                "state": {
+                  "started": "2026-06-07T08:00:00Z",
+                  "startEvent": "StartEvent_1",
+                  "ended": "{{processEnded:O}}",
+                  "endEvent": "EndEvent_1"
+                }
+              },
+              "substatus": {
+                "label": "substatus.received"
+              }
+            }
+            """
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+        fixture
+            .InstanceEventService.Setup(service =>
+                service.BuildInstanceEvent(
+                    InstanceEventType.SubstatusUpdated,
+                    It.IsAny<InstanceInternal>()
+                )
+            )
+            .Returns(
+                (InstanceEventType eventType, InstanceInternal instance) =>
+                    new InstanceEvent { EventType = eventType.ToString() }
+            );
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.True(capturedMutation.InstanceUpdates.Status.IsArchived);
+        Assert.Equal(processEnded, capturedMutation.InstanceUpdates.Status.Archived);
+        Assert.Equal("substatus.received", capturedMutation.InstanceUpdates.Status.Substatus.Label);
+        Assert.Contains(nameof(InstanceInternal.Status), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            nameof(InstanceStatus.IsArchived),
+            capturedMutation.InstanceUpdateProperties
+        );
+        Assert.Contains(nameof(InstanceStatus.Archived), capturedMutation.InstanceUpdateProperties);
+        Assert.Contains(
+            nameof(InstanceStatus.Substatus),
+            capturedMutation.InstanceUpdateProperties
+        );
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("other-org")]
+    public async Task CommitMutation_SubstatusFromAUserOrAnotherOrg_ReturnsForbid(string callerOrg)
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            """
+            {
+              "substatus": {
+                "label": "substatus.received"
+              }
+            }
+            """
+        );
+        if (callerOrg is not null)
+        {
+            fixture.HttpContext.User = CreateOrgPrincipal(callerOrg);
+        }
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData("""{"substatus":{"label":""}}""")]
+    [InlineData("""{"substatus":{"description":"no label"}}""")]
+    public async Task CommitMutation_SubstatusWithoutLabel_ReturnsBadRequestBeforeMutationReads(
+        string mutationJson
+    )
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            CreateAggregateInstanceInternal(instanceGuid, []),
+            CreateAggregateApplication(),
+            mutationJson
+        );
+        fixture.HttpContext.User = CreateOrgPrincipal(_org);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        Assert.Equal(
+            "substatus.label is required.",
+            Assert.IsType<ProblemDetails>(badRequest.Value).Detail
+        );
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Fact]
     public async Task CommitMutation_CreateDataElement_IncludesCreatedEventInAggregateMutation()
     {
         Guid instanceGuid = Guid.NewGuid();
@@ -2561,10 +2747,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal dataElement
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2617,10 +2801,8 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("attachment")
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2707,9 +2889,8 @@ public class InstanceMutationsControllerUnitTests
         Assert.DoesNotContain(callerSuppliedFirstId.ToString(), createdIds);
         Assert.DoesNotContain(callerSuppliedSecondId.ToString(), createdIds);
         Assert.Equal(2, createdIds.Select(Guid.Parse).Distinct().Count());
-        Assert.All(
-            capturedMutation.CreateDataElements,
-            dataElement => Assert.Equal(instanceGuid, dataElement.InstanceGuid)
+        Assert.All(capturedMutation.CreateDataElements, dataElement =>
+            Assert.Equal(instanceGuid, dataElement.InstanceGuid)
         );
         fixture.MutationRepository.Verify(
             repository =>
@@ -2721,22 +2902,18 @@ public class InstanceMutationsControllerUnitTests
                 ),
             Times.Once
         );
-        Assert.All(
-            createdIds,
-            createdId =>
-                Assert.Contains(response.Instance.Data, dataElement => dataElement.Id == createdId)
+        Assert.All(createdIds, createdId =>
+            Assert.Contains(response.Instance.Data, dataElement => dataElement.Id == createdId)
         );
-        Assert.All(
-            capturedMutation.CreateDataElements,
-            createdDataElement =>
-                Assert.Equal(
-                    createdDataElement.BlobVersionId,
-                    response
-                        .Instance.Data.Single(dataElement =>
-                            dataElement.Id == createdDataElement.Id.ToString()
-                        )
-                        .BlobVersionId
-                )
+        Assert.All(capturedMutation.CreateDataElements, createdDataElement =>
+            Assert.Equal(
+                createdDataElement.BlobVersionId,
+                response
+                    .Instance.Data.Single(dataElement =>
+                        dataElement.Id == createdDataElement.Id.ToString()
+                    )
+                    .BlobVersionId
+            )
         );
         Assert.False(
             response.Instance.Data.Single(dataElement => dataElement.Id == createdIds[0]).Locked
@@ -2798,10 +2975,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal eventDataElement
                 ) => BuildDataElementEvent(eventType, instance, eventDataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -2901,10 +3076,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3071,14 +3244,6 @@ public class InstanceMutationsControllerUnitTests
               },
               "presentationTexts": {
                 "summary": "ready"
-              },
-              "processState": {
-                "state": {
-                  "currentTask": {
-                    "elementId": "Task_2",
-                    "altinnTaskType": "data"
-                  }
-                }
               }
             }
             """,
@@ -3112,14 +3277,6 @@ public class InstanceMutationsControllerUnitTests
         Assert.Equal(
             processStateVersion.ToString(System.Globalization.CultureInfo.InvariantCulture),
             fixture.HttpContext.Response.Headers[StorageHeaders.ProcessStateVersion].Single()
-        );
-        fixture.ProcessAuthorizer.Verify(
-            authorizer =>
-                authorizer.AuthorizeProcessNext(
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<ProcessState>()
-                ),
-            Times.Never
         );
         fixture.ProcessAuthorizer.Verify(
             authorizer => authorizer.AuthorizePresentationTextsUpdate(It.IsAny<InstanceInternal>()),
@@ -3397,10 +3554,8 @@ public class InstanceMutationsControllerUnitTests
             """
         );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3424,19 +3579,11 @@ public class InstanceMutationsControllerUnitTests
         const int instanceVersion = 12;
         const int processStateVersion = 8;
         Guid instanceGuid = Guid.NewGuid();
-        Guid dataElementId = Guid.NewGuid();
         DateTime processStarted = new(2026, 6, 7, 8, 0, 0, DateTimeKind.Utc);
         DateTime processEnded = new(2026, 6, 7, 8, 9, 10, DateTimeKind.Utc);
-        DataElementInternal dataElement = new DataElement
-        {
-            Id = dataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            DataType = _dataType,
-            Locked = true,
-        }.FromApiModel(null);
         InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
             instanceGuid,
-            [dataElement],
+            [],
             new StorageVersions(instanceVersion, processStateVersion)
         );
         instanceInternal.Process = new ProcessState
@@ -3464,12 +3611,6 @@ public class InstanceMutationsControllerUnitTests
                 },
                 "events": []
               },
-              "deleteDataElements": [
-                {
-                  "dataElementId": "{{dataElementId}}",
-                  "ignoreLock": true
-                }
-              ],
               "deleteInstance": {
                 "hard": true
               }
@@ -3485,26 +3626,9 @@ public class InstanceMutationsControllerUnitTests
                 (InstanceEventType eventType, InstanceInternal instance) =>
                     new InstanceEvent { EventType = eventType.ToString() }
             );
-        fixture
-            .InstanceEventService.Setup(service =>
-                service.BuildInstanceEvent(
-                    InstanceEventType.Deleted,
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                )
-            )
-            .Returns(
-                (
-                    InstanceEventType eventType,
-                    InstanceInternal instance,
-                    DataElementInternal element
-                ) => BuildDataElementEvent(eventType, instance, element)
-            );
         InstanceMutationCommit capturedMutation = null;
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3529,13 +3653,8 @@ public class InstanceMutationsControllerUnitTests
             nameof(InstanceStatus.IsArchived),
             capturedMutation.InstanceUpdateProperties
         );
-        InstanceMutationDataElementDelete deletedElement = Assert.Single(
-            capturedMutation.DeleteDataElements
-        );
-        Assert.Equal(dataElementId, deletedElement.DataElement.Id);
-        Assert.True(deletedElement.IgnoreLock);
         Assert.Equal(
-            ["Deleted", "Deleted"],
+            ["Deleted"],
             capturedMutation.InstanceEvents.Select(instanceEvent => instanceEvent.EventType)
         );
         fixture.ProcessAuthorizer.Verify(
@@ -3702,10 +3821,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3749,10 +3866,8 @@ public class InstanceMutationsControllerUnitTests
             }
             """
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3798,10 +3913,8 @@ public class InstanceMutationsControllerUnitTests
             """,
             CreateFormFile("updateFile")
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -3981,10 +4094,8 @@ public class InstanceMutationsControllerUnitTests
                     DataElementInternal dataElement
                 ) => BuildDataElementEvent(eventType, instance, dataElement)
             );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
@@ -4030,93 +4141,28 @@ public class InstanceMutationsControllerUnitTests
         );
     }
 
-    [Fact]
-    public async Task CommitMutation_DataElementEventsWithProcessStateUpdate_UseUpdatedProcessContext()
+    [Theory]
+    [InlineData(
+        """{"createDataElements":[{"dataType":"attachment","contentPartName":"created"}],"processState":{"state":{"currentTask":{"elementId":"Task_2"}}}}"""
+    )]
+    [InlineData(
+        """{"updateDataElements":[{"dataElementId":"3f5b0a41-4b6e-4bb4-9bd9-2d2c2f7f1c11","tags":["tag"]}],"processState":{"state":{"currentTask":{"elementId":"Task_2"}}}}"""
+    )]
+    [InlineData(
+        """{"deleteDataElements":[{"dataElementId":"3f5b0a41-4b6e-4bb4-9bd9-2d2c2f7f1c11"}],"processState":{"state":{"currentTask":{"elementId":"Task_2"}}}}"""
+    )]
+    public async Task CommitMutation_ProcessStateWithDataElementWrite_ReturnsBadRequestBeforeMutationReads(
+        string mutationJson
+    )
     {
         Guid instanceGuid = Guid.NewGuid();
-        Guid updateDataElementId = Guid.NewGuid();
-        DataElement updateDataElement = new()
-        {
-            Id = updateDataElementId.ToString(),
-            InstanceGuid = instanceGuid.ToString(),
-            DataType = _dataType,
-            BlobStoragePath = "legacy/update-path",
-        };
-        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
-            instanceGuid,
-            [updateDataElement.FromApiModel(null)]
-        );
-        instanceInternal.Process = new ProcessState
-        {
-            CurrentTask = new ProcessElementInfo
-            {
-                ElementId = "Task_Old",
-                AltinnTaskType = "confirmation",
-            },
-        };
-        List<(
-            InstanceEventType EventType,
-            string DataId,
-            string CurrentTaskId,
-            string CurrentTaskType
-        )> capturedEventContexts = [];
         AggregateMutationFixture fixture = CreateAggregateMutationFixture(
             instanceGuid,
-            instanceInternal,
+            CreateAggregateInstanceInternal(instanceGuid, []),
             CreateAggregateApplication(),
-            $$"""
-            {
-              "createDataElements": [
-                {
-                  "dataType": "attachment",
-                  "contentPartName": "createFile"
-                }
-              ],
-              "updateDataElements": [
-                {
-                  "dataElementId": "{{updateDataElementId}}",
-                  "contentPartName": "updateFile"
-                }
-              ],
-              "processState": {
-                "state": {
-                  "currentTask": {
-                    "elementId": "Task_Updated",
-                    "altinnTaskType": "data"
-                  }
-                }
-              }
-            }
-            """,
-            CreateFormFile("createFile"),
-            CreateFormFile("updateFile")
+            mutationJson,
+            CreateFormFile("created")
         );
-        fixture
-            .InstanceEventService.Setup(service =>
-                service.BuildInstanceEvent(
-                    It.IsAny<InstanceEventType>(),
-                    It.IsAny<InstanceInternal>(),
-                    It.IsAny<DataElementInternal>()
-                )
-            )
-            .Callback<InstanceEventType, InstanceInternal, DataElementInternal>(
-                (eventType, eventInstance, dataElement) =>
-                    capturedEventContexts.Add(
-                        (
-                            eventType,
-                            dataElement.Id.ToString(),
-                            eventInstance.Process?.CurrentTask?.ElementId,
-                            eventInstance.Process?.CurrentTask?.AltinnTaskType
-                        )
-                    )
-            )
-            .Returns(
-                (
-                    InstanceEventType eventType,
-                    InstanceInternal instance,
-                    DataElementInternal dataElement
-                ) => BuildDataElementEvent(eventType, instance, dataElement)
-            );
 
         ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
             555,
@@ -4124,29 +4170,24 @@ public class InstanceMutationsControllerUnitTests
             CancellationToken.None
         );
 
-        Assert.IsType<OkObjectResult>(result.Result);
-        Assert.Collection(
-            capturedEventContexts,
-            created =>
-            {
-                Assert.Equal(InstanceEventType.Created, created.EventType);
-                Assert.NotEqual(Guid.Empty, Guid.Parse(created.DataId));
-                Assert.Equal("Task_Updated", created.CurrentTaskId);
-                Assert.Equal("data", created.CurrentTaskType);
-            },
-            saved =>
-            {
-                Assert.Equal(
-                    (
-                        InstanceEventType.Saved,
-                        updateDataElementId.ToString(),
-                        "Task_Updated",
-                        "data"
-                    ),
-                    saved
-                );
-            }
+        ObjectResult badRequest = Assert.IsType<ObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(badRequest.Value);
+        Assert.Equal(
+            "processState.state cannot be combined with data element creates, updates or deletes.",
+            problem.Detail
         );
+        fixture.InstanceRepository.Verify(
+            repository =>
+                repository.GetOne(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
     }
 
     [Theory]
@@ -5027,10 +5068,8 @@ public class InstanceMutationsControllerUnitTests
             },
             mutationJson: null
         );
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
         fixture
             .InstanceEventService.Setup(service =>
@@ -5091,7 +5130,6 @@ public class InstanceMutationsControllerUnitTests
             capturedMutation.DeleteDataElements
         );
         Assert.Equal(dataElementId, capturedDelete.DataElement.Id);
-        Assert.False(capturedDelete.IgnoreLock);
         bool hasTransactionalDeletedEvent =
             capturedMutation?.InstanceEvents?.Any(e =>
                 e.EventType == InstanceEventType.Deleted.ToString()
@@ -5108,7 +5146,7 @@ public class InstanceMutationsControllerUnitTests
     }
 
     [Fact]
-    public async Task CommitMutation_DeleteDataElementIgnoreLock_DisablesLockCheckInAggregateMutation()
+    public async Task CommitMutation_DeleteLockedDataElement_IgnoresLockInAggregateMutation()
     {
         Guid instanceGuid = Guid.NewGuid();
         Guid dataElementId = Guid.NewGuid();
@@ -5154,10 +5192,8 @@ public class InstanceMutationsControllerUnitTests
                 )
             )
             .Returns(new InstanceEvent { EventType = InstanceEventType.Deleted.ToString() });
-        SetupCapturingMutationRepository(
-            fixture,
-            instanceGuid,
-            mutation => capturedMutation = mutation
+        SetupCapturingMutationRepository(fixture, instanceGuid, mutation =>
+            capturedMutation = mutation
         );
         SetJsonMutationRequest(
             fixture.HttpContext,
@@ -5165,8 +5201,7 @@ public class InstanceMutationsControllerUnitTests
             {
               "deleteDataElements": [
                 {
-                  "dataElementId": "{{dataElementId}}",
-                  "ignoreLock": true
+                  "dataElementId": "{{dataElementId}}"
                 }
               ]
             }
@@ -5274,6 +5309,276 @@ public class InstanceMutationsControllerUnitTests
                 ),
             Times.Never
         );
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    [InlineData(DataElementOperation.Delete)]
+    public async Task CommitMutation_TaskBoundDataTypeOutsideItsTasks_ReturnsConflict(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(operation, ["Task_2"]);
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
+    [Fact]
+    public async Task CommitMutation_WriteOutsideItsTasksAfterAllowedWrite_ReturnsConflict()
+    {
+        Guid instanceGuid = Guid.NewGuid();
+        Guid inTaskDataElementId = Guid.NewGuid();
+        Guid outsideTaskDataElementId = Guid.NewGuid();
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [
+                new DataElement
+                {
+                    Id = inTaskDataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                }.FromApiModel(null),
+                new DataElement
+                {
+                    Id = outsideTaskDataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = "receipt",
+                }.FromApiModel(null),
+            ]
+        );
+        instanceInternal.Process = new ProcessState
+        {
+            CurrentTask = new ProcessElementInfo { ElementId = "Task_1" },
+        };
+        Application application = CreateAggregateApplication();
+        application.DataTypes[0].TaskIds = ["Task_1"];
+        application.DataTypes.Add(new DataType { Id = "receipt", TaskIds = ["Task_2"] });
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            application,
+            $$"""
+            {
+              "updateDataElements": [
+                {
+                  "dataElementId": "{{inTaskDataElementId}}",
+                  "tags": ["tag"]
+                }
+              ],
+              "deleteDataElements": [
+                {
+                  "dataElementId": "{{outsideTaskDataElementId}}"
+                }
+              ]
+            }
+            """
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            instanceGuid,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    [InlineData(DataElementOperation.Delete)]
+    public async Task CommitMutation_TaskBoundDataTypeWriteNotAuthorized_ReturnsForbidBeforeTaskBinding(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            operation,
+            ["Task_2"],
+            writeAuthorized: false
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ForbidResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
+    [Fact]
+    public async Task CommitMutation_IdleAssertedOnProcessingInstance_ReturnsProcessStatusConflictBeforeTaskBinding()
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            DataElementOperation.Create,
+            ["Task_2"],
+            currentProcessStatus: ProcessStatus.Processing
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("process_status_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    [InlineData(DataElementOperation.Delete)]
+    public async Task CommitMutation_TaskBoundDataTypeInItsTasks_Applies(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            operation,
+            ["Task_2", "Task_1"]
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        fixture.MutationRepository.Verify(
+            repository =>
+                repository.Apply(
+                    fixture.InstanceInternal.Id,
+                    fixture.InstanceInternal.InternalId,
+                    It.IsAny<InstanceMutationCommit>(),
+                    It.IsAny<CancellationToken>()
+                ),
+            Times.Once
+        );
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    public async Task CommitMutation_UpdateOfLockedElementOfTaskBoundDataType_IgnoresLock(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            operation,
+            ["Task_1"],
+            locked: true
+        );
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(fixture, fixture.InstanceInternal.Id, mutation =>
+            capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.True(Assert.Single(capturedMutation.UpdateDataElements).IgnoreLock);
+    }
+
+    [Fact]
+    public async Task CommitMutation_ContentUpdateOfLockedElementOfUnboundDataType_ReturnsConflict()
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            DataElementOperation.Update,
+            taskIds: null,
+            locked: true
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
+    }
+
+    [Fact]
+    public async Task CommitMutation_DeleteOfAutoDeleteOnProcessEndDataAfterProcessEnd_Applies()
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            DataElementOperation.Delete,
+            ["Task_2"],
+            currentProcessStatus: ProcessStatus.Processing,
+            expectedProcessStatus: ProcessStatus.Processing,
+            currentTask: null,
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
+        );
+        InstanceMutationCommit capturedMutation = null;
+        SetupCapturingMutationRepository(fixture, fixture.InstanceInternal.Id, mutation =>
+            capturedMutation = mutation
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.NotNull(capturedMutation);
+        Assert.Single(capturedMutation.DeleteDataElements);
+    }
+
+    [Theory]
+    [InlineData(DataElementOperation.Create)]
+    [InlineData(DataElementOperation.Update)]
+    [InlineData(DataElementOperation.UpdateMetadata)]
+    public async Task CommitMutation_WriteOfAutoDeleteOnProcessEndDataAfterProcessEnd_ReturnsConflict(
+        DataElementOperation operation
+    )
+    {
+        AggregateMutationFixture fixture = CreateTaskBoundMutationFixture(
+            operation,
+            ["Task_2"],
+            currentProcessStatus: ProcessStatus.Processing,
+            expectedProcessStatus: ProcessStatus.Processing,
+            currentTask: null,
+            processEnded: true,
+            autoDeleteOnProcessEnd: true
+        );
+
+        ActionResult<InstanceMutationResponse> result = await fixture.Sut.CommitMutation(
+            555,
+            fixture.InstanceInternal.Id,
+            CancellationToken.None
+        );
+
+        JsonResult conflict = Assert.IsType<JsonResult>(result.Result);
+        Assert.Equal("task_binding_conflict", Assert.IsType<ProblemDetails>(conflict.Value).Type);
+        InstanceMutationAsserts.VerifyApplyNever(fixture.MutationRepository);
+        VerifyNoBlobWritten(fixture);
     }
 
     private AggregateMutationFixture CreateAggregateMutationFixture(
@@ -5438,6 +5743,132 @@ public class InstanceMutationsControllerUnitTests
             processAuthorizerMock
         );
     }
+
+    private AggregateMutationFixture CreateTaskBoundMutationFixture(
+        DataElementOperation operation,
+        List<string> taskIds,
+        ProcessStatus currentProcessStatus = ProcessStatus.Idle,
+        ProcessStatus? expectedProcessStatus = null,
+        string currentTask = "Task_1",
+        bool writeAuthorized = true,
+        bool processEnded = false,
+        bool autoDeleteOnProcessEnd = false,
+        bool locked = false
+    )
+    {
+        const string contentPartName = "content";
+        Guid instanceGuid = Guid.NewGuid();
+        Guid dataElementId = Guid.NewGuid();
+        JsonObject mutation = new();
+        if (expectedProcessStatus is not null)
+        {
+            mutation["expectedProcessStatus"] = JsonSerializer.SerializeToNode(
+                expectedProcessStatus
+            );
+        }
+
+        IFormFile[] fileParts = [];
+        switch (operation)
+        {
+            case DataElementOperation.Create:
+                mutation["createDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataType"] = _dataType,
+                        ["contentPartName"] = contentPartName,
+                    }
+                );
+                fileParts = [CreateFormFile(contentPartName)];
+                break;
+            case DataElementOperation.Update:
+                mutation["updateDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataElementId"] = dataElementId,
+                        ["contentPartName"] = contentPartName,
+                    }
+                );
+                fileParts = [CreateFormFile(contentPartName)];
+                break;
+            case DataElementOperation.UpdateMetadata:
+                mutation["updateDataElements"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["dataElementId"] = dataElementId,
+                        ["tags"] = new JsonArray("metadata-change"),
+                    }
+                );
+                break;
+            case DataElementOperation.Delete:
+                mutation["deleteDataElements"] = new JsonArray(
+                    new JsonObject { ["dataElementId"] = dataElementId }
+                );
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(operation));
+        }
+
+        InstanceInternal instanceInternal = CreateAggregateInstanceInternal(
+            instanceGuid,
+            [
+                new DataElement
+                {
+                    Id = dataElementId.ToString(),
+                    InstanceGuid = instanceGuid.ToString(),
+                    DataType = _dataType,
+                    Locked = locked,
+                }.FromApiModel(null),
+            ]
+        );
+        instanceInternal.Process = new ProcessState
+        {
+            Status = currentProcessStatus,
+            CurrentTask = currentTask is null
+                ? null
+                : new ProcessElementInfo { ElementId = currentTask },
+            Ended = processEnded ? DateTime.UtcNow : null,
+        };
+        Application application = CreateAggregateApplication();
+        application.DataTypes[0].TaskIds = taskIds;
+        application.DataTypes[0].ActionRequiredToWrite = writeAuthorized ? null : "write";
+        if (autoDeleteOnProcessEnd)
+        {
+            application.DataTypes[0].AppLogic = new ApplicationLogic
+            {
+                AutoDeleteOnProcessEnd = true,
+            };
+        }
+        AggregateMutationFixture fixture = CreateAggregateMutationFixture(
+            instanceGuid,
+            instanceInternal,
+            application,
+            mutation.ToJsonString(),
+            fileParts
+        );
+        fixture
+            .AuthorizationService.Setup(authorization =>
+                authorization.AuthorizeInstanceAction(
+                    It.IsAny<InstanceInternal>(),
+                    "write",
+                    It.IsAny<string>()
+                )
+            )
+            .ReturnsAsync(writeAuthorized);
+
+        return fixture;
+    }
+
+    private static void VerifyNoBlobWritten(AggregateMutationFixture fixture) =>
+        fixture.BlobRepository.Verify(
+            repository =>
+                repository.WriteBlob(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<string>(),
+                    It.IsAny<int?>()
+                ),
+            Times.Never
+        );
 
     private static InstanceEvent BuildDataElementEvent(
         InstanceEventType eventType,

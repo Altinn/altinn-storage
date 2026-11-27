@@ -88,4 +88,21 @@ public interface IBlobRepository
         int? storageAccountNumber,
         CancellationToken cancellationToken = default
     );
+
+    /// <summary>
+    /// Creates a URL that reads one blob, and nothing else, until it expires.
+    /// </summary>
+    /// <param name="org">The application owner id.</param>
+    /// <param name="blobStoragePath">Path to the blob.</param>
+    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="lifetime">How long the URL stays valid.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The URL and when it expires.</returns>
+    Task<(Uri Url, DateTimeOffset ExpiresOn)> GetReadUrl(
+        string org,
+        string blobStoragePath,
+        int? storageAccountNumber,
+        TimeSpan lifetime,
+        CancellationToken cancellationToken = default
+    );
 }

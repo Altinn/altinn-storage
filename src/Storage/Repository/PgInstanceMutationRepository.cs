@@ -32,7 +32,9 @@ public sealed class PgInstanceMutationRepository(
 {
     internal const string _applyMutationSql =
         "select * from storage.applyinstancemutation($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)";
-    private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new()
+    private static readonly JsonSerializerOptions _omitNullPropertiesJsonOptions = new(
+        PersistedJson.Options
+    )
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
@@ -94,8 +96,12 @@ public sealed class PgInstanceMutationRepository(
             }
         }
 
-        InstanceInternal instance =
-            await ReadInstanceForReplay(connection, transaction, instanceGuid, cancellationToken)
+        InstanceInternal instance = await ReadInstanceForReplay(
+            connection,
+            transaction,
+            instanceGuid,
+            cancellationToken
+        )
             ?? throw new UnreachableException(
                 "Replay admission succeeded but follow-up instance read returned no result."
             );
@@ -206,17 +212,16 @@ public sealed class PgInstanceMutationRepository(
             await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
             bool replayed = false;
             IReadOnlyList<string> createdDataElementIds = [];
-            InstanceInternal instance =
-                await InstanceResultReader.ReadAsync(
-                    reader,
-                    includeElements: true,
-                    cancellationToken,
-                    firstRowCallback: row =>
-                    {
-                        replayed = row.GetBoolean(row.GetOrdinal("replayed"));
-                        createdDataElementIds = ReadTextArray(row, "createddataelementids");
-                    }
-                )
+            InstanceInternal instance = await InstanceResultReader.ReadAsync(
+                reader,
+                includeElements: true,
+                cancellationToken,
+                firstRowCallback: row =>
+                {
+                    replayed = row.GetBoolean(row.GetOrdinal("replayed"));
+                    createdDataElementIds = ReadTextArray(row, "createddataelementids");
+                }
+            )
                 ?? throw new UnreachableException(
                     "Apply mutation function returned no instance rows."
                 );
@@ -352,13 +357,12 @@ public sealed class PgInstanceMutationRepository(
 
     internal static string BuildInstanceUpdatesPayload(InstanceMutationCommit mutation)
     {
-        List<string> instanceUpdateProperties =
-            mutation
-                .InstanceUpdateProperties?.Where(property =>
-                    property != nameof(InstanceInternal.LastChanged)
-                    && property != nameof(InstanceInternal.LastChangedBy)
-                )
-                .ToList()
+        List<string> instanceUpdateProperties = mutation
+            .InstanceUpdateProperties?.Where(property =>
+                property != nameof(InstanceInternal.LastChanged)
+                && property != nameof(InstanceInternal.LastChangedBy)
+            )
+            .ToList()
             ?? [];
         if (instanceUpdateProperties.Count == 0)
         {
@@ -525,7 +529,7 @@ public sealed class PgInstanceMutationRepository(
         }
 
         return BuildJsonPayload(writer =>
-            JsonSerializer.Serialize(writer, mutation.InstanceEvents)
+            JsonSerializer.Serialize(writer, mutation.InstanceEvents, PersistedJson.Options)
         );
     }
 
@@ -606,7 +610,7 @@ public sealed class PgInstanceMutationRepository(
             return;
         }
 
-        JsonSerializer.Serialize(writer, value);
+        JsonSerializer.Serialize(writer, value, PersistedJson.Options);
     }
 
     private static void WriteScalarJsonProperty(
@@ -622,7 +626,7 @@ public sealed class PgInstanceMutationRepository(
             return;
         }
 
-        JsonSerializer.Serialize(writer, value);
+        JsonSerializer.Serialize(writer, value, PersistedJson.Options);
     }
 
     private static void WriteBlobVersionProperty(

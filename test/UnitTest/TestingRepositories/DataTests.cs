@@ -306,8 +306,7 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         // Arrange
         DataElementInternal dataElement = await CreateDataElement();
-        DateTime seededLastChanged =
-            _instance.LastChanged
+        DateTime seededLastChanged = _instance.LastChanged
             ?? throw new InvalidOperationException(
                 "The seeded instance is expected to have LastChanged set."
             );
@@ -748,18 +747,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
     }
@@ -787,22 +787,23 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = staleBlobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = staleBlobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             Guid.Parse(dataElement.InstanceGuid),
             Guid.Parse(dataElement.Id)
         );
+        Assert.Equal(FileScanStatusOutcome.Superseded, update.Outcome);
         Assert.Null(updateResult);
         Assert.Equal(FileScanResult.Pending, readElement.FileScanResult);
     }
@@ -815,18 +816,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         Guid missingDataElementId = Guid.NewGuid();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                instanceGuid,
-                missingDataElementId,
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            instanceGuid,
+            missingDataElementId,
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = BlobVersionId.Encode(Guid.CreateVersion7()),
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Deleted, update.Outcome);
         Assert.Null(updateResult);
         Assert.False(await dataElementFixture.DataRepo.Exists(missingDataElementId));
     }
@@ -862,22 +864,23 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                instanceGuid,
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            instanceGuid,
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
         DataElementInternal readElement = await dataElementFixture.DataRepo.Read(
             instanceGuid,
             Guid.Parse(dataElement.Id)
         );
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(expectedVersions, updateResult.Versions);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
@@ -912,18 +915,19 @@ public class DataTests(DataElementFixture dataElementFixture)
         DataElement dataElement = createdDataElement.ToApiModel();
 
         // Act
-        DataElementWriteResult updateResult =
-            await dataElementFixture.DataRepo.UpdateFileScanStatus(
-                Guid.Parse(dataElement.InstanceGuid),
-                Guid.Parse(dataElement.Id),
-                new FileScanStatus
-                {
-                    FileScanResult = FileScanResult.Clean,
-                    BlobVersionId = blobVersionId,
-                }
-            );
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+            Guid.Parse(dataElement.InstanceGuid),
+            Guid.Parse(dataElement.Id),
+            new FileScanStatus
+            {
+                FileScanResult = FileScanResult.Clean,
+                BlobVersionId = blobVersionId,
+            }
+        );
+        DataElementWriteResult updateResult = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(updateResult);
         Assert.Equal(FileScanResult.Clean, updateResult.DataElement.FileScanResult);
     }
@@ -1690,7 +1694,7 @@ public class DataTests(DataElementFixture dataElementFixture)
         int currentProcessStateVersion = await ReadProcessStateVersion(instanceGuid);
 
         // Act
-        DataElementWriteResult result = await dataElementFixture.DataRepo.UpdateFileScanStatus(
+        FileScanStatusUpdateResult update = await dataElementFixture.DataRepo.UpdateFileScanStatus(
             instanceGuid,
             Guid.Parse(createdDataElement.Id),
             new FileScanStatus
@@ -1699,8 +1703,10 @@ public class DataTests(DataElementFixture dataElementFixture)
                 BlobVersionId = currentBlobVersion,
             }
         );
+        DataElementWriteResult result = update.WriteResult;
 
         // Assert
+        Assert.Equal(FileScanStatusOutcome.Updated, update.Outcome);
         Assert.NotNull(result);
         Assert.Equal(FileScanResult.Clean, result.DataElement.FileScanResult);
         Assert.Equal(currentInstanceVersion, result.Versions.InstanceVersion);
@@ -3086,9 +3092,8 @@ public class DataTests(DataElementFixture dataElementFixture)
         );
 
         // Assert
-        DataElementInternal updatedElement = Assert.Single(
-            result.Instance.Data,
-            element => element.Id == Guid.Parse(hardDeletedElement.Id)
+        DataElementInternal updatedElement = Assert.Single(result.Instance.Data, element =>
+            element.Id == Guid.Parse(hardDeletedElement.Id)
         );
         Assert.Equal(["new"], updatedElement.Tags);
     }
@@ -3281,13 +3286,10 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(expectedCreatedIds, retryResult.CreatedDataElementIds);
         Assert.Equal(firstResult.Instance.Versions, earlyReplayResult.Instance.Versions);
         Assert.Equal(firstResult.Instance.Versions, retryResult.Instance.Versions);
-        Assert.All(
-            expectedCreatedIds,
-            createdId =>
-                Assert.Contains(
-                    retryResult.Instance.Data,
-                    dataElement => dataElement.Id.ToString() == createdId
-                )
+        Assert.All(expectedCreatedIds, createdId =>
+            Assert.Contains(retryResult.Instance.Data, dataElement =>
+                dataElement.Id.ToString() == createdId
+            )
         );
         Assert.DoesNotContain(retryCreatedIds[0], retryResult.CreatedDataElementIds);
         Assert.DoesNotContain(retryCreatedIds[1], retryResult.CreatedDataElementIds);
@@ -3472,6 +3474,67 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal(processEnded, updatedInstanceInternal.Status.Archived);
         Assert.Equal("aggregate-process-end", updatedInstanceInternal.LastChangedBy);
         Assert.Equal("Task_Archive", await ReadInstanceTaskId(instanceGuid));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateMutation_Substatus_StoresSubstatusAndKeepsOtherStatusFields(
+        bool archive
+    )
+    {
+        // Arrange
+        Guid instanceGuid = _instance.Id;
+        InstanceStatus status = new() { Substatus = new() { Label = "new-label" } };
+        List<string> updateProperties = [nameof(InstanceStatus.Substatus)];
+        if (archive)
+        {
+            status.IsArchived = true;
+            status.Archived = _frozenTime;
+            updateProperties.AddRange([
+                nameof(InstanceInternal.Status),
+                nameof(InstanceStatus.IsArchived),
+                nameof(InstanceStatus.Archived),
+            ]);
+        }
+
+        InstanceMutationCommit mutation = new(
+            [],
+            [],
+            [],
+            new InstanceInternal
+            {
+                Id = _instance.Id,
+                AppId = _instance.AppId,
+                Org = _instance.Org,
+                InstanceOwner = _instance.InstanceOwner,
+                Created = _instance.Created,
+                Process = _instance.Process,
+                Status = status,
+            },
+            updateProperties,
+            await ReadInstanceVersion(instanceGuid),
+            null,
+            []
+        );
+
+        // Act
+        await dataElementFixture.InstanceMutationRepo.Apply(
+            instanceGuid,
+            _instanceInternalId,
+            mutation,
+            CancellationToken.None
+        );
+        InstanceInternal updatedInstance = await dataElementFixture.InstanceRepo.GetOne(
+            instanceGuid,
+            false,
+            CancellationToken.None
+        );
+
+        // Assert
+        Assert.Equal("new-label", updatedInstance.Status.Substatus.Label);
+        Assert.True(updatedInstance.Status.IsSoftDeleted);
+        Assert.Equal(archive, updatedInstance.Status.IsArchived);
     }
 
     [Theory]
@@ -4338,13 +4401,11 @@ public class DataTests(DataElementFixture dataElementFixture)
             expectedCreatedIds,
             expectedInternalId: _instanceInternalId
         );
-        Assert.Contains(
-            firstRows,
-            row => row.CurrentBlobVersion == BlobVersionId.Decode(firstCreate.BlobVersionId)
+        Assert.Contains(firstRows, row =>
+            row.CurrentBlobVersion == BlobVersionId.Decode(firstCreate.BlobVersionId)
         );
-        Assert.Contains(
-            firstRows,
-            row => row.CurrentBlobVersion == BlobVersionId.Decode(secondCreate.BlobVersionId)
+        Assert.Contains(firstRows, row =>
+            row.CurrentBlobVersion == BlobVersionId.Decode(secondCreate.BlobVersionId)
         );
         Assert.False(await dataElementFixture.DataRepo.Exists(Guid.Parse(toDelete.Id)));
         Assert.True(await dataElementFixture.DataRepo.Exists(firstCreate.Id));
@@ -5218,13 +5279,11 @@ public class DataTests(DataElementFixture dataElementFixture)
         Assert.Equal("preserved", updatedInstance.PresentationTexts["sql-preserved-presentation"]);
         Assert.Equal("new", updatedInstance.PresentationTexts["sql-overwritten-presentation"]);
         Assert.Equal("added", updatedInstance.PresentationTexts["sql-added-presentation"]);
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "existing"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "existing"
         );
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == _instance.Org
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == _instance.Org
         );
         Assert.True(updatedInstance.Status.IsArchived);
         Assert.Equal("substatus-label", updatedInstance.Status.Substatus.Label);
@@ -5391,17 +5450,14 @@ public class DataTests(DataElementFixture dataElementFixture)
             updatedInstance.PresentationTexts["guard-dedicated-presentation"]
         );
         Assert.False(updatedInstance.PresentationTexts.ContainsKey("guard-top-only-presentation"));
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-existing-confirmation"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-existing-confirmation"
         );
-        Assert.Contains(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-dedicated-confirmation"
+        Assert.Contains(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-dedicated-confirmation"
         );
-        Assert.DoesNotContain(
-            updatedInstance.CompleteConfirmations,
-            confirmation => confirmation.StakeholderId == "guard-top-only-confirmation"
+        Assert.DoesNotContain(updatedInstance.CompleteConfirmations, confirmation =>
+            confirmation.StakeholderId == "guard-top-only-confirmation"
         );
         Assert.True(updatedInstance.Status.IsArchived);
         Assert.Equal(archived, updatedInstance.Status.Archived);
@@ -7282,38 +7338,37 @@ public class DataTests(DataElementFixture dataElementFixture)
             """
         );
 
-    private static string CreateParitySeedJson() =>
-        """
+    private static string CreateParitySeedJson() => """
+        {
+          "DataValues": {
+            "parity-preserved-data": "preserved",
+            "parity-existing-data": "old"
+          },
+          "PresentationTexts": {
+            "parity-preserved-presentation": "preserved",
+            "parity-existing-presentation": "old"
+          },
+          "CompleteConfirmations": [
             {
-              "DataValues": {
-                "parity-preserved-data": "preserved",
-                "parity-existing-data": "old"
-              },
-              "PresentationTexts": {
-                "parity-preserved-presentation": "preserved",
-                "parity-existing-presentation": "old"
-              },
-              "CompleteConfirmations": [
-                {
-                  "StakeholderId": "existing",
-                  "ConfirmedOn": "2026-01-01T00:00:00Z"
-                }
-              ],
-              "Status": {
-                "ReadStatus": 0,
-                "IsArchived": false,
-                "Substatus": {
-                  "Label": "seed-label",
-                  "Description": "seed-description"
-                }
-              },
-              "Process": {
-                "CurrentTask": {
-                  "ElementId": "Task_Seed"
-                }
-              }
+              "StakeholderId": "existing",
+              "ConfirmedOn": "2026-01-01T00:00:00Z"
             }
-            """;
+          ],
+          "Status": {
+            "ReadStatus": 0,
+            "IsArchived": false,
+            "Substatus": {
+              "Label": "seed-label",
+              "Description": "seed-description"
+            }
+          },
+          "Process": {
+            "CurrentTask": {
+              "ElementId": "Task_Seed"
+            }
+          }
+        }
+        """;
 
     // No case confirms a stakeholder the seed already carries: mergeinstanceupdate skips those and
     // updateinstance_v4 appends them, the one place the two deliberately differ. That difference has
@@ -7732,21 +7787,18 @@ public class DataTests(DataElementFixture dataElementFixture)
     {
         IReadOnlyList<string> createdDataElementIds = expectedCreatedDataElementIds ?? [];
         Assert.NotEmpty(rows);
-        Assert.All(
-            rows,
-            row =>
+        Assert.All(rows, row =>
+        {
+            Assert.Equal(replayed, row.Replayed);
+            Assert.Equal(createdDataElementIds, row.CreatedDataElementIds);
+            if (expectedInternalId.HasValue)
             {
-                Assert.Equal(replayed, row.Replayed);
-                Assert.Equal(createdDataElementIds, row.CreatedDataElementIds);
-                if (expectedInternalId.HasValue)
-                {
-                    Assert.Equal(expectedInternalId, row.InternalId);
-                }
-
-                Assert.Equal(expectedInstanceVersion, row.InstanceVersion);
-                Assert.Equal(expectedProcessStateVersion, row.ProcessStateVersion);
+                Assert.Equal(expectedInternalId, row.InternalId);
             }
-        );
+
+            Assert.Equal(expectedInstanceVersion, row.InstanceVersion);
+            Assert.Equal(expectedProcessStateVersion, row.ProcessStateVersion);
+        });
     }
 
     private static void AssertSqlVersionError(
