@@ -28,17 +28,11 @@ namespace Altinn.Platform.Storage.UnitTest.Mocks;
 public class PepWithPDPAuthorizationMockSI : IPDP
 {
     private readonly IInstanceRepository _instanceService;
-
     private readonly string _orgAttributeId = "urn:altinn:org";
-
     private readonly string _appAttributeId = "urn:altinn:app";
-
     private readonly string _userAttributeId = "urn:altinn:userid";
-
     private readonly string _systemUserAttributeId = "urn:altinn:systemuser:uuid";
-
     private readonly string _altinnRoleAttributeId = "urn:altinn:rolecode";
-
     private readonly RequestTracker _requestTracker;
 
     public PepWithPDPAuthorizationMockSI(
