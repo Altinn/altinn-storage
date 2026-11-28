@@ -33,7 +33,7 @@ public class FileScanRequest
     /// </summary>
     /// <remarks>
     /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
-    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until that version runs in every environment, so that Storage can be
     /// released before the scanner.
     /// </remarks>
     public DateTimeOffset Timestamp { get; set; }
@@ -43,7 +43,7 @@ public class FileScanRequest
     /// </summary>
     /// <remarks>
     /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
-    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until that version runs in every environment, so that Storage can be
     /// released before the scanner.
     /// </remarks>
     public string BlobStoragePath { get; set; }
@@ -58,7 +58,7 @@ public class FileScanRequest
     /// </summary>
     /// <remarks>
     /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
-    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until that version runs in every environment, so that Storage can be
     /// released before the scanner.
     /// </remarks>
     public string Org { get; set; }
@@ -68,7 +68,7 @@ public class FileScanRequest
     /// </summary>
     /// <remarks>
     /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 read this; newer ones get the blob from
-    /// Storage by <see cref="BlobVersionId"/>. Keep it until #466 runs in every environment, so that Storage can be
+    /// Storage by <see cref="BlobVersionId"/>. Keep it until that version runs in every environment, so that Storage can be
     /// released before the scanner.
     /// </remarks>
     public int? StorageAccountNumber { get; set; }

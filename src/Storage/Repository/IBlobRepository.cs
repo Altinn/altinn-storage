@@ -94,7 +94,10 @@ public interface IBlobRepository
     /// </summary>
     /// <param name="org">The application owner id.</param>
     /// <param name="blobStoragePath">Path to the blob.</param>
-    /// <param name="storageAccountNumber">Storage container number for when a Storage account has more than one container.</param>
+    /// <param name="storageAccountNumber">
+    /// The number that replaces the last two digits of the org's storage account name, or <c>null</c> for the
+    /// org's default account.
+    /// </param>
     /// <param name="lifetime">How long the URL stays valid.</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The URL and when it expires.</returns>

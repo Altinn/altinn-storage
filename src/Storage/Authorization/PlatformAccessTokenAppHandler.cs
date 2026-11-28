@@ -72,8 +72,26 @@ public sealed class PlatformAccessTokenAppHandler(
         string? app = jwt
             .Claims.FirstOrDefault(claim => claim.Type == AccessTokenClaimTypes.App)
             ?.Value;
-        if (jwt.Issuer != requirement.Issuer || app != requirement.App)
+        if (jwt.Issuer != requirement.Issuer)
         {
+            // Anyone can send a token with any issuer, so this is not worth a warning.
+            logger.LogDebug(
+                "Platform access token from issuer {Issuer} is not accepted where {RequiredIssuer} is required.",
+                jwt.Issuer,
+                requirement.Issuer
+            );
+            return;
+        }
+
+        bool isValid = await accessTokenValidator.Validate(token);
+        if (!isValid)
+        {
+            return;
+        }
+
+        if (app != requirement.App)
+        {
+            // Logged only after the signature is checked, so the issuer and app are not chosen by the caller.
             logger.LogWarning(
                 "Platform access token from issuer {Issuer} and app {App} is not accepted where {RequiredIssuer}/{RequiredApp} is required.",
                 jwt.Issuer,
@@ -84,9 +102,6 @@ public sealed class PlatformAccessTokenAppHandler(
             return;
         }
 
-        if (await accessTokenValidator.Validate(token))
-        {
-            context.Succeed(requirement);
-        }
+        context.Succeed(requirement);
     }
 }

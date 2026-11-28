@@ -1,6 +1,7 @@
 ﻿#nullable disable
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -62,6 +63,9 @@ public class BlobRepository(
 
     // How much longer than a URL a key must be valid when the URL's times are set after the key request.
     private static readonly TimeSpan _userDelegationKeyMargin = TimeSpan.FromMinutes(1);
+
+    // One lock per storage account, so that requests that find no cached key wait for one key request.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _userDelegationKeyLocks = new();
 
     private static readonly MemoryCacheEntryOptions _cacheEntryOptionsBlobClient =
         new MemoryCacheEntryOptions()
@@ -321,6 +325,12 @@ public class BlobRepository(
         {
             expiresOn = key.SignedExpiresOn;
         }
+
+        // The SAS has the expiry in whole seconds, so round down to return the time the URL stops working.
+        expiresOn = new DateTimeOffset(
+            expiresOn.UtcTicks - (expiresOn.UtcTicks % TimeSpan.TicksPerSecond),
+            TimeSpan.Zero
+        );
 
         BlobClient blob = CreateBlobClient(org, blobStoragePath, storageAccountNumber);
         BlobSasBuilder sasBuilder = new(BlobSasPermissions.Read, expiresOn)
@@ -588,45 +598,69 @@ public class BlobRepository(
     {
         Uri serviceUri = GetServiceUri(org, storageAccountNumber);
         string cacheKey = $"user-delegation-key-{serviceUri}";
-        if (
-            _memoryCache.TryGetValue(cacheKey, out UserDelegationKey key)
-            && key.SignedExpiresOn >= validUntil
-        )
+        if (TryGetCachedUserDelegationKey(cacheKey, validUntil, out UserDelegationKey key))
         {
             return key;
         }
 
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-        DateTimeOffset startsOn = now.Subtract(_sasClockSkew);
-        DateTimeOffset expiresOn = now.Add(_userDelegationKeyLifetime);
+        SemaphoreSlim keyLock = _userDelegationKeyLocks.GetOrAdd(cacheKey, _ => new SemaphoreSlim(
+            1,
+            1
+        ));
+        await keyLock.WaitAsync(cancellationToken);
         try
         {
-            key = (
-                await new BlobServiceClient(
-                    serviceUri,
-                    GetCredential(),
-                    _clientOptions
-                ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
-            ).Value;
-        }
-        catch (RequestFailedException requestFailedException)
-            when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
-        {
-            _logger.LogWarning(
-                "Authentication failed. Invalidating credentials and retrying user delegation key request."
-            );
-            _memoryCache.Remove(_credsCacheKey);
-            key = (
-                await new BlobServiceClient(
-                    serviceUri,
-                    GetCredential(),
-                    _clientOptions
-                ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
-            ).Value;
-        }
+            // Another request can have cached a key while this one waited.
+            if (TryGetCachedUserDelegationKey(cacheKey, validUntil, out key))
+            {
+                return key;
+            }
 
-        _memoryCache.Set(cacheKey, key, now.Add(_userDelegationKeyLifetime / 2));
-        return key;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            DateTimeOffset startsOn = now.Subtract(_sasClockSkew);
+            DateTimeOffset expiresOn = now.Add(_userDelegationKeyLifetime);
+            try
+            {
+                key = (
+                    await new BlobServiceClient(
+                        serviceUri,
+                        GetCredential(),
+                        _clientOptions
+                    ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
+                ).Value;
+            }
+            catch (RequestFailedException requestFailedException)
+                when (requestFailedException.ErrorCode == _authenticationFailedErrorCode)
+            {
+                _logger.LogWarning(
+                    "Authentication failed. Invalidating credentials and retrying user delegation key request."
+                );
+                _memoryCache.Remove(_credsCacheKey);
+                key = (
+                    await new BlobServiceClient(
+                        serviceUri,
+                        GetCredential(),
+                        _clientOptions
+                    ).GetUserDelegationKeyAsync(startsOn, expiresOn, cancellationToken)
+                ).Value;
+            }
+
+            _memoryCache.Set(cacheKey, key, now.Add(_userDelegationKeyLifetime / 2));
+            return key;
+        }
+        finally
+        {
+            keyLock.Release();
+        }
+    }
+
+    private bool TryGetCachedUserDelegationKey(
+        string cacheKey,
+        DateTimeOffset validUntil,
+        out UserDelegationKey key
+    )
+    {
+        return _memoryCache.TryGetValue(cacheKey, out key) && key.SignedExpiresOn >= validUntil;
     }
 
     /// <summary>
