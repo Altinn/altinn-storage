@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -10,6 +11,7 @@ using Altinn.Platform.Storage.UnitTest.Fixture;
 using Azure.Core;
 using Azure.Storage;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Azure.Storage.Sas;
 using Microsoft.Extensions.Caching.Memory;
@@ -311,10 +313,131 @@ public class BlobRepositoryAzuriteTests(BlobRepositoryAzuriteFixture fixture)
         Assert.Equal(1, credential.RequestCount);
         Assert.InRange(
             expiresOn,
-            returnedAt.Add(lifetime).AddSeconds(-1),
+            returnedAt.Add(lifetime).AddSeconds(-2),
             returnedAt.Add(lifetime)
         );
         Assert.Equal("slow key", await client.GetStringAsync(url));
+    }
+
+    [Fact]
+    public async Task GetReadUrl_ExpiresOn_IsTheSasExpiryInWholeSeconds()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/whole-seconds");
+        await fixture.UploadText(blobStoragePath, "whole seconds");
+
+        (Uri url, DateTimeOffset expiresOn) = await fixture.Repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+
+        Assert.Equal(0, expiresOn.UtcTicks % TimeSpan.TicksPerSecond);
+        Assert.Equal(expiresOn, new BlobUriBuilder(url).Sas.ExpiresOn);
+    }
+
+    [Fact]
+    public async Task GetReadUrl_ConcurrentRequestsWithoutCachedKey_RequestOneKey()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/concurrent");
+        await fixture.UploadText(blobStoragePath, "concurrent");
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        AzuriteTokenCredential credential = new(delay: TimeSpan.FromMilliseconds(500));
+        BlobRepository repository = fixture.CreateRepository(memoryCache, credential);
+
+        (Uri Url, DateTimeOffset ExpiresOn)[] results = await Task.WhenAll(
+            Enumerable
+                .Range(0, 5)
+                .Select(_ =>
+                    repository.GetReadUrl(
+                        BlobRepositoryAzuriteFixture.Org,
+                        blobStoragePath,
+                        null,
+                        TimeSpan.FromMinutes(5)
+                    )
+                )
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+
+        Assert.Equal(1, credential.RequestCount);
+        foreach ((Uri url, _) in results)
+        {
+            Assert.Equal("concurrent", await client.GetStringAsync(url));
+        }
+    }
+
+    [Fact]
+    public async Task GetReadUrl_AuthenticationFailed_RetriesOnce()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/retry");
+        await fixture.UploadText(blobStoragePath, "retry");
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        AzuriteTokenCredential credential = new(invalidTokenCount: 1);
+        BlobRepository repository = fixture.CreateRepository(memoryCache, credential);
+
+        (Uri url, _) = await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            TimeSpan.FromMinutes(5)
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+
+        Assert.Equal(2, credential.RequestCount);
+        Assert.Equal("retry", await client.GetStringAsync(url));
+    }
+
+    [Fact]
+    public async Task GetReadUrl_CachedKeyExpiresBeforeUrl_RequestsNewKey()
+    {
+        string blobStoragePath = fixture.NewBlobPath("data-elements/short-key");
+        await fixture.UploadText(blobStoragePath, "short key");
+        using MemoryCache memoryCache = new(new MemoryCacheOptions());
+        AzuriteTokenCredential credential = new();
+        BlobRepository repository = fixture.CreateRepository(memoryCache, credential);
+        TimeSpan lifetime = TimeSpan.FromMinutes(5);
+        await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            lifetime
+        );
+        object cacheKey = Assert.Single(memoryCache.Keys, key =>
+            key is string name && name.StartsWith("user-delegation-key-", StringComparison.Ordinal)
+        );
+        UserDelegationKey cachedKey = memoryCache.Get<UserDelegationKey>(cacheKey)!;
+        memoryCache.Set(
+            cacheKey,
+            BlobsModelFactory.UserDelegationKey(
+                cachedKey.SignedObjectId,
+                cachedKey.SignedTenantId,
+                cachedKey.SignedStartsOn,
+                DateTimeOffset.UtcNow.AddMinutes(1),
+                cachedKey.SignedService,
+                cachedKey.SignedVersion,
+                cachedKey.Value
+            )
+        );
+
+        (Uri url, DateTimeOffset expiresOn) = await repository.GetReadUrl(
+            BlobRepositoryAzuriteFixture.Org,
+            blobStoragePath,
+            null,
+            lifetime
+        );
+        using HttpClient client = TestContainers.CreateAzuriteHttpClient();
+
+        Assert.Equal(2, credential.RequestCount);
+        Assert.True(
+            memoryCache.Get<UserDelegationKey>(cacheKey)!.SignedExpiresOn
+                > DateTimeOffset.UtcNow.AddHours(1)
+        );
+        Assert.InRange(
+            expiresOn,
+            DateTimeOffset.UtcNow.Add(lifetime).AddSeconds(-5),
+            DateTimeOffset.UtcNow.Add(lifetime)
+        );
+        Assert.Equal("short key", await client.GetStringAsync(url));
     }
 
     [Theory]

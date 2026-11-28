@@ -1311,7 +1311,7 @@ public class DataController : ControllerBase
     /// <returns>True if the data element exists, false otherwise</returns>
     /// <remarks>
     /// Obsolete: only file scanners from before Altinn/altinn-file-scan#466 call this; newer ones learn that a data
-    /// element is gone from <see cref="GetFileScanTarget"/>. Keep it until #466 runs in every environment, so that
+    /// element is gone from <see cref="GetFileScanTarget"/>. Keep it until that version runs in every environment, so that
     /// Storage can be released before the scanner.
     /// </remarks>
     [Authorize(Policy = AuthzConstants.POLICY_PLATFORM_FILE_SCAN)]

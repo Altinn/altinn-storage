@@ -11,7 +11,11 @@ namespace Altinn.Platform.Storage.UnitTest.Fixture;
 /// token's audience, issuer and lifetime but not its signature.
 /// </summary>
 /// <param name="delay">How long <see cref="GetTokenAsync"/> waits before it returns a token.</param>
-public sealed class AzuriteTokenCredential(TimeSpan delay = default) : TokenCredential
+/// <param name="invalidTokenCount">
+/// How many of the first tokens have an audience that Azurite refuses with <c>AuthenticationFailed</c>.
+/// </param>
+public sealed class AzuriteTokenCredential(TimeSpan delay = default, int invalidTokenCount = 0)
+    : TokenCredential
 {
     private int _requestCount;
 
@@ -26,12 +30,16 @@ public sealed class AzuriteTokenCredential(TimeSpan delay = default) : TokenCred
         CancellationToken cancellationToken
     )
     {
-        Interlocked.Increment(ref _requestCount);
+        int requestNumber = Interlocked.Increment(ref _requestCount);
+        string audience =
+            requestNumber <= invalidTokenCount
+                ? "https://invalid.example"
+                : "https://storage.azure.com";
         DateTimeOffset now = DateTimeOffset.UtcNow;
         DateTimeOffset expiresOn = now.AddHours(1);
         string header = """{"alg":"RS256","typ":"JWT"}""";
         string payload = $$"""
-            {"aud":"https://storage.azure.com","iss":"https://sts.windows.net/{{Guid.Empty}}/","iat":{{now.ToUnixTimeSeconds()}},"nbf":{{now.ToUnixTimeSeconds()}},"exp":{{expiresOn.ToUnixTimeSeconds()}},"oid":"{{Guid.Empty}}","tid":"{{Guid.Empty}}"}
+            {"aud":"{{audience}}","iss":"https://sts.windows.net/{{Guid.Empty}}/","iat":{{now.ToUnixTimeSeconds()}},"nbf":{{now.ToUnixTimeSeconds()}},"exp":{{expiresOn.ToUnixTimeSeconds()}},"oid":"{{Guid.Empty}}","tid":"{{Guid.Empty}}"}
             """;
         return new AccessToken(
             $"{Base64UrlEncode(header)}.{Base64UrlEncode(payload)}.unsigned",
